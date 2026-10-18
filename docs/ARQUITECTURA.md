@@ -73,9 +73,9 @@ Las decisiones salen de lo aprendido al analizar Odoo, ERPNext, Dolibarr, Tryton
 
 React. Pantallas de pedidos, facturas (con QR), clientes, productos, almacén, VERI\*FACTU y empresa.
 
-### `@sindri/desktop`
+### `@sindri/escritorio`
 
-Electron. Arranca el servidor embebido en un puerto libre y guarda los datos en la carpeta del usuario.
+Electron. Una ventana sobre la web de Sindri (DEV o PRO): sin base de datos ni secretos en el PC. Ver `escritorio/README.md`.
 
 ## 4. Pendiente de validar antes de producción
 

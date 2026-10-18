@@ -13,6 +13,6 @@
     "typecheck": "pnpm -r typecheck",
     "dev:server": "pnpm --filter @sindri/server dev",
     "dev:web": "pnpm --filter @sindri/web dev",
-    "desktop": "pnpm --filter @sindri/desktop start"
+    "escritorio": "pnpm --filter @sindri/escritorio start"
   }
 }

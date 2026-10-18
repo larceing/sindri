@@ -36,10 +36,10 @@ jobs:
           cache: pnpm
       - name: servidor.json es JSON válido
         run: node -e "JSON.parse(require('fs').readFileSync('servidor.json', 'utf8'))"
-      - run: pnpm install --frozen-lockfile --filter "!@sindri/desktop"
-      - run: pnpm --filter "!@sindri/desktop" -r build
+      - run: pnpm install --frozen-lockfile --filter "!@sindri/escritorio"
+      - run: pnpm --filter "!@sindri/escritorio" -r build
       - name: Pruebas (base embebida y PostgreSQL)
-        run: pnpm --filter "!@sindri/desktop" -r test
+        run: pnpm --filter "!@sindri/escritorio" -r test
         env:
           TEST_DATABASE_URL: postgres://postgres:pruebas@localhost:5432/postgres
 

@@ -1,0 +1,23 @@
+{
+  "name": "@sindri/escritorio",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "description": "Sindri de escritorio: una ventana sobre la web de Sindri (DEV o PRO). Sin datos ni secretos en el PC.",
+  "type": "module",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsc -p tsconfig.json && electron .",
+    "dist": "pnpm build && electron-builder --config electron-builder.config.cjs",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.5"
+  }
+}

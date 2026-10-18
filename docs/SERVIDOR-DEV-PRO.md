@@ -51,6 +51,6 @@ Sin `DATABASE_URL`, Sindri usa su base integrada, pero gasta unos 460 MB frente 
 
 - **Aviso por correo o campana** cuando un agente se calla. Hoy se ve en la pantalla de Planta.
 - **Instalador del agente como servicio de Windows.** Hoy va en Docker.
-- **Escritorio como ventana sobre la web** (opción A), con instalador de DEV aparte.
+- **Actualización automática y firma del escritorio.** Hoy, si el servidor pide una versión más nueva, el escritorio lo dice y abre la página de descargas.
 - **Permisos por rol dentro de Sindri.** Hoy, quien entra puede hacerlo todo; la marca de administrador ya llega en la sesión.
 - **Envío a la AEAT.**

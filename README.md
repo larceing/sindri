@@ -51,7 +51,8 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 packages/core     Reglas de negocio puras: decimales, impuestos, estados, NIF, GS1, VERI*FACTU
 apps/server       API REST (Fastify) + PostgreSQL o PGlite + migraciones SQL versionadas
 apps/web          Interfaz web (React + Vite)
-apps/desktop      Aplicación de escritorio (Electron) con servidor y base de datos embebidos
+escritorio/       Escritorio (Electron): una ventana sobre la web de Sindri, sin datos en el PC
+planta/           Agente de planta (OPC UA) y simulador
 docs/             Arquitectura y hoja de ruta
 ```
 
@@ -64,10 +65,7 @@ pnpm install
 pnpm build
 pnpm test                 # pruebas del núcleo y del servidor
 
-# Opción 1: escritorio (base de datos local, sin servidor)
-pnpm desktop
-
-# Opción 2: servidor + web en el navegador
+# Servidor + web en el navegador
 pnpm --filter @sindri/server start      # http://127.0.0.1:8000  (datos en ./.data)
 
 # Servidor de empresa con PostgreSQL, accesible desde la red local
@@ -78,7 +76,7 @@ pnpm dev:server   # en una terminal
 pnpm dev:web      # en otra: http://localhost:5173
 ```
 
-Para generar los instaladores de escritorio: `pnpm --filter @sindri/desktop dist`.
+Escritorio contra tu Sindri local: `SINDRI_URL=http://localhost:8000/sindri/ SINDRI_ENTORNO=dev pnpm escritorio`. Detalle en [escritorio/README.md](escritorio/README.md).
 
 Las pruebas contra PostgreSQL real se activan con `TEST_DATABASE_URL=postgres://...`.
 

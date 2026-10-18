@@ -1,0 +1,54 @@
+# Escritorio (escritorio/): una ventana sobre la web de Sindri. No lo despliega el servidor:
+# se instala en cada PC desde GitHub Releases.
+#   cambios en escritorio/          -> pruebas y que el instalador se construya en Windows
+#   release escritorio-vX.Y.Z       -> instalador «Sindri DEV» adjunto a esa release
+# La dirección sale de vars.URL_DEV (Settings → Secrets and variables → Actions → Variables).
+# Mientras Sindri solo esté en DEV, solo hay instalador DEV. El de PRO se añade cuando Luis lo diga.
+name: Escritorio
+
+on:
+  push:
+    branches: [main]
+    paths: ["escritorio/**", ".github/workflows/escritorio.yml"]
+  pull_request:
+    paths: ["escritorio/**", ".github/workflows/escritorio.yml"]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'escritorio-v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter "@sindri/escritorio"
+      - run: pnpm --filter "@sindri/escritorio" test
+      - name: La etiqueta coincide con la versión del escritorio
+        if: github.event_name == 'release'
+        shell: bash
+        run: test "escritorio-v$(node -p "require('./escritorio/package.json').version")" = "$GITHUB_REF_NAME"
+      - name: Instalador DEV
+        working-directory: escritorio
+        env:
+          SINDRI_ENTORNO: dev
+          # Sin la variable (p. ej. en un fork), una dirección de ejemplo solo para comprobar que construye.
+          SINDRI_URL: ${{ vars.URL_DEV || 'https://dev.ejemplo.invalid/sindri/' }}
+        run: pnpm run dist --win --publish never
+      - name: Adjuntar a la release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -n "${{ vars.URL_DEV }}" || { echo "Falta vars.URL_DEV"; exit 1; }
+          gh release upload "$GITHUB_REF_NAME" escritorio/release/dev/*.exe --clobber

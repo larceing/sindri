@@ -8,25 +8,6 @@ importers:
 
   .: {}
 
-  apps/desktop:
-    dependencies:
-      '@sindri/server':
-        specifier: workspace:*
-        version: link:../server
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.20.5
-      electron:
-        specifier: ^44.9.0
-        version: 44.9.0
-      electron-builder:
-        specifier: ^26.15.3
-        version: 26.15.3(electron-builder-squirrel-windows@26.15.3)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
   apps/server:
     dependencies:
       '@electric-sql/pglite':
@@ -103,6 +84,24 @@ importers:
       vite:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
+
+  escritorio:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.5
+      electron:
+        specifier: ^44.9.0
+        version: 44.9.0
+      electron-builder:
+        specifier: ^26.15.3
+        version: 26.15.3(electron-builder-squirrel-windows@26.15.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.5
+        version: 4.1.12(@types/node@22.20.5)(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/core:
     devDependencies:
