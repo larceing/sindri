@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { FileDown, Printer } from "lucide-react";
 import { api } from "./api";
 
-export type TipoDocumento = "factura" | "pedido" | "albaran" | "hoja_ruta";
+export type TipoDocumento = "factura" | "pedido" | "albaran" | "hoja_ruta" | "presupuesto";
 
 type Estado = { report_server: boolean; documentos?: Partial<Record<TipoDocumento, { lista: boolean }>> };
 let estado: Promise<Estado> | null = null;

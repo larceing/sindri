@@ -1,0 +1,46 @@
+{
+  "empresa": {
+    "nombre": "Conservas Demo del Norte, S.L.",
+    "nombre_comercial": "",
+    "nif": "B20128567",
+    "direccion": "Polígono Industrial Ibaiondo, nave 4",
+    "cp": "20800",
+    "poblacion": "Zarautz",
+    "linea_direccion": "Polígono Industrial Ibaiondo, nave 4 · 20800 Zarautz"
+  },
+  "numero": "PR2026-00001",
+  "titulo": "Propuesta de suministro para la campaña de Navidad",
+  "fecha": "2026-10-18",
+  "valido_hasta": "2026-11-17",
+  "comercial": "Ana Comercial Demo",
+  "cliente": {
+    "nombre": "Distribuciones Muestra, S.L.",
+    "nif": "B34182691",
+    "telefono": "979 000 000",
+    "linea_direccion": "Avenida de Castilla 3 · 34004 Palencia"
+  },
+  "presentacion": [
+    { "texto": "Gracias por contar con nosotros. Le presentamos nuestra propuesta para la campaña de Navidad, con producto de la costera de este año." },
+    { "texto": "Los precios incluyen el etiquetado con su marca y la entrega en su almacén de Palencia." }
+  ],
+  "lineas": [
+    { "referencia": "BON-250", "descripcion": "Bonito del norte en aceite de oliva 250 g", "cantidad": 600, "unidad": "ud", "precio": 4.95, "descuento": 5, "iva": 10, "base": 2821.5 },
+    { "referencia": "ANC-100", "descripcion": "Anchoas del Cantábrico en aceite 100 g", "cantidad": 300, "unidad": "ud", "precio": 6.4, "descuento": 0, "iva": 10, "base": 1920 },
+    { "referencia": "SRV-ETQ", "descripcion": "Diseño de etiqueta con su marca", "cantidad": 1, "unidad": "ud", "precio": 250, "descuento": 0, "iva": 21, "base": 250 }
+  ],
+  "desglose": [
+    { "iva": 21, "base": 250, "cuota": 52.5, "recargo_pct": 0, "recargo": 0 },
+    { "iva": 10, "base": 4741.5, "cuota": 474.15, "recargo_pct": 0, "recargo": 0 }
+  ],
+  "base": 4991.5,
+  "iva": 526.65,
+  "recargo": 0,
+  "retencion": 0,
+  "total": 5518.15,
+  "a_pagar": 5518.15,
+  "condiciones": [
+    { "texto": "Forma de pago: transferencia a 30 días desde la entrega." },
+    { "texto": "Plazo de entrega: dos semanas desde la aceptación del presupuesto." },
+    { "texto": "Este presupuesto es válido hasta la fecha indicada." }
+  ]
+}

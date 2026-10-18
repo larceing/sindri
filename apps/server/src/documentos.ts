@@ -1,7 +1,7 @@
 /**
  * Documentos en PDF con el Report Server del servidor (larceing/report-server).
  *
- * Sindri arma los datos (factura, pedido, albarán, hoja de ruta) y se los manda al Report
+ * Sindri arma los datos (factura, pedido, albarán, hoja de ruta, presupuesto) y se los manda al Report
  * Server con su llave; este los pinta con la plantilla «sindri-…» y devuelve el PDF.
  * La conexión (dirección y llave creada en Report Server → Llaves) se pone en Sindri →
  * Informes, y queda guardada en la base de Sindri. Si el app.env trae REPORT_URL y
@@ -16,6 +16,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Db, Queryable } from "./db.js";
 import { getRoute } from "./comercial.js";
+import { getQuotation } from "./crm.js";
 import { BusinessError, getCompany, getInvoice, getSalesOrder, log, type Ctx } from "./services.js";
 import { ctxOf, requireAdmin, type Session } from "./usuarios.js";
 
@@ -34,6 +35,7 @@ export const DOCUMENTOS = {
   pedido: { plantilla: "sindri-pedido", modulo: "pedidos", titulo: "Pedido" },
   albaran: { plantilla: "sindri-albaran", modulo: "pedidos", titulo: "Albarán" },
   hoja_ruta: { plantilla: "sindri-hoja-ruta", modulo: "rutas", titulo: "Hoja de ruta" },
+  presupuesto: { plantilla: "sindri-presupuesto", modulo: "presupuestos", titulo: "Presupuesto" },
 } as const;
 export type TipoDocumento = keyof typeof DOCUMENTOS;
 
@@ -102,6 +104,29 @@ export async function datosDocumento(q: Queryable, ctx: Ctx, tipo: TipoDocumento
       })),
       base: n(o.totals.untaxed), iva: n(o.totals.vatTotal), total: n(o.totals.total),
       notas: o.notes ?? "",
+    };
+  }
+  if (tipo === "presupuesto") {
+    const p = await getQuotation(q, ctx, id);
+    const [cli] = await q.query<Record<string, string>>("select * from partner where id = $1", [p.partner_id]);
+    const t = p.totals as { lines: { base: string }[]; breakdown: Record<string, string>[]; untaxed: string; vatTotal: string; surchargeTotal: string; withholding: string; total: string; amountDue: string };
+    // Presentación y condiciones van por párrafos: en la plantilla son tablas de una columna, así empujan lo de debajo.
+    const parrafos = (v: unknown) => String(v ?? "").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean).map((texto) => ({ texto }));
+    return {
+      empresa: empresa(company),
+      numero: p.number,
+      titulo: p.title,
+      fecha: dia(p.quote_date),
+      valido_hasta: dia(p.valid_until),
+      comercial: p.sales_rep_name ?? "",
+      cliente: { nombre: cli!.name, nif: cli!.tax_id ?? "", telefono: cli!.phone ?? "", linea_direccion: lineaDir(cli!.address, cli!.postal_code, cli!.city) },
+      presentacion: parrafos(p.intro),
+      lineas: (p.lines as Record<string, string>[]).map((l, i) => ({
+        referencia: l.sku, descripcion: l.description, cantidad: n(l.quantity), unidad: l.uom, precio: n(l.unit_price), descuento: n(l.discount_pct), iva: n(l.vat_rate), base: n(t.lines[i]?.base),
+      })),
+      desglose: t.breakdown.map((b) => ({ iva: n(b.vatRate), base: n(b.base), cuota: n(b.vatAmount), recargo_pct: n(b.surchargeRate), recargo: n(b.surchargeAmount) })),
+      base: n(t.untaxed), iva: n(t.vatTotal), recargo: n(t.surchargeTotal), retencion: n(t.withholding), total: n(t.total), a_pagar: n(t.amountDue),
+      condiciones: parrafos(p.conditions),
     };
   }
   const r = await getRoute(q, ctx, id);
