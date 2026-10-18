@@ -17,6 +17,7 @@ import { readCookie, setCookie } from "./sso.js";
 
 export const MODULES = [
   { id: "inicio", label: "Inicio" },
+  { id: "relaciones", label: "Relaciones" },
   { id: "crm", label: "Oportunidades" },
   { id: "presupuestos", label: "Presupuestos" },
   { id: "pedidos", label: "Pedidos" },
@@ -58,6 +59,8 @@ const ROUTE_MODULE: [string, ModuleId][] = [
   ["/api/v1/roles", "usuarios"],
   ["/api/v1/departments", "usuarios"],
   ["/api/v1/events", "usuarios"],
+  // Relaciones: todos la ven; cada nodo mira el permiso de su módulo (grafo.ts).
+  ["/api/v1/grafo", "relaciones"],
 ];
 
 /** Rutas de la API que no dependen de permisos ni de empresa. */
@@ -117,7 +120,8 @@ export async function loadSession(db: Db, req: FastifyRequest, person: Person): 
   const [role] = u.role_id ? await db.query<{ permissions: Record<string, Level> }>("select permissions from role where id = $1", [u.role_id]) : [];
   const rolePerms = role?.permissions ?? {};
   const admin = person.admin || rolePerms.usuarios === "editar";
-  const perms = admin ? { ...ALL } : { ...rolePerms, inicio: "ver" as Level };
+  // Inicio y Relaciones los tiene todo el mundo (Relaciones solo enseña lo de los módulos que ve).
+  const perms = admin ? { ...ALL } : { ...rolePerms, inicio: "ver" as Level, relaciones: "ver" as Level };
 
   const all = (await listCompanies(db)) as Session["companies"];
   const assigned = new Set((await db.query<{ company_id: string }>("select company_id from user_company where user_id = $1", [u.id])).map((r) => r.company_id));

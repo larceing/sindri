@@ -4,6 +4,7 @@ import { navigate } from "../router";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { Alert, Badge, Code, Empty, ErrorBox, Field, Page, Table } from "../ui";
+import { RelacionesBoton } from "./Relaciones";
 
 const KIND: Record<string, string> = { customer: "Cliente", supplier: "Proveedor", both: "Cliente y proveedor" };
 export const FORMAS_PAGO = ["Transferencia", "Recibo domiciliado", "Contado", "Confirming", "Pagaré", "Tarjeta"];
@@ -207,6 +208,7 @@ export function PartnerPage({ id }: { id: string }) {
     <Page
       title={p.trade_name || p.name}
       actions={<>
+        <RelacionesBoton tipo="cliente" id={id} />
         {p.kind !== "supplier" && puede("pedidos") && <button className="primary" onClick={() => navigate(`/pedidos/nuevo?cliente=${id}`)}>Nuevo pedido</button>}
         {editar && <button className="danger" onClick={archive} disabled={busy}>Archivar</button>}
       </>}

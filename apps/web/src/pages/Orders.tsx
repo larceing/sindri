@@ -5,6 +5,7 @@ import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { DocButton } from "../docs";
 import { Badge, Empty, ErrorBox, Field, Page, Table, Code } from "../ui";
+import { RelacionesBoton } from "./Relaciones";
 
 const ESTADOS = [["", "Todos"], ["draft", "Borrador"], ["confirmed", "Confirmado"], ["delivered", "Entregado"], ["invoiced", "Facturado"], ["cancelled", "Cancelado"]];
 
@@ -256,6 +257,7 @@ export function OrderPage({ id }: { id: string }) {
     <Page
       title={`Pedido ${o.number}`}
       actions={<>
+        <RelacionesBoton tipo="pedido" id={id} />
         {editar && !splitting && o.actions.map((a: string) => (
           <button key={a} className={a === "cancel" ? "danger" : a === "split" ? undefined : "primary"} disabled={busy} onClick={() => act(a)}>{ACTION_LABEL[a]}</button>
         ))}
