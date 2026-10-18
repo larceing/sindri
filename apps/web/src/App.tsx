@@ -20,10 +20,12 @@ import { RoutePage, RoutesPage } from "./pages/Routes";
 import { UsersPage } from "./pages/Users";
 import { ReportsPage } from "./pages/Reports";
 import { MyMenuPage } from "./pages/MyMenu";
+import { OpportunitiesPage, OpportunityPage } from "./pages/Opportunities";
+import { NewQuotationPage, QuotationPage, QuotationsPage, TemplatesPage } from "./pages/Quotations";
 
 /** Qué módulo (permiso) necesita cada pantalla. */
 const SECCION_MODULO: Record<string, string> = {
-  pedidos: "pedidos", rutas: "rutas", facturas: "facturas", clientes: "clientes", comerciales: "comerciales",
+  oportunidades: "crm", presupuestos: "presupuestos", pedidos: "pedidos", rutas: "rutas", facturas: "facturas", clientes: "clientes", comerciales: "comerciales",
   productos: "productos", almacen: "almacen", planta: "planta", verifactu: "verifactu", informes: "informes",
   empresa: "empresa", usuarios: "usuarios",
 };
@@ -38,6 +40,10 @@ function Screen({ route, me }: { route: string; me: Me }) {
       </Page>
     );
   switch (section) {
+    case "oportunidades":
+      return id ? <OpportunityPage id={id} /> : <OpportunitiesPage />;
+    case "presupuestos":
+      return id === "nuevo" ? <NewQuotationPage /> : id === "modelos" ? <TemplatesPage /> : id ? <QuotationPage id={id} /> : <QuotationsPage />;
     case "pedidos":
       return id === "nuevo" ? <NewOrderPage /> : id ? <OrderPage id={id} /> : <OrdersPage />;
     case "rutas":

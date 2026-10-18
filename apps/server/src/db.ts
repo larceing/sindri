@@ -62,7 +62,8 @@ export function openPostgres(connectionString: string): Db {
 
 /** `dataDir` = carpeta donde guardar los datos; sin ella, base de datos en memoria (tests). */
 export async function openEmbedded(dataDir?: string): Promise<Db> {
-  const db = new PGlite(dataDir, { parsers: { [NUMERIC]: asText, [DATE]: asText, [INT8]: asText } });
+  const parsers = { [NUMERIC]: asText, [DATE]: asText, [INT8]: asText };
+  const db = new PGlite(dataDir, { parsers });
   await db.waitReady;
   // PGlite tiene una sola conexión: serializamos las transacciones para que no se mezclen.
   let chain: Promise<unknown> = Promise.resolve();
@@ -79,7 +80,8 @@ export async function openEmbedded(dataDir?: string): Promise<Db> {
       serial(() =>
         db.transaction(async (t) =>
           fn({
-            query: async (sql, params) => (await t.query(sql, params as unknown[])).rows as never,
+            // Dentro de una transacción PGlite no aplica los parsers del arranque: se repiten.
+            query: async (sql, params) => (await t.query(sql, params as unknown[], { parsers })).rows as never,
             exec: async (sql) => void (await t.exec(sql)),
           }),
         ),

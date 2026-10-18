@@ -63,3 +63,21 @@ export const InvoiceMachine = defineMachine({
   },
 } as const);
 export type InvoiceState = "draft" | "issued" | "paid" | "discarded";
+
+/**
+ * Presupuesto: se prepara en borrador, se envía y el cliente lo acepta o lo rechaza. Uno
+ * enviado puede volver a borrador para corregirlo. Aceptado o rechazado ya no cambia.
+ */
+export const QuotationMachine = defineMachine({
+  name: "Presupuesto",
+  initial: "draft",
+  transitions: {
+    send: { from: ["draft"], to: "sent" },
+    edit: { from: ["sent"], to: "draft" },
+    accept: { from: ["draft", "sent"], to: "accepted" },
+    reject: { from: ["sent"], to: "rejected" },
+    cancel: { from: ["draft", "sent"], to: "cancelled" },
+  },
+} as const);
+export type QuotationState = "draft" | "sent" | "accepted" | "rejected" | "cancelled";
+export type QuotationAction = keyof typeof QuotationMachine.transitions;
