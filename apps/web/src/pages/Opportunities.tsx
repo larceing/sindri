@@ -4,6 +4,7 @@ import { navigate } from "../router";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { Badge, Code, Empty, ErrorBox, Field, Page, Table } from "../ui";
+import { RelacionesBoton } from "./Relaciones";
 
 export const ETAPAS = [["new", "Nueva"], ["contacted", "Contactada"], ["proposal", "Propuesta"], ["won", "Ganada"], ["lost", "Perdida"]] as const;
 const TIPOS = [["call", "Llamada"], ["email", "Correo"], ["meeting", "Reunión"], ["task", "Tarea"], ["note", "Nota"]] as const;
@@ -155,13 +156,16 @@ export function OpportunityPage({ id }: { id: string }) {
   return (
     <Page
       title={`${o.number} · ${o.title}`}
-      actions={editar && <>
+      actions={<>
+        <RelacionesBoton tipo="oportunidad" id={id} />
+        {editar && <>
         {abierta && !o.partner_id && nif === null && <button onClick={() => setNif("")}>Dar de alta como cliente</button>}
         {abierta && o.partner_id && <button className="primary" onClick={() => navigate(`/presupuestos/nuevo?oportunidad=${id}`)}>Nuevo presupuesto</button>}
         {abierta && <button onClick={() => etapa("won")} disabled={busy}>Ganada</button>}
         {abierta && perder === null && <button className="danger" onClick={() => setPerder("")}>Perdida</button>}
         {!abierta && <button onClick={() => etapa("contacted")} disabled={busy}>Reabrir</button>}
         {!f && <button onClick={() => setF(aForm(o))}>Editar</button>}
+        </>}
       </>}
     >
       <p className="sub">

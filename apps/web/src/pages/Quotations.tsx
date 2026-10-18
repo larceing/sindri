@@ -6,6 +6,7 @@ import { useSession } from "../session";
 import { Alert, Badge, Code, Empty, ErrorBox, Field, Page, Table } from "../ui";
 import { Totals } from "./Orders";
 import { DocButton } from "../docs";
+import { RelacionesBoton } from "./Relaciones";
 
 const ESTADOS = [["", "Todos"], ["draft", "Borrador"], ["sent", "Enviado"], ["accepted", "Aceptado"], ["rejected", "Rechazado"], ["cancelled", "Cancelado"]];
 const TABS = [["", "Presupuestos"], ["modelos", "Modelos"]] as const;
@@ -196,6 +197,7 @@ export function QuotationPage({ id }: { id: string }) {
     <Page
       title={`Presupuesto ${q.number}`}
       actions={!editando && <>
+        <RelacionesBoton tipo="presupuesto" id={id} />
         <DocButton tipo="presupuesto" id={id} label="Presupuesto" />
         {editar && <>
           {q.state === "draft" && <button onClick={() => setEditando(true)}>Editar</button>}

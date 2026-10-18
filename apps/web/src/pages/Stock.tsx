@@ -52,7 +52,7 @@ export function StockPage() {
           <thead><tr><th>Ref.</th><th>Producto</th><th>Lote</th><th className="num">Caducidad</th><th>Ubicación</th><th className="num">Cantidad</th></tr></thead>
           <tbody>
             {stock?.map((s, i) => (
-              <tr key={i}><td><Code>{s.sku}</Code></td><td>{s.product_name}</td><td><Code>{s.lot_code}</Code></td><td className="num">{fecha(s.expiry_date)}</td><td><Code>{s.location_code}</Code></td><td className="num">{qty(s.quantity)} {s.uom}</td></tr>
+              <tr key={i}><td><Code>{s.sku}</Code></td><td>{s.product_name}</td><td>{s.lot_id ? <a href={`#/relaciones/lote/${s.lot_id}`} title="Trazabilidad: a quién ha llegado este lote"><Code>{s.lot_code}</Code></a> : null}</td><td className="num">{fecha(s.expiry_date)}</td><td><Code>{s.location_code}</Code></td><td className="num">{qty(s.quantity)} {s.uom}</td></tr>
             ))}
           </tbody>
         </Table>
@@ -63,7 +63,7 @@ export function StockPage() {
         <thead><tr><th className="num">Fecha</th><th>Ref.</th><th>Lote</th><th>De</th><th>A</th><th className="num">Cantidad</th></tr></thead>
         <tbody>
           {moves?.map((m) => (
-            <tr key={m.id}><td className="num">{new Date(m.done_at).toLocaleString("es-ES")}</td><td><Code>{m.sku}</Code></td><td><Code>{m.lot_code}</Code></td><td><Code>{m.from_code}</Code></td><td><Code>{m.to_code}</Code></td><td className="num">{qty(m.quantity)}</td></tr>
+            <tr key={m.id}><td className="num">{new Date(m.done_at).toLocaleString("es-ES")}</td><td><Code>{m.sku}</Code></td><td>{m.lot_id ? <a href={`#/relaciones/lote/${m.lot_id}`} title="Trazabilidad del lote"><Code>{m.lot_code}</Code></a> : null}</td><td><Code>{m.from_code}</Code></td><td><Code>{m.to_code}</Code></td><td className="num">{qty(m.quantity)}</td></tr>
           ))}
         </tbody>
       </Table>

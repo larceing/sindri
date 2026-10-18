@@ -6,6 +6,7 @@ import { navigate } from "../router";
 import { useAction, useData } from "../hooks";
 import { Badge, Empty, ErrorBox, Field, Page, Table, Code } from "../ui";
 import { Totals } from "./Orders";
+import { RelacionesBoton } from "./Relaciones";
 
 export function InvoicesPage() {
   const { data } = useData<any[]>("/invoices");
@@ -48,6 +49,7 @@ export function InvoicePage({ id }: { id: string }) {
     <Page
       title={inv.number ? `Factura ${inv.number}` : "Factura (borrador)"}
       actions={<>
+        <RelacionesBoton tipo="factura" id={id} />
         {inv.actions.includes("issue") && <button className="primary" disabled={busy} onClick={issue}>Emitir factura</button>}
         {inv.state === "draft" ? <button onClick={() => window.print()}>Imprimir borrador</button> : <DocButton tipo="factura" id={id} label="Imprimir" />}
       </>}
