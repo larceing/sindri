@@ -106,7 +106,7 @@ type Resultado = {
 };
 
 const cuenta = (n: { creados: number; actualizados: number }, que: string) =>
-  `${que}: ${n.creados} nuevos, ${n.actualizados} ya estaban (se actualizan)`;
+  `${que}: ${n.creados} ${n.creados === 1 ? "nuevo" : "nuevos"}, ${n.actualizados} ${n.actualizados === 1 ? "ya estaba" : "ya estaban"} (se actualiza${n.actualizados === 1 ? "" : "n"})`;
 
 /** Llevar los datos de la empresa en uso a otra instalación (DEV → PRO) o traerlos de otra app. */
 function DatosEmpresa({ empresa }: { empresa: { code?: string; name: string } }) {

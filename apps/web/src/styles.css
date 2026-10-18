@@ -314,3 +314,5 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
 .rel-fila-inicio td { background: var(--seleccion); }
 .rel-acciones { white-space: nowrap; }
 @media print { .rel-buscar, .rel-zoom, .tabs-inline { display: none; } .rel-marco { max-height: none; overflow: visible; } }
+td.acciones { white-space: nowrap; }
+td.acciones > * + * { margin-left: var(--s-2); }
