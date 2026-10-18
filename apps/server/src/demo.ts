@@ -19,6 +19,7 @@ export async function seedDemo(db: Db): Promise<boolean> {
     address: "Polígono Industrial Ibaiondo, nave 4",
     city: "Zarautz",
     postal_code: "20800",
+    demo: true,
   })) as { id: string };
   const ctx: s.Ctx = { company: empresa.id, actor: "demo" };
 
@@ -124,7 +125,7 @@ export async function seedDemoComercial(db: Db): Promise<boolean> {
   if (listos.length) await c.createRoute(db, ctx, { driver: "Conductor Demo", vehicle: "1234-ABC", zone: "Castilla", order_ids: listos.map((o) => o.id) });
 
   // Segunda empresa: al entrar, quien trabaja en las dos elige.
-  const otra = (await s.createCompany(db, { name: "Metalúrgica Demo del Sur, S.L.", tax_id: "B41234568", city: "Sevilla", postal_code: "41001" }, "demo")) as { id: string };
+  const otra = (await s.createCompany(db, { name: "Metalúrgica Demo del Sur, S.L.", tax_id: "B41234568", city: "Sevilla", postal_code: "41001", demo: true }, "demo")) as { id: string };
   const ctx2: s.Ctx = { company: otra.id, actor: "demo" };
   const cli = await s.createPartner(db, ctx2, { kind: "customer", name: "Talleres Ejemplo Andaluces, S.L.", tax_id: "B91234567", city: "Málaga", postal_code: "29001" });
   const soporte = await s.createProduct(db, ctx2, { sku: "SOP-01", name: "Soporte de acero galvanizado", sale_price: "12.50", cost_price: "7.10", vat_rate: "21" });
