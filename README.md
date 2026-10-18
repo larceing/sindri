@@ -82,6 +82,10 @@ Para generar los instaladores de escritorio: `pnpm --filter @ergane/desktop dist
 
 Las pruebas contra PostgreSQL real se activan con `TEST_DATABASE_URL=postgres://...`.
 
+## Sistema de prueba en un servidor
+
+Con Docker, en un servidor Linux: ver [despliegue/README.md](despliegue/README.md). Monta la web, la API y PostgreSQL, con usuario y clave y datos de demostración.
+
 ## Documentación
 
 - [Arquitectura](docs/ARQUITECTURA.md)

@@ -2,6 +2,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
+import { timingSafeEqual } from "node:crypto";
 import { z, ZodError } from "zod";
 import { TransitionError } from "@ergane/core";
 import type { Db } from "./db.js";
@@ -78,10 +79,35 @@ export interface AppOptions {
   /** Carpeta con la web compilada (apps/web/dist) para servirla en la misma dirección. */
   webDir?: string;
   logger?: boolean;
+  /** Usuario y clave de acceso. Si se indican, todo salvo /api/health pide identificarse. */
+  auth?: { user: string; password: string };
 }
 
-export async function buildApp({ db, webDir, logger = false }: AppOptions): Promise<FastifyInstance> {
+const sameText = (a: string, b: string) => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
+
+export async function buildApp({ db, webDir, logger = false, auth }: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger });
+
+  // Acceso con usuario y clave (autenticación básica de HTTP). Pensado para el sistema
+  // de prueba: hasta que existan usuarios y permisos, impide que entre cualquiera.
+  if (auth) {
+    app.addHook("onRequest", async (req, reply) => {
+      if (req.url === "/api/health") return;
+      const header = req.headers.authorization ?? "";
+      const [user = "", password = ""] = header.startsWith("Basic ")
+        ? Buffer.from(header.slice(6), "base64").toString("utf8").split(/:(.*)/s)
+        : [];
+      if (sameText(user, auth.user) && sameText(password, auth.password)) return;
+      return reply
+        .status(401)
+        .header("www-authenticate", 'Basic realm="Ergane", charset="UTF-8"')
+        .send({ error: "Hace falta usuario y clave" });
+    });
+  }
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof ZodError) return reply.status(400).send({ error: "Datos no válidos", details: err.issues });
