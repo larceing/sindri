@@ -17,6 +17,8 @@ import { readCookie, setCookie } from "./sso.js";
 
 export const MODULES = [
   { id: "inicio", label: "Inicio" },
+  { id: "crm", label: "Oportunidades" },
+  { id: "presupuestos", label: "Presupuestos" },
   { id: "pedidos", label: "Pedidos" },
   { id: "rutas", label: "Hojas de ruta" },
   { id: "facturas", label: "Facturas" },
@@ -38,6 +40,10 @@ const MODULE_IDS = MODULES.map((m) => m.id) as string[];
 const ROUTE_MODULE: [string, ModuleId][] = [
   ["/api/v1/partners", "clientes"],
   ["/api/v1/sales-reps", "comerciales"],
+  ["/api/v1/opportunities", "crm"],
+  ["/api/v1/crm", "crm"],
+  ["/api/v1/quotations", "presupuestos"],
+  ["/api/v1/quotation-templates", "presupuestos"],
   ["/api/v1/sales-orders", "pedidos"],
   ["/api/v1/routes", "rutas"],
   ["/api/v1/invoices", "facturas"],

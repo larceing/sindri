@@ -185,7 +185,9 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
 .badge-route-on_route, .badge-stop-pending { background: var(--info-3); color: var(--info-11); border-color: transparent; }
 .badge-route-closed, .badge-stop-delivered { background: var(--ok-3); color: var(--ok-11); border-color: transparent; }
 .badge-stop-incident { background: var(--aviso-3); color: var(--aviso-11); border-color: transparent; }
-.badge-cancelled, .badge-error, .badge-discarded { background: var(--error-3); color: var(--error-11); border-color: transparent; }
+.badge-contacted, .badge-proposal { background: var(--info-3); color: var(--info-11); border-color: transparent; }
+.badge-won, .badge-accepted { background: var(--ok-3); color: var(--ok-11); border-color: transparent; }
+.badge-cancelled, .badge-error, .badge-discarded, .badge-lost, .badge-rejected { background: var(--error-3); color: var(--error-11); border-color: transparent; }
 
 .alert { display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3) var(--s-4); border-radius: var(--r-2); margin: var(--s-3) 0; border-left: 4px solid; color: var(--texto); }
 .alert svg { flex: none; margin-top: 2px; }
@@ -249,3 +251,9 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
 .side .usermenu-panel a.usermenu-salir { color: var(--texto); padding: 0 var(--s-4); min-height: var(--control); }
 .side .usermenu-panel a.usermenu-salir:hover { background: var(--superficie-2); color: var(--texto); }
 .table-wrap + .form, .table-wrap + .row, .table-wrap + .card { margin-top: var(--s-4); }
+
+/* Embudo de oportunidades: cada etapa es un filtro. */
+.kpi-btn { text-align: left; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; gap: var(--s-1); }
+.kpi-btn.active { box-shadow: inset 0 0 0 2px var(--accion); }
+.kpi small { color: var(--texto-2); font-size: var(--t-sm); }
+.prewrap { white-space: pre-wrap; }

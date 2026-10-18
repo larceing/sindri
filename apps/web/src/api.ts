@@ -91,4 +91,11 @@ export const STATE_LABEL: Record<string, string> = {
   on_route: "En ruta",
   closed: "Cerrada",
   incident: "Incidencia",
+  new: "Nueva",
+  contacted: "Contactada",
+  proposal: "Propuesta",
+  won: "Ganada",
+  lost: "Perdida",
+  accepted: "Aceptado",
+  rejected: "Rechazado",
 };

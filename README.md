@@ -25,6 +25,11 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 - Pedidos con comercial, dirección y fecha de entrega. Separar un pedido: pasar cantidades a un pedido nuevo.
 - Hojas de ruta: pedidos por zona, orden de paradas, salida, entregado o incidencia por parada y cierre.
 
+**CRM y presupuestos**
+- Oportunidades en un embudo (nueva, contactada, propuesta, ganada, perdida) con importe, probabilidad, previsión ponderada y motivo de pérdida. Pueden ser de alguien que todavía no es cliente; se da de alta con un botón.
+- Seguimiento: llamadas, correos, reuniones, tareas y notas, con lo pendiente de hoy a la vista.
+- Presupuestos desde modelos editables (de partida: Proyecto, Soporte y Servicios) con título, presentación, condiciones y validez. Se envían, se aceptan o se rechazan; aceptar crea el pedido confirmado y gana la oportunidad.
+
 **Informes**
 - Facturas, pedidos, albaranes y hojas de ruta en PDF con el Report Server ([docs/report-server](docs/report-server/README.md)); sin él, se imprimen con el navegador.
 - Datos en CSV, XML o JSON para Excel o cualquier herramienta de informes, con lectores de solo lectura que se pueden revocar.

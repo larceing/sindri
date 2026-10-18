@@ -26,7 +26,7 @@ El orden sigue el ciclo de negocio y los huecos detectados en la investigación:
    - bultos y palés con SSCC;
    - albarán valorado y DeCA;
    - conector con un agregador de transportistas.
-9. **CRM ligero**: oportunidades con líneas → presupuesto → pedido, y agenda de visitas.
+9. **CRM ligero**: oportunidades → presupuesto → pedido (hecho); falta la agenda de visitas y el PDF del presupuesto en el Report Server.
 10. **Copias de seguridad** automáticas y restauración con un clic.
 
 ## Fase 2

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { BarChart3, Boxes, Briefcase, Building2, Factory, FileText, Home, Package, ShieldCheck, ShoppingCart, Truck, UserCog, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, Boxes, Briefcase, Building2, Factory, FileSignature, FileText, Home, Package, ShieldCheck, ShoppingCart, Target, Truck, UserCog, Users, type LucideIcon } from "lucide-react";
 import { api, put } from "./api";
 
 export type Level = "ver" | "editar";
@@ -34,6 +34,8 @@ export interface Me {
 /** Cada módulo del menú: su ruta, nombre e icono. El permiso lleva el mismo id. */
 export const MODULOS: { id: string; path: string; label: string; icon: LucideIcon }[] = [
   { id: "inicio", path: "/inicio", label: "Inicio", icon: Home },
+  { id: "crm", path: "/oportunidades", label: "Oportunidades", icon: Target },
+  { id: "presupuestos", path: "/presupuestos", label: "Presupuestos", icon: FileSignature },
   { id: "pedidos", path: "/pedidos", label: "Pedidos", icon: ShoppingCart },
   { id: "rutas", path: "/rutas", label: "Hojas de ruta", icon: Truck },
   { id: "facturas", path: "/facturas", label: "Facturas", icon: FileText },
