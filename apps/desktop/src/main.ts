@@ -1,11 +1,11 @@
 /**
- * Aplicación de escritorio de Ergane ERP.
+ * Aplicación de escritorio de Sindri ERP.
  *
  * Dos modos (se elige en el menú "Conexión" y se guarda en config.json):
  *  - Local: arranca dentro de la propia aplicación el servidor y una base de datos PostgreSQL
  *    embebida (PGlite) guardada en la carpeta de datos del usuario. No necesita internet ni
  *    instalar nada más. Pensado para un puesto o para probar.
- *  - Servidor de la empresa: se conecta al servidor Ergane instalado en la red local de la
+ *  - Servidor de la empresa: se conecta al servidor Sindri instalado en la red local de la
  *    fábrica (http://servidor:3210). Varios puestos trabajan a la vez sobre los mismos datos.
  */
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
@@ -13,7 +13,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { startServer, type RunningServer } from "@ergane/server";
+import { startServer, type RunningServer } from "@sindri/server";
 
 interface Config {
   mode: "local" | "remote";
@@ -53,14 +53,14 @@ async function openWindow() {
   try {
     url = await resolveUrl(cfg);
   } catch (e) {
-    dialog.showErrorBox("Ergane ERP", `No se pudo arrancar: ${(e as Error).message}`);
+    dialog.showErrorBox("Sindri ERP", `No se pudo arrancar: ${(e as Error).message}`);
     app.quit();
     return;
   }
   win = new BrowserWindow({
     width: 1360,
     height: 860,
-    title: "Ergane ERP",
+    title: "Sindri ERP",
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
   // Los enlaces externos (p. ej. el cotejo del QR en la AEAT) se abren en el navegador del sistema.
@@ -70,8 +70,8 @@ async function openWindow() {
   });
   await win.loadURL(`${url}/#/pedidos`);
 
-  // Prueba de humo automática: ERGANE_SMOKE_SHOT=captura.png guarda una captura y cierra.
-  const shot = process.env.ERGANE_SMOKE_SHOT;
+  // Prueba de humo automática: SINDRI_SMOKE_SHOT=captura.png guarda una captura y cierra.
+  const shot = process.env.SINDRI_SMOKE_SHOT;
   if (shot) {
     await new Promise((r) => setTimeout(r, 2500));
     const image = await win.webContents.capturePage();
@@ -97,8 +97,8 @@ function buildMenu() {
         submenu: [
           { label: "Trabajar en local (sin servidor)", click: () => void switchMode({ mode: "local" }) },
           {
-            label: "Usar el servidor de la empresa en http://ergane:3210",
-            click: () => void switchMode({ mode: "remote", serverUrl: "http://ergane:3210" }),
+            label: "Usar el servidor de la empresa en http://sindri:3210",
+            click: () => void switchMode({ mode: "remote", serverUrl: "http://sindri:3210" }),
           },
           { type: "separator" },
           { label: "Abrir carpeta de datos", click: () => void shell.openPath(app.getPath("userData")) },

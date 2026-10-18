@@ -9,7 +9,7 @@ export interface Prefs {
   densidad: Densidad;
 }
 
-const KEY = "ergane.prefs";
+const KEY = "sindri.prefs";
 const DEFAULT: Prefs = { tema: "sistema", modo: "oficina", densidad: "normal" };
 
 function load(): Prefs {

@@ -1,11 +1,11 @@
 # Sistema de prueba en vuestro servidor
 
-Con esto se monta Ergane en un servidor Linux con Docker. Se levantan dos contenedores:
+Con esto se monta Sindri en un servidor Linux con Docker. Se levantan dos contenedores:
 
-- **ergane:** la aplicación web y su API.
+- **sindri:** la aplicación web y su API.
 - **base:** la base de datos PostgreSQL 17, con los datos guardados en un volumen de Docker.
 
-La primera vez que arranca, Ergane carga datos de demostración: una conservera inventada con clientes, productos con lotes, stock, pedidos en todos los estados y dos facturas emitidas.
+La primera vez que arranca, Sindri carga datos de demostración: una conservera inventada con clientes, productos con lotes, stock, pedidos en todos los estados y dos facturas emitidas.
 
 ## Requisitos
 
@@ -15,7 +15,7 @@ La primera vez que arranca, Ergane carga datos de demostración: una conservera 
 ## Instalar
 
 ```bash
-cd ergane/despliegue
+cd sindri/despliegue
 cp .env.ejemplo .env
 nano .env                    # cambia las tres claves
 docker compose up -d --build
@@ -28,10 +28,10 @@ Abre `http://IP-DEL-SERVIDOR:3210`. El navegador pedirá el usuario y la clave q
 | Para | Comando (dentro de `despliegue/`) |
 |---|---|
 | Ver si está en marcha | `docker compose ps` |
-| Ver el registro | `docker compose logs -f ergane` |
+| Ver el registro | `docker compose logs -f sindri` |
 | Parar | `docker compose stop` |
 | Actualizar a una versión nueva | `git pull && docker compose up -d --build` |
-| Copia de seguridad de la base | `docker compose exec base pg_dump -U ergane ergane > copia-$(date +%F).sql` |
+| Copia de seguridad de la base | `docker compose exec base pg_dump -U sindri sindri > copia-$(date +%F).sql` |
 | Empezar de cero (borra todos los datos) | `docker compose down -v` y luego `docker compose up -d` |
 
 Los datos sobreviven a reinicios y actualizaciones. Solo se borran con `down -v`.
@@ -47,6 +47,6 @@ Los datos sobreviven a reinicios y actualizaciones. Solo se borran con `down -v`
 La construcción descarga paquetes de npm. Si falla con `self-signed certificate`, pasa el certificado del proxy:
 
 ```bash
-docker build --secret id=ca,src=/ruta/al/certificado.crt -t ergane-prueba-ergane ..
+docker build --secret id=ca,src=/ruta/al/certificado.crt -t sindri-prueba-sindri ..
 docker compose up -d --no-build
 ```

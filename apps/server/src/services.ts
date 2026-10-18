@@ -1,10 +1,10 @@
 /**
  * Lógica de negocio. Cada operación que cambia datos va dentro de una transacción y
- * deja rastro en event_log. Las reglas de estados vienen de @ergane/core.
+ * deja rastro en event_log. Las reglas de estados vienen de @sindri/core.
  */
-import { D, Dec, computeTotals, isValidSpanishTaxId, InvoiceMachine, SalesOrderMachine, SURCHARGE_FOR_VAT } from "@ergane/core";
-import type { InvoiceState, SalesOrderState } from "@ergane/core";
-import { altaHash, isoWithOffset, qrUrl, verifyChain } from "@ergane/core/verifactu";
+import { D, Dec, computeTotals, isValidSpanishTaxId, InvoiceMachine, SalesOrderMachine, SURCHARGE_FOR_VAT } from "@sindri/core";
+import type { InvoiceState, SalesOrderState } from "@sindri/core";
+import { altaHash, isoWithOffset, qrUrl, verifyChain } from "@sindri/core/verifactu";
 import type { Db, Queryable } from "./db.js";
 
 export class BusinessError extends Error {

@@ -4,7 +4,7 @@ import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
 import { timingSafeEqual } from "node:crypto";
 import { z, ZodError } from "zod";
-import { TransitionError } from "@ergane/core";
+import { TransitionError } from "@sindri/core";
 import type { Db } from "./db.js";
 import * as s from "./services.js";
 
@@ -104,7 +104,7 @@ export async function buildApp({ db, webDir, logger = false, auth }: AppOptions)
       if (sameText(user, auth.user) && sameText(password, auth.password)) return;
       return reply
         .status(401)
-        .header("www-authenticate", 'Basic realm="Ergane", charset="UTF-8"')
+        .header("www-authenticate", 'Basic realm="Sindri", charset="UTF-8"')
         .send({ error: "Hace falta usuario y clave" });
     });
   }

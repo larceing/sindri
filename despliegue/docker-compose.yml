@@ -1,24 +1,24 @@
-# Sistema de prueba de Ergane: servidor + PostgreSQL.
+# Sistema de prueba de Sindri: servidor + PostgreSQL.
 # Uso: copia .env.ejemplo a .env, cambia las claves y ejecuta `docker compose up -d --build`.
-name: ergane-prueba
+name: sindri-prueba
 
 services:
   base:
     image: postgres:17
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ergane
-      POSTGRES_USER: ergane
+      POSTGRES_DB: sindri
+      POSTGRES_USER: sindri
       POSTGRES_PASSWORD: ${CLAVE_BASE_DATOS:?Falta CLAVE_BASE_DATOS en .env}
     volumes:
       - base-datos:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ergane -d ergane"]
+      test: ["CMD-SHELL", "pg_isready -U sindri -d sindri"]
       interval: 5s
       timeout: 5s
       retries: 20
 
-  ergane:
+  sindri:
     build:
       context: ..
       dockerfile: Dockerfile
@@ -27,10 +27,10 @@ services:
       base:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://ergane:${CLAVE_BASE_DATOS}@base:5432/ergane
-      ERGANE_USUARIO: ${ERGANE_USUARIO:?Falta ERGANE_USUARIO en .env}
-      ERGANE_CLAVE: ${ERGANE_CLAVE:?Falta ERGANE_CLAVE en .env}
-      ERGANE_DEMO: ${ERGANE_DEMO:-1}
+      DATABASE_URL: postgres://sindri:${CLAVE_BASE_DATOS}@base:5432/sindri
+      SINDRI_USUARIO: ${SINDRI_USUARIO:?Falta SINDRI_USUARIO en .env}
+      SINDRI_CLAVE: ${SINDRI_CLAVE:?Falta SINDRI_CLAVE en .env}
+      SINDRI_DEMO: ${SINDRI_DEMO:-1}
     ports:
       - "${PUERTO:-3210}:3210"
 

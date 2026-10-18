@@ -1,5 +1,5 @@
 {
-  "name": "ergane",
+  "name": "sindri",
   "private": true,
   "version": "0.1.0",
   "description": "ERP + CRM open source para pymes industriales españolas. Web y escritorio, funciona sin internet.",
@@ -11,8 +11,8 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "dev:server": "pnpm --filter @ergane/server dev",
-    "dev:web": "pnpm --filter @ergane/web dev",
-    "desktop": "pnpm --filter @ergane/desktop start"
+    "dev:server": "pnpm --filter @sindri/server dev",
+    "dev:web": "pnpm --filter @sindri/web dev",
+    "desktop": "pnpm --filter @sindri/desktop start"
   }
 }
