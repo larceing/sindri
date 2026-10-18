@@ -14,7 +14,14 @@ import { fileURLToPath } from "node:url";
 import { startServer } from "./start.js";
 import { ssoFromEnv } from "./sso.js";
 
-const webDir = process.env.SINDRI_WEB_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url));
+// En PRO los datos son de verdad: sin PostgreSQL no arranca (la base integrada vale para
+// el PC, para local y para la versión 0 en DEV mientras el servidor no dé PostgreSQL).
+if (process.env.SERVIDOR_ENTORNO === "pro" && !process.env.DATABASE_URL) {
+  console.error("Sindri no arranca en PRO sin DATABASE_URL: en PRO los datos tienen que estar en PostgreSQL.");
+  process.exit(1);
+}
+
+const webDir =process.env.SINDRI_WEB_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url));
 const server = await startServer({
   databaseUrl: process.env.DATABASE_URL,
   dataDir: process.env.SINDRI_DATA_DIR ?? ".data",

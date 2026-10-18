@@ -5,7 +5,7 @@ Sindri se registra como cualquier app del servidor común ([larceing/servidor](h
 ## Estado
 
 - **Local:** listo (ver «Desarrollo en local» en el README).
-- **DEV:** espera a que el servidor sepa dar una base PostgreSQL a una app (punto 1 de la Parte D, lo hace el proyecto del servidor). No hay paso a mano: no se crea ninguna base ni se toca `app.env` desde aquí.
+- **DEV:** versión 0 lista para ponerla ya, con la base integrada en `/datos` (ver «Versión 0 en DEV»). Cuando el servidor sepa dar PostgreSQL a una app (punto 1 de la Parte D), pasa a PostgreSQL sin tocar nada aquí.
 - **PRO:** nada hasta que Luis lo diga.
 
 | | DEV | PRO |
@@ -14,6 +14,30 @@ Sindri se registra como cualquier app del servidor común ([larceing/servidor](h
 | Quién entra | `/DEV/Sindri` y subgrupos, e `/IT` | `/PRO/Sindri` y subgrupos, e `/IT` |
 | Quién administra | `/DEV/Sindri/Admin` e `/IT` | `/PRO/Sindri/Admin` e `/IT` |
 | Datos de demostración | Sí, la primera vez (se quitan con `SINDRI_DEMO=0`) | No |
+
+## Versión 0 en DEV
+
+El servidor todavía no da PostgreSQL a las apps de tipo `servidor`. Para no esperar, la versión 0 corre en DEV con la **base integrada** (PGlite), guardada en el volumen `/datos` que el servidor ya da a cada app. Probado con la imagen igual que la monta el servidor (límite de 1024 MB, `/sindri` quitado por la entrada, Keycloak):
+
+- Arranca y responde `version/` en unos 20 segundos la primera vez (migraciones y datos de demostración); después, en unos 5.
+- Memoria: unos 700 MB en el primer arranque y unos 280 MB después. Cabe en los 1024 MB de `servidor.json`.
+- Los datos sobreviven a reinicios y a «Poner» otra versión, porque están en `/datos`.
+
+Lo que hay que saber:
+
+- **El volumen `/datos` no entra hoy en las copias nocturnas** (punto 2 de la Parte D). En DEV solo hay datos de demostración, así que no importa; nada de datos de verdad ahí.
+- **Cuando llegue `DATABASE_URL`**, Sindri pasa sola a PostgreSQL y empieza con una base nueva (otra vez con datos de demostración). Lo que se haya escrito a mano en DEV con la base integrada no se lleva.
+- **En PRO no arranca sin `DATABASE_URL`**: ahí los datos son de verdad y tienen que estar en PostgreSQL.
+
+Pasos (todos en GitHub y en Ajustes; desde aquí no se toca el servidor):
+
+1. Unir a `main` el cambio que trae esta versión. GitHub pasa las pruebas y sube `ghcr.io/larceing/sindri:sha-xxxxxxx` (la etiqueta sale en la ejecución «Imagen» de Actions).
+2. Si el paquete de GHCR es privado: ponerlo público (GitHub → Packages → sindri → Package settings) o hacer una vez `docker login ghcr.io` en el servidor.
+3. Si el token de GitHub de Ajustes lleva lista de repositorios: añadir `larceing/sindri` (Actions, Contents y Deployments, lectura y escritura).
+4. Ajustes → **Añadir una aplicación** → `larceing/sindri`, rama `main` → **Añadir**.
+5. En la tarjeta, fila **DEV**: la versión `sha-xxxxxxx` → **Poner**.
+6. Probar en `https://dev.<dominio>/sindri/`. IT entra sin más; a los demás, meterlos en `/DEV/Sindri` en Keycloak.
+7. **No** pulsar «Pasar a PRO».
 
 ## Qué hay en este repositorio para el servidor
 
@@ -45,7 +69,7 @@ Un cambio que rompa algo va a `v2`; `v1` sigue mientras haya clientes que la use
 | `SINDRI_DEMO=0` | opcional | No cargar los datos de demostración en DEV |
 | `SINDRI_CLAVE_SESION` | opcional | Clave de las cookies; sin ella se deriva del secreto del cliente |
 
-Sin `DATABASE_URL`, Sindri usa su base integrada, pero gasta unos 460 MB frente a 40 MB con PostgreSQL. En el servidor tiene que ser PostgreSQL.
+Sin `DATABASE_URL`, Sindri usa su base integrada en `/datos` y gasta bastante más memoria que con PostgreSQL. Vale para la versión 0 en DEV; en PRO no arranca sin PostgreSQL.
 
 ## Lo que todavía no está
 

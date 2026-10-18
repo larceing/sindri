@@ -82,7 +82,7 @@ Las pruebas contra PostgreSQL real se activan con `TEST_DATABASE_URL=postgres://
 
 ## En el servidor DEV/PRO
 
-Sindri se da de alta como una app más del servidor común (`servidor.json`, imagen en GHCR y entrada con Keycloak): ver [docs/SERVIDOR-DEV-PRO.md](docs/SERVIDOR-DEV-PRO.md).
+Sindri se da de alta como una app más del servidor común (`servidor.json`, imagen en GHCR y entrada con Keycloak). La versión 0 ya se puede poner en DEV con la base integrada, sin esperar a PostgreSQL: ver [docs/SERVIDOR-DEV-PRO.md](docs/SERVIDOR-DEV-PRO.md).
 
 ## Desarrollo en local
 
