@@ -27,7 +27,7 @@ Lo que hay que saber:
 
 - **El volumen `/datos` no entra hoy en las copias nocturnas** (punto 2 de la Parte D). En DEV solo hay datos de demostración, así que no importa; nada de datos de verdad ahí.
 - **Cuando llegue `DATABASE_URL`**, Sindri pasa sola a PostgreSQL y empieza con una base nueva (otra vez con datos de demostración). Lo que se haya escrito a mano en DEV con la base integrada no se lleva.
-- **En PRO no arranca sin `DATABASE_URL`**: ahí los datos son de verdad y tienen que estar en PostgreSQL.
+- **En PRO sin `DATABASE_URL`** arranca con la base integrada en `/datos` para ir probando, y lo avisa en el registro. Los datos de verdad tienen que ir a PostgreSQL: cuando llegue `DATABASE_URL`, PRO empieza con una base nueva (sin datos de demostración).
 
 Pasos (todos en GitHub y en Ajustes; desde aquí no se toca el servidor):
 
@@ -77,7 +77,7 @@ Un cambio que rompa algo va a `v2`; `v1` sigue mientras haya clientes que la use
 | `SINDRI_CLAVE_SESION` | opcional | Clave de las cookies; sin ella se deriva del secreto del cliente |
 | `REPORT_URL`, `REPORT_LLAVE` | opcional, a mano en `app.env` | Conexión con el Report Server. Lo normal es ponerla en Sindri → Informes → Conectar; si están estas variables, mandan ellas (ver [report-server/README.md](report-server/README.md)) |
 
-Sin `DATABASE_URL`, Sindri usa su base integrada en `/datos` y gasta bastante más memoria que con PostgreSQL. Vale para la versión 0 en DEV; en PRO no arranca sin PostgreSQL.
+Sin `DATABASE_URL`, Sindri usa su base integrada en `/datos` y gasta bastante más memoria que con PostgreSQL. Vale para la versión 0 en DEV y para probar en PRO; para datos de verdad, PostgreSQL.
 
 ## Lo que todavía no está
 
