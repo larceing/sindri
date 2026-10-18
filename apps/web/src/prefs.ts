@@ -9,7 +9,7 @@ export interface Prefs {
   densidad: Densidad;
 }
 
-const KEY = "forja.prefs";
+const KEY = "ariadna.prefs";
 const DEFAULT: Prefs = { tema: "sistema", modo: "oficina", densidad: "normal" };
 
 function load(): Prefs {

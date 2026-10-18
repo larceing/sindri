@@ -1,4 +1,4 @@
-# Sistema de diseño de Forja
+# Sistema de diseño de Ariadna
 
 La investigación completa y las fuentes de cada valor están en la carpeta del proyecto `forja-diseno/`, en los ficheros 01 a 05. En el código, los tokens viven en `apps/web/src/tokens.css`.
 
@@ -65,7 +65,7 @@ En el menú lateral se elige el modo (oficina o taller), el tema (sistema, claro
 
 | Necesidad | Elección | Licencia |
 |---|---|---|
-| Tablas | TanStack Table + TanStack Virtual, dentro de un componente `<ForjaGrid>` propio | MIT |
+| Tablas | TanStack Table + TanStack Virtual, dentro de un componente `<AriadnaGrid>` propio | MIT |
 | Gráficos de negocio | Apache ECharts | Apache-2.0 |
 | Series de sensores y PLC | uPlot | MIT |
 | Grafos (trazabilidad, listas de materiales, flujos) | React Flow + ELK.js | MIT / GPL |

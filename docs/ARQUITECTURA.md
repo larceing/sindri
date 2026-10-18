@@ -1,4 +1,4 @@
-# Arquitectura de Forja ERP
+# Arquitectura de Ariadna ERP
 
 ## 1. Objetivo: que la fábrica no dependa de internet
 
@@ -6,7 +6,7 @@
                 ┌──────────────────── Red local de la fábrica ───────────────────┐
                 │                                                                 │
  PCs oficina ───┤                                                                 │
- Tablets taller ┼──► Servidor Forja (Node) ──► PostgreSQL                          │
+ Tablets taller ┼──► Servidor Ariadna (Node) ──► PostgreSQL                          │
  PDAs almacén ──┤        │  API REST + web                                        │
                 │        │                                                        │
                 │        ├──► Bandeja de salida ──(cuando hay internet)──► AEAT, FACe, transportistas, EDI
@@ -33,7 +33,7 @@ Las decisiones salen de lo aprendido al analizar Odoo, ERPNext, Dolibarr, Tryton
 
 | Decisión | Motivo |
 |---|---|
-| **TypeScript de punta a punta** (servidor, web, escritorio) | Un solo lenguaje y las mismas reglas de negocio (`@forja/core`) en servidor y pantalla. Así se evita lo que hacen Odoo y ERPNext, que duplican el cálculo de impuestos en Python y en JS. |
+| **TypeScript de punta a punta** (servidor, web, escritorio) | Un solo lenguaje y las mismas reglas de negocio (`@ariadna/core`) en servidor y pantalla. Así se evita lo que hacen Odoo y ERPNext, que duplican el cálculo de impuestos en Python y en JS. |
 | **PostgreSQL, y el mismo SQL en PGlite** | El modo local no es una versión rebajada: usa el mismo motor y las mismas migraciones. |
 | **SQL explícito y migraciones versionadas** (`apps/server/migrations`) | En Odoo el esquema se deriva de las clases y migrar entre versiones es de pago. Aquí cada cambio de esquema es un fichero revisable. |
 | **Libro de movimientos inmutable** para el stock; existencias calculadas | Una sola fuente de verdad (idea de Tryton y ERPNext). Así se evitan los saldos sin bloqueo de Dolibarr y Axelor. |
@@ -50,7 +50,7 @@ Las decisiones salen de lo aprendido al analizar Odoo, ERPNext, Dolibarr, Tryton
 
 ## 3. Paquetes
 
-### `@forja/core` (sin entrada/salida, 100 % probado con tests)
+### `@ariadna/core` (sin entrada/salida, 100 % probado con tests)
 
 | Fichero | Contenido |
 |---|---|
@@ -60,7 +60,7 @@ Las decisiones salen de lo aprendido al analizar Odoo, ERPNext, Dolibarr, Tryton
 | `identifiers.ts` | NIF/NIE/CIF, dígito de control GS1, SSCC-18 |
 | `verifactu.ts` | Huella de alta y de anulación, verificación de cadena, URL del QR, fecha con huso de Madrid |
 
-### `@forja/server`
+### `@ariadna/server`
 
 | Fichero | Contenido |
 |---|---|
@@ -69,11 +69,11 @@ Las decisiones salen de lo aprendido al analizar Odoo, ERPNext, Dolibarr, Tryton
 | `services.ts` | Casos de uso en transacción, con auditoría |
 | `app.ts` | Rutas REST, validación con zod y errores en español |
 
-### `@forja/web`
+### `@ariadna/web`
 
 React. Pantallas de pedidos, facturas (con QR), clientes, productos, almacén, VERI\*FACTU y empresa.
 
-### `@forja/desktop`
+### `@ariadna/desktop`
 
 Electron. Arranca el servidor embebido en un puerto libre y guarda los datos en la carpeta del usuario.
 

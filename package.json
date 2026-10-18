@@ -1,5 +1,5 @@
 {
-  "name": "forja",
+  "name": "ariadna",
   "private": true,
   "version": "0.1.0",
   "description": "ERP + CRM open source para pymes industriales españolas. Web y escritorio, funciona sin internet.",
@@ -11,8 +11,8 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "dev:server": "pnpm --filter @forja/server dev",
-    "dev:web": "pnpm --filter @forja/web dev",
-    "desktop": "pnpm --filter @forja/desktop start"
+    "dev:server": "pnpm --filter @ariadna/server dev",
+    "dev:web": "pnpm --filter @ariadna/web dev",
+    "desktop": "pnpm --filter @ariadna/desktop start"
   }
 }

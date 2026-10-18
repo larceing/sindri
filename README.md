@@ -1,4 +1,4 @@
-# Forja ERP
+# Ariadna ERP
 
 ERP + CRM **open source** para pymes industriales españolas. Funciona **sin depender de internet**:
 
@@ -6,7 +6,9 @@ ERP + CRM **open source** para pymes industriales españolas. Funciona **sin dep
 - **Aplicación web**. La sirve un servidor instalado en la red local de la fábrica, y la usan desde cualquier navegador los PCs, las tablets y las PDA de la planta.
 - **Internet solo hace falta para enviar a terceros** (AEAT, FACe, transportistas, EDI). Esos envíos se guardan en una bandeja de salida y salen solos cuando hay conexión.
 
-> Nombre provisional. Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
+> **¿Por qué Ariadna?** En el mito griego, Ariadna dio a Teseo el hilo para salir del laberinto. Ariadna ERP hace lo mismo con cada lote: sigue su hilo desde la materia prima hasta el cliente.
+
+Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 
 ## Qué hace ya (versión 0.1)
 
@@ -66,17 +68,17 @@ pnpm test                 # pruebas del núcleo y del servidor
 pnpm desktop
 
 # Opción 2: servidor + web en el navegador
-pnpm --filter @forja/server start      # http://127.0.0.1:3210  (datos en ./.data)
+pnpm --filter @ariadna/server start      # http://127.0.0.1:3210  (datos en ./.data)
 
 # Servidor de empresa con PostgreSQL, accesible desde la red local
-DATABASE_URL=postgres://usuario:clave@localhost/forja FORJA_HOST=0.0.0.0 pnpm --filter @forja/server start
+DATABASE_URL=postgres://usuario:clave@localhost/ariadna ARIADNA_HOST=0.0.0.0 pnpm --filter @ariadna/server start
 
 # Desarrollo de la interfaz con recarga en caliente
 pnpm dev:server   # en una terminal
 pnpm dev:web      # en otra: http://localhost:5173
 ```
 
-Para generar los instaladores de escritorio: `pnpm --filter @forja/desktop dist`.
+Para generar los instaladores de escritorio: `pnpm --filter @ariadna/desktop dist`.
 
 Las pruebas contra PostgreSQL real se activan con `TEST_DATABASE_URL=postgres://...`.
 

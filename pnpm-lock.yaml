@@ -10,7 +10,7 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@forja/server':
+      '@ariadna/server':
         specifier: workspace:*
         version: link:../server
     devDependencies:
@@ -29,15 +29,15 @@ importers:
 
   apps/server:
     dependencies:
+      '@ariadna/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@electric-sql/pglite':
         specifier: ^0.5.10
         version: 0.5.10
       '@fastify/static':
         specifier: ^10.1.6
         version: 10.1.6
-      '@forja/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       fastify:
         specifier: ^5.12.7
         version: 5.12.7
