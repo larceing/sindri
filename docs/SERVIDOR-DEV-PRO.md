@@ -43,7 +43,7 @@ Pasos (todos en GitHub y en Ajustes; desde aquí no se toca el servidor):
 
 - **Quién entra** lo sigue decidiendo Keycloak (grupo `/DEV/Sindri`). Dentro de Sindri, cada persona tiene rol, departamento, empresas y su menú (Sindri → Usuarios). Quien entra por primera vez queda con el rol «Consulta» (ve y no cambia). Los de `/DEV/Sindri/Admin` o IT lo pueden todo.
 - **Varias empresas**: cada una con sus clientes, productos, pedidos, facturas, numeración y cadena VERI*FACTU. Quien trabaja en más de una elige al entrar. La base de DEV de la versión 0 se actualiza sola: lo que había pasa a la primera empresa y se añade una segunda empresa de demostración.
-- **Report Server**: importar las plantillas de [report-server/](report-server/), crear la llave y poner `REPORT_URL` y `REPORT_LLAVE` en `app.env` (pasos en [report-server/README.md](report-server/README.md)). Sin eso, Sindri imprime con el navegador.
+- **Report Server**: importar las plantillas de [report-server/](report-server/), crear la llave y conectarlo en Sindri → Informes → Conectar (pasos en [report-server/README.md](report-server/README.md)). Sin eso, Sindri imprime con el navegador.
 
 ## Qué hay en este repositorio para el servidor
 
@@ -75,7 +75,7 @@ Un cambio que rompa algo va a `v2`; `v1` sigue mientras haya clientes que la use
 | `KEYCLOAK_INTERNO` | opcional | Llamar a Keycloak por la red interna |
 | `SINDRI_DEMO=0` | opcional | No cargar los datos de demostración en DEV |
 | `SINDRI_CLAVE_SESION` | opcional | Clave de las cookies; sin ella se deriva del secreto del cliente |
-| `REPORT_URL`, `REPORT_LLAVE` | a mano en `app.env` | Facturas, pedidos, albaranes y hojas de ruta en PDF con el Report Server (ver [report-server/README.md](report-server/README.md)) |
+| `REPORT_URL`, `REPORT_LLAVE` | opcional, a mano en `app.env` | Conexión con el Report Server. Lo normal es ponerla en Sindri → Informes → Conectar; si están estas variables, mandan ellas (ver [report-server/README.md](report-server/README.md)) |
 
 Sin `DATABASE_URL`, Sindri usa su base integrada en `/datos` y gasta bastante más memoria que con PostgreSQL. Vale para la versión 0 en DEV; en PRO no arranca sin PostgreSQL.
 

@@ -3,9 +3,9 @@
  *
  * Sindri arma los datos (factura, pedido, albarán, hoja de ruta) y se los manda al Report
  * Server con su llave; este los pinta con la plantilla «sindri-…» y devuelve el PDF.
- * Variables (en el app.env de Sindri, a mano mientras Ajustes no tenga secretos por app):
- *   REPORT_URL    p. ej. http://report-server-dev:3000 (por la red interna)
- *   REPORT_LLAVE  la llave creada en Report Server → Llaves
+ * La conexión (dirección y llave creada en Report Server → Llaves) se pone en Sindri →
+ * Informes, y queda guardada en la base de Sindri. Si el app.env trae REPORT_URL y
+ * REPORT_LLAVE, mandan esas variables y la pantalla solo las enseña.
  * Las plantillas de partida están en docs/report-server/ (Importar .json en Report Server).
  * Sin Report Server, la web imprime con el navegador.
  */
@@ -13,8 +13,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Db, Queryable } from "./db.js";
 import { getRoute } from "./comercial.js";
-import { BusinessError, getCompany, getInvoice, getSalesOrder, type Ctx } from "./services.js";
-import { ctxOf, type Session } from "./usuarios.js";
+import { BusinessError, getCompany, getInvoice, getSalesOrder, log, type Ctx } from "./services.js";
+import { ctxOf, requireAdmin, type Session } from "./usuarios.js";
 
 export interface ReportServerConfig {
   url: string;
@@ -126,18 +126,74 @@ export async function datosDocumento(q: Queryable, ctx: Ctx, tipo: TipoDocumento
 
 const D2 = (l: Record<string, string>) => (Number(l.quantity) * Number(l.unit_price) * (1 - Number(l.discount_pct) / 100)).toFixed(2);
 
-export function registerDocumentos(app: FastifyInstance, db: Db, rs: ReportServerConfig | undefined) {
-  /** Qué hay: si el Report Server está configurado y qué plantillas de Sindri tiene. */
+const AJUSTE = "report_server";
+const ConfigSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .regex(/^https?:\/\/[^\s/]+(\/[^\s]*)?$/, "La dirección tiene que empezar por http:// o https://")
+    .transform((u) => u.replace(/\/+$/, "")),
+  // Vacía o sin mandar: se queda la llave que ya había.
+  llave: z.string().trim().regex(/^rs_[A-Za-z0-9_-]{20,}$/, "La llave del Report Server empieza por rs_").or(z.literal("")).optional(),
+});
+
+/** Prueba la conexión: la lista de plantillas con esa llave. */
+async function plantillasDe(rs: ReportServerConfig) {
+  try {
+    const r = await fetch(`${rs.url}/api/plantillas`, { headers: { authorization: `Bearer ${rs.key}` }, signal: AbortSignal.timeout(5000) });
+    if (r.status === 401) return { error: "El Report Server no acepta la llave (no válida o revocada)", plantillas: [] as string[] };
+    if (!r.ok) return { error: `El Report Server responde ${r.status}: revisa la dirección`, plantillas: [] as string[] };
+    const list = (await r.json()) as { nombre: string }[];
+    if (!Array.isArray(list)) return { error: "Esa dirección no es la de un Report Server", plantillas: [] as string[] };
+    return { plantillas: list.map((p) => p.nombre).filter((p) => p.startsWith("sindri-")) };
+  } catch {
+    return { error: "No se llega al Report Server con esa dirección", plantillas: [] as string[] };
+  }
+}
+
+export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: ReportServerConfig | undefined) {
+  /** La conexión en uso: la de las variables si las hay; si no, la guardada desde la pantalla. */
+  const actual = async (): Promise<(ReportServerConfig & { origen: "variables" | "sindri" }) | undefined> => {
+    if (fromEnv) return { ...fromEnv, origen: "variables" };
+    const [row] = await db.query<{ value: ReportServerConfig }>("select value from app_setting where key = $1", [AJUSTE]);
+    return row?.value?.url && row.value.key ? { url: row.value.url, key: row.value.key, origen: "sindri" } : undefined;
+  };
+
+  /** Qué hay: si el Report Server está conectado y qué plantillas de Sindri tiene. */
   app.get("/api/v1/documentos", async () => {
+    const rs = await actual();
     if (!rs) return { report_server: false, plantillas: [] };
-    try {
-      const r = await fetch(`${rs.url}/api/plantillas`, { headers: { authorization: `Bearer ${rs.key}` }, signal: AbortSignal.timeout(5000) });
-      if (!r.ok) return { report_server: true, error: `El Report Server responde ${r.status}`, plantillas: [] };
-      const list = (await r.json()) as { nombre: string }[];
-      return { report_server: true, plantillas: list.map((p) => p.nombre).filter((p) => p.startsWith("sindri-")) };
-    } catch {
-      return { report_server: true, error: "No se llega al Report Server", plantillas: [] };
-    }
+    return { report_server: true, ...(await plantillasDe(rs)) };
+  });
+
+  // Conexión desde la pantalla (solo administración). La llave no se vuelve a enseñar: solo su final.
+  app.get("/api/v1/documentos/conexion", async (req) => {
+    requireAdmin(req);
+    const rs = await actual();
+    return rs ? { origen: rs.origen, url: rs.url, llave_fin: rs.key.slice(-4) } : { origen: null, url: "", llave_fin: null };
+  });
+  app.put("/api/v1/documentos/conexion", async (req) => {
+    requireAdmin(req);
+    if (fromEnv) throw new BusinessError("La conexión viene de REPORT_URL y REPORT_LLAVE en el app.env: se cambia ahí", 409);
+    const c = ConfigSchema.parse(req.body);
+    const key = c.llave || (await actual())?.key;
+    if (!key) throw new BusinessError("Falta la llave: créala en Report Server → Llaves para la app sindri", 400);
+    const prueba = await plantillasDe({ url: c.url, key });
+    if (prueba.error) throw new BusinessError(prueba.error, 422);
+    await db.query(
+      `insert into app_setting (key, value, updated_by) values ($1, $2, $3)
+       on conflict (key) do update set value = excluded.value, updated_by = excluded.updated_by, updated_at = now()`,
+      [AJUSTE, JSON.stringify({ url: c.url, key }), req.sindri!.person.user],
+    );
+    await log(db, { company: null as never, actor: req.sindri!.person.user }, "app_setting", null, "update", { ajuste: AJUSTE, url: c.url, llave_cambiada: !!c.llave });
+    return { origen: "sindri", url: c.url, llave_fin: key.slice(-4), plantillas: prueba.plantillas };
+  });
+  app.delete("/api/v1/documentos/conexion", async (req) => {
+    requireAdmin(req);
+    if (fromEnv) throw new BusinessError("La conexión viene del app.env: se quita ahí", 409);
+    await db.query("delete from app_setting where key = $1", [AJUSTE]);
+    await log(db, { company: null as never, actor: req.sindri!.person.user }, "app_setting", null, "delete", { ajuste: AJUSTE });
+    return { ok: true };
   });
 
   app.get<{ Params: { tipo: string; id: string } }>("/api/v1/documentos/:tipo/:id/datos", async (req) => {
@@ -149,7 +205,8 @@ export function registerDocumentos(app: FastifyInstance, db: Db, rs: ReportServe
   app.get<{ Params: { tipo: string; id: string } }>("/api/v1/documentos/:tipo/:id/pdf", async (req, reply) => {
     const tipo = z.enum(Object.keys(DOCUMENTOS) as [TipoDocumento]).parse(req.params.tipo);
     permiso(req.sindri, tipo);
-    if (!rs) throw new BusinessError("Sindri no tiene Report Server configurado (REPORT_URL y REPORT_LLAVE)", 501);
+    const rs = await actual();
+    if (!rs) throw new BusinessError("Sindri no está conectado al Report Server: conéctalo en Informes", 501);
     const datos = await datosDocumento(db, ctxOf(req), tipo, req.params.id);
     const doc = DOCUMENTOS[tipo];
     const r = await fetch(`${rs.url}/api/generar`, {
