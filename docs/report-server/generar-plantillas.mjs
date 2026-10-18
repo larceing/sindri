@@ -2,7 +2,8 @@
 /**
  * Genera las plantillas de Sindri para el Report Server (formato «Importar .json»):
  *   node docs/report-server/generar-plantillas.mjs
- * Escribe sindri-factura.json, sindri-pedido.json, sindri-albaran.json y sindri-hoja-ruta.json
+ * Escribe sindri-factura.json, sindri-pedido.json, sindri-albaran.json, sindri-hoja-ruta.json y
+ * sindri-presupuesto.json
  * en apps/server/plantillas/: Sindri las lleva dentro y las instala él solo en el Report Server. Los datos de ejemplo son los que manda Sindri (ejemplos/*.json), así el
  * diseñador del Report Server enseña el documento tal como saldrá.
  *
@@ -204,6 +205,45 @@ const hojaRuta = doc([
   ], { size: 8, zebra: false, pad: 4 }),
 ]);
 
+/** Párrafos (presentación, condiciones): tabla de una columna sin rayas, así crece y empuja lo de debajo. */
+const parrafos = (name, y, titulo) => {
+  const t = tabla(name, y, [{ titulo, marca: "{texto}", ancho: 100 }], { zebra: false, size: 9.5, pad: 1.2, height: 8 });
+  t.showHead = !!titulo;
+  t.tableStyles = { borderColor: "#ffffff", borderWidth: 0 };
+  t.headStyles = { ...t.headStyles, fontColor: MARCA, backgroundColor: "", borderColor: "#ffffff", fontSize: 8, characterSpacing: 0.5, padding: { top: 1, right: 0, bottom: 1.5, left: 0 } };
+  t.bodyStyles = { ...t.bodyStyles, borderWidth: sinBorde, borderColor: "#ffffff", padding: { top: 1.2, right: 0, bottom: 1.2, left: 0 }, lineHeight: 1.3 };
+  return t;
+};
+
+const presupuesto = doc([
+  ...cabecera("PRESUPUESTO", "Nº {numero}\nFecha {comoFecha(fecha)}{valido_hasta ? '\\nVálido hasta ' + comoFecha(valido_hasta) : ''}"),
+  ...bloque("CLIENTE", "{cliente.nombre}\nNIF {cliente.nif}\n{cliente.linea_direccion}", 15, 42, 110, 26, "bloque-cliente"),
+  ...bloque("COMERCIAL", "{siVacio(comercial, '—')}", 129, 42, 66, 26, "bloque-comercial"),
+  texto("{titulo}", 15, 73, 180, 7, { size: 12, color: MARCA, name: "titulo" }),
+  parrafos("presentacion", 81, ""),
+  tabla("lineas", 92, [
+    { titulo: "Descripción", marca: "{descripcion}", ancho: 46 },
+    { titulo: "Cantidad", marca: "{conDecimales(cantidad, 0)} {unidad}", ancho: 12, derecha: true },
+    { titulo: "Precio", marca: "{enEuros(precio)}", ancho: 12, derecha: true },
+    { titulo: "Dto.", marca: "{descuento ? conDecimales(descuento) + ' %' : ''}", ancho: 8, derecha: true },
+    { titulo: "IVA", marca: "{conDecimales(iva, 0)} %", ancho: 7, derecha: true },
+    { titulo: "Base", marca: "{enEuros(base)}", ancho: 15, derecha: true },
+  ]),
+  tabla("desglose", 118, [
+    { titulo: "Tipo IVA", marca: "{conDecimales(iva, 0)} %", ancho: 18, derecha: true },
+    { titulo: "Base imponible", marca: "{enEuros(base)}", ancho: 28, derecha: true },
+    { titulo: "Cuota IVA", marca: "{enEuros(cuota)}", ancho: 24, derecha: true },
+    { titulo: "Recargo eq.", marca: "{recargo ? conDecimales(recargo_pct, 1) + ' % · ' + enEuros(recargo) : ''}", ancho: 30, derecha: true },
+  ], { zebra: false, x: 85, width: 110 }),
+  texto("Base imponible\nIVA{recargo ? '\\nRecargo de equivalencia' : ''}{retencion ? '\\nRetención IRPF' : ''}", 110, 138, 50, 18, { align: "right", name: "totales-etiquetas" }),
+  texto("{enEuros(base)}\n{enEuros(iva)}{recargo ? '\\n' + enEuros(recargo) : ''}{retencion ? '\\n−' + enEuros(retencion) : ''}", 160, 138, 35, 18, { align: "right", name: "totales-importes" }),
+  caja(110, 158, 85, 10, { fill: MARCA, borderColor: MARCA, name: "total-caja" }),
+  texto("TOTAL", 113, 160.5, 40, 6, { size: 10, color: "#ffffff", name: "total-etiqueta" }),
+  texto("{enEuros(total)}", 150, 160, 42, 7, { size: 12, color: "#ffffff", align: "right", name: "total-importe" }),
+  parrafos("condiciones", 174, "CONDICIONES"),
+  ...bloque("ACEPTACIÓN DEL CLIENTE", "Nombre, fecha y firma:", 107, 200, 88, 30, "bloque-aceptacion"),
+]);
+
 // El grupo es el tipo de documento: en el Report Server, otras plantillas del mismo grupo
 // salen como alternativas al elegir en Sindri.
 const PLANTILLAS = [
@@ -211,6 +251,7 @@ const PLANTILLAS = [
   ["sindri-pedido", "Sindri · Pedido", pedido, "pedido", "pedido"],
   ["sindri-albaran", "Sindri · Albarán", albaran, "albaran", "albaran"],
   ["sindri-hoja-ruta", "Sindri · Hoja de ruta", hojaRuta, "hoja_ruta", "hoja-ruta"],
+  ["sindri-presupuesto", "Sindri · Presupuesto", presupuesto, "presupuesto", "presupuesto"],
 ];
 
 for (const [nombre, titulo, plantilla, ej, grupo] of PLANTILLAS) {

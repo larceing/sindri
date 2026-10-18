@@ -84,6 +84,25 @@ describe("Documentos en PDF con el Report Server", () => {
     expect(enviado.datos!.empresa.linea_direccion).toBe("Calle 1 · 20800 Zarautz");
   });
 
+  it("el presupuesto lleva presentación y condiciones por párrafos, líneas con IVA y totales", async () => {
+    const cli = (await app.inject({ method: "POST", url: "/api/v1/partners", payload: { name: "Cliente Presupuesto SL", tax_id: "A58818501", address: "Calle 2", city: "Soria", postal_code: "42002" } })).json();
+    const prod = (await app.inject({ method: "POST", url: "/api/v1/products", payload: { sku: "P-2", name: "Horas", sale_price: "50", kind: "service" } })).json();
+    const qt = await app.inject({
+      method: "POST", url: "/api/v1/quotations",
+      payload: { partner_id: cli.id, title: "Propuesta", intro: "Hola.\n\nSegundo párrafo.", conditions: "Pago a 30 días.", lines: [{ product_id: prod.id, quantity: "4", discount_pct: "10" }] },
+    });
+    expect(qt.statusCode, qt.body).toBeLessThan(300);
+    const d = (await app.inject(`/api/v1/documentos/presupuesto/${qt.json().id}/datos`)).json();
+    expect(d).toMatchObject({
+      numero: qt.json().number, titulo: "Propuesta", fecha: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      presentacion: [{ texto: "Hola." }, { texto: "Segundo párrafo." }], condiciones: [{ texto: "Pago a 30 días." }],
+      base: 180, iva: 37.8, total: 217.8, a_pagar: 217.8,
+    });
+    expect(d.lineas).toEqual([{ referencia: "P-2", descripcion: "Horas", cantidad: 4, unidad: expect.any(String), precio: 50, descuento: 10, iva: 21, base: 180 }]);
+    expect(d.desglose).toEqual([{ iva: 21, base: 180, cuota: 37.8, recargo_pct: 0, recargo: 0 }]);
+    expect(d.cliente.linea_direccion).toBe("Calle 2 · 42002 Soria");
+  });
+
   it("si al Report Server le falta la plantilla, lo dice con su mensaje", async () => {
     for (const a of ["confirm", "deliver"]) expect((await app.inject({ method: "POST", url: `/api/v1/sales-orders/${pedido}/${a}` })).statusCode).toBe(200);
     const inv = (await app.inject({ method: "POST", url: `/api/v1/sales-orders/${pedido}/invoice` })).json();
@@ -133,7 +152,7 @@ describe("Conectar el Report Server desde la pantalla (sin tocar app.env)", () =
     // Al conectar instala las de Sindri que faltan y deja las que ya estaban.
     expect(ok.json()).toMatchObject({ origen: "sindri", llave_fin: "aaaa" });
     expect(ok.json().instaladas.map((i: any) => `${i.plantilla}: ${i.estado}`)).toEqual([
-      "sindri-factura: ya estaba", "sindri-pedido: ya estaba", "sindri-albaran: instalada", "sindri-hoja-ruta: instalada",
+      "sindri-factura: ya estaba", "sindri-pedido: ya estaba", "sindri-albaran: instalada", "sindri-hoja-ruta: instalada", "sindri-presupuesto: instalada",
     ]);
     expect(fake.plantillas.get("sindri-hoja-ruta")).toMatchObject({ titulo: "Sindri · Hoja de ruta", grupo: "hoja-ruta" });
     const conexion = await app.inject("/api/v1/documentos/conexion");
@@ -167,6 +186,7 @@ describe("Conectar el Report Server desde la pantalla (sin tocar app.env)", () =
     expect(f.headers["content-disposition"]).toContain("sindri-plantillas.json");
     expect(f.json().plantillas.map((p: any) => [p.nombre, p.grupo, Array.isArray(p.plantilla.schemas)])).toEqual([
       ["sindri-factura", "factura", true], ["sindri-pedido", "pedido", true], ["sindri-albaran", "albaran", true], ["sindri-hoja-ruta", "hoja-ruta", true],
+      ["sindri-presupuesto", "presupuesto", true],
     ]);
   });
 

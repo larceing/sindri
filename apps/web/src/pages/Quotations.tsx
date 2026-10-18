@@ -5,6 +5,7 @@ import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { Alert, Badge, Code, Empty, ErrorBox, Field, Page, Table } from "../ui";
 import { Totals } from "./Orders";
+import { DocButton } from "../docs";
 
 const ESTADOS = [["", "Todos"], ["draft", "Borrador"], ["sent", "Enviado"], ["accepted", "Aceptado"], ["rejected", "Rechazado"], ["cancelled", "Cancelado"]];
 const TABS = [["", "Presupuestos"], ["modelos", "Modelos"]] as const;
@@ -194,12 +195,15 @@ export function QuotationPage({ id }: { id: string }) {
   return (
     <Page
       title={`Presupuesto ${q.number}`}
-      actions={editar && !editando && <>
-        {q.state === "draft" && <button onClick={() => setEditando(true)}>Editar</button>}
-        {q.actions.map((a: string) => (
-          <button key={a} className={a === "accept" ? "primary" : a === "cancel" || a === "reject" ? "danger" : undefined} disabled={busy} onClick={() => act(a)}>{ACTION_LABEL[a]}</button>
-        ))}
-        <button onClick={duplicar} disabled={busy}>Duplicar</button>
+      actions={!editando && <>
+        <DocButton tipo="presupuesto" id={id} label="Presupuesto" />
+        {editar && <>
+          {q.state === "draft" && <button onClick={() => setEditando(true)}>Editar</button>}
+          {q.actions.map((a: string) => (
+            <button key={a} className={a === "accept" ? "primary" : a === "cancel" || a === "reject" ? "danger" : undefined} disabled={busy} onClick={() => act(a)}>{ACTION_LABEL[a]}</button>
+          ))}
+          <button onClick={duplicar} disabled={busy}>Duplicar</button>
+        </>}
       </>}
     >
       <p className="sub">

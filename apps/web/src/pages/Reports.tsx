@@ -11,6 +11,7 @@ const DOCUMENTOS = [
   ["pedido", "Pedido", "pedido"],
   ["albaran", "Albarán", "albaran"],
   ["hoja_ruta", "Hoja de ruta", "hoja-ruta"],
+  ["presupuesto", "Presupuesto", "presupuesto"],
 ] as const;
 type PlantillaRS = { nombre: string; titulo: string; grupo: string };
 const resumen = (i: { estado: string }[]) => {
@@ -132,7 +133,7 @@ function ReportServer() {
     });
   const instalar = (sustituir: boolean) =>
     run(async () => {
-      if (sustituir && !confirm("¿Dejar las cuatro plantillas de Sindri como las de partida? Se pierde lo retocado en ellas en el diseñador del Report Server.")) return;
+      if (sustituir && !confirm("¿Dejar las plantillas de Sindri como las de partida? Se pierde lo retocado en ellas en el diseñador del Report Server.")) return;
       const r = await post("/documentos/plantillas/instalar", { sustituir });
       setOk(sustituir ? "Plantillas de Sindri como las de partida." : resumen(r.instaladas));
       setAviso(null);
@@ -182,7 +183,7 @@ function ReportServer() {
         </>
       ) : !docs ? null : !docs.report_server ? (
         <Alert tone="info">
-          Sindri no está conectado al Report Server: facturas, pedidos, albaranes y hojas de ruta se imprimen con el navegador.
+          Sindri no está conectado al Report Server: facturas, pedidos, albaranes, hojas de ruta y presupuestos se imprimen con el navegador.
           {me?.admin ? " Pulsa «Conectar» y pon la dirección y la llave." : " Pídele a administración que lo conecte."}
         </Alert>
       ) : (
