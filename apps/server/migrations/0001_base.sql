@@ -1,8 +1,8 @@
--- Ariadna ERP · esquema base
+-- Ergane ERP · esquema base
 -- Principios: libros inmutables (stock, registros fiscales, auditoría), importes en NUMERIC,
 -- identificadores UUID (preparados para sincronizar varios puestos sin conflictos).
 
-create function ariadna_forbid_change() returns trigger language plpgsql as $$
+create function ergane_forbid_change() returns trigger language plpgsql as $$
 begin
   raise exception 'Registro inmutable en %: no se puede % ', TG_TABLE_NAME, lower(TG_OP);
 end
@@ -103,7 +103,7 @@ create table stock_move (
 );
 create index stock_move_product_idx on stock_move (product_id);
 create trigger stock_move_immutable before update or delete on stock_move
-  for each row execute function ariadna_forbid_change();
+  for each row execute function ergane_forbid_change();
 
 -- Saldos calculados a partir del libro (solo ubicaciones internas)
 create view stock_balance as
@@ -187,7 +187,7 @@ create table invoice_line (
 );
 
 -- Una factura emitida no se borra ni cambia sus datos fiscales: solo puede pasar a "pagada".
-create function ariadna_invoice_guard() returns trigger language plpgsql as $$
+create function ergane_invoice_guard() returns trigger language plpgsql as $$
 begin
   if tg_op = 'DELETE' then
     if old.state <> 'draft' then raise exception 'Factura % emitida: no se puede borrar', old.number; end if;
@@ -206,9 +206,9 @@ begin
 end
 $$;
 create trigger invoice_guard before update or delete on invoice
-  for each row execute function ariadna_invoice_guard();
+  for each row execute function ergane_invoice_guard();
 
-create function ariadna_invoice_line_guard() returns trigger language plpgsql as $$
+create function ergane_invoice_line_guard() returns trigger language plpgsql as $$
 declare st text;
 begin
   select state into st from invoice where id = coalesce(new.invoice_id, old.invoice_id);
@@ -219,7 +219,7 @@ begin
 end
 $$;
 create trigger invoice_line_guard before insert or update or delete on invoice_line
-  for each row execute function ariadna_invoice_line_guard();
+  for each row execute function ergane_invoice_line_guard();
 
 create table payment (
   id uuid primary key default gen_random_uuid(),
@@ -245,7 +245,7 @@ create table verifactu_record (
   unique (company_id, seq)
 );
 create trigger verifactu_record_immutable before update or delete on verifactu_record
-  for each row execute function ariadna_forbid_change();
+  for each row execute function ergane_forbid_change();
 
 -- Bandeja de salida: envíos a AEAT, FACe, EDI... con reintentos e idempotencia --
 create table outbox (
@@ -272,7 +272,7 @@ create table event_log (
   data jsonb
 );
 create trigger event_log_immutable before update or delete on event_log
-  for each row execute function ariadna_forbid_change();
+  for each row execute function ergane_forbid_change();
 
 -- Datos iniciales ----------------------------------------------------------------
 insert into location (code, name, kind) values

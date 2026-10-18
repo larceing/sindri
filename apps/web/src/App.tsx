@@ -48,10 +48,9 @@ function Screen({ route }: { route: string }) {
 /** Marca: un crisol/lingote estilizado. Monocromo, legible a 16 px y en impresión térmica. */
 export const BrandMark = () => (
   <svg className="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
-    {/* Ovillo de Ariadna: el hilo que sale del ovillo es la trazabilidad */}
-    <circle cx="10" cy="10" r="7" />
-    <path d="M4.5 7.5c3 1 7 1 11 -1M3.5 11.5c4 1.5 9 1 13 -2M6 15.5c3 0 7 -1.5 10 -4.5" />
-    <path d="M15 15.5c1.5 2 3 3 6 3.5" strokeLinecap="round" />
+    {/* Tejido: Atenea Ergane, protectora del telar y de los oficios */}
+    <rect x="3" y="3" width="18" height="18" rx="3" />
+    <path d="M9 3v18M15 3v18M3 9h6M15 9h6M9 15h6" />
   </svg>
 );
 
@@ -63,7 +62,7 @@ export function App() {
   return (
     <div className="shell">
       <nav className="side" aria-label="Menú principal">
-        <div className="brand"><BrandMark /> Ariadna</div>
+        <div className="brand"><BrandMark /> Ergane</div>
         {NAV.map(([path, label, Icon]) => (
           <a key={path} href={`#${path}`} className={route.startsWith(path) || (path === "/inicio" && route === "/") ? "active" : ""}>
             <Icon size={18} aria-hidden /> {label}

@@ -1,4 +1,4 @@
-# Ariadna ERP
+# Ergane ERP
 
 ERP + CRM **open source** para pymes industriales españolas. Funciona **sin depender de internet**:
 
@@ -6,7 +6,7 @@ ERP + CRM **open source** para pymes industriales españolas. Funciona **sin dep
 - **Aplicación web**. La sirve un servidor instalado en la red local de la fábrica, y la usan desde cualquier navegador los PCs, las tablets y las PDA de la planta.
 - **Internet solo hace falta para enviar a terceros** (AEAT, FACe, transportistas, EDI). Esos envíos se guardan en una bandeja de salida y salen solos cuando hay conexión.
 
-> **¿Por qué Ariadna?** En el mito griego, Ariadna dio a Teseo el hilo para salir del laberinto. Ariadna ERP hace lo mismo con cada lote: sigue su hilo desde la materia prima hasta el cliente.
+> **¿Por qué Ergane?** En la antigua Grecia, Atenea Ergane era la protectora de los artesanos y del trabajo en el taller. Ergane ERP está hecho para eso mismo: la oficina y la planta de una fábrica, en un solo sistema.
 
 Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 
@@ -68,17 +68,17 @@ pnpm test                 # pruebas del núcleo y del servidor
 pnpm desktop
 
 # Opción 2: servidor + web en el navegador
-pnpm --filter @ariadna/server start      # http://127.0.0.1:3210  (datos en ./.data)
+pnpm --filter @ergane/server start      # http://127.0.0.1:3210  (datos en ./.data)
 
 # Servidor de empresa con PostgreSQL, accesible desde la red local
-DATABASE_URL=postgres://usuario:clave@localhost/ariadna ARIADNA_HOST=0.0.0.0 pnpm --filter @ariadna/server start
+DATABASE_URL=postgres://usuario:clave@localhost/ergane ERGANE_HOST=0.0.0.0 pnpm --filter @ergane/server start
 
 # Desarrollo de la interfaz con recarga en caliente
 pnpm dev:server   # en una terminal
 pnpm dev:web      # en otra: http://localhost:5173
 ```
 
-Para generar los instaladores de escritorio: `pnpm --filter @ariadna/desktop dist`.
+Para generar los instaladores de escritorio: `pnpm --filter @ergane/desktop dist`.
 
 Las pruebas contra PostgreSQL real se activan con `TEST_DATABASE_URL=postgres://...`.
 

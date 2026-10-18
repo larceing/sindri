@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { existsSync } from "node:fs";
 import { z, ZodError } from "zod";
-import { TransitionError } from "@ariadna/core";
+import { TransitionError } from "@ergane/core";
 import type { Db } from "./db.js";
 import * as s from "./services.js";
 

@@ -1,5 +1,5 @@
 {
-  "name": "ariadna",
+  "name": "ergane",
   "private": true,
   "version": "0.1.0",
   "description": "ERP + CRM open source para pymes industriales españolas. Web y escritorio, funciona sin internet.",
@@ -11,8 +11,8 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "dev:server": "pnpm --filter @ariadna/server dev",
-    "dev:web": "pnpm --filter @ariadna/web dev",
-    "desktop": "pnpm --filter @ariadna/desktop start"
+    "dev:server": "pnpm --filter @ergane/server dev",
+    "dev:web": "pnpm --filter @ergane/web dev",
+    "desktop": "pnpm --filter @ergane/desktop start"
   }
 }

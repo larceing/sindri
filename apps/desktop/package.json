@@ -1,8 +1,8 @@
 {
-  "name": "@ariadna/desktop",
+  "name": "@ergane/desktop",
   "version": "0.1.0",
   "license": "AGPL-3.0-or-later",
-  "description": "Ariadna ERP para escritorio (Windows, macOS, Linux). Funciona sin internet.",
+  "description": "Ergane ERP para escritorio (Windows, macOS, Linux). Funciona sin internet.",
   "type": "module",
   "private": true,
   "main": "dist/main.js",
@@ -14,7 +14,7 @@
     "test": "echo \"(desktop) sin pruebas unitarias todavía\""
   },
   "dependencies": {
-    "@ariadna/server": "workspace:*"
+    "@ergane/server": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -23,8 +23,8 @@
     "typescript": "^5.9.3"
   },
   "build": {
-    "appId": "es.ariadnaerp.app",
-    "productName": "Ariadna ERP",
+    "appId": "es.erganeerp.app",
+    "productName": "Ergane ERP",
     "files": ["dist/**", "package.json"],
     "extraResources": [{ "from": "../web/dist", "to": "web" }],
     "win": { "target": "nsis" },

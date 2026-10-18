@@ -9,7 +9,7 @@ export interface Prefs {
   densidad: Densidad;
 }
 
-const KEY = "ariadna.prefs";
+const KEY = "ergane.prefs";
 const DEFAULT: Prefs = { tema: "sistema", modo: "oficina", densidad: "normal" };
 
 function load(): Prefs {
