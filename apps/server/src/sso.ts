@@ -89,7 +89,7 @@ export function verify<T>(token: string | undefined, key: string): T | null {
   }
 }
 
-function readCookie(req: FastifyRequest, name: string): string | undefined {
+export function readCookie(req: FastifyRequest, name: string): string | undefined {
   for (const part of (req.headers.cookie ?? "").split(";")) {
     const i = part.indexOf("=");
     if (i > 0 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
@@ -112,10 +112,12 @@ export function publicBase(req: FastifyRequest): string {
 const SESSION = "sindri_sesion";
 const STATE = "sindri_estado";
 
-function setCookie(reply: FastifyReply, req: FastifyRequest, name: string, value: string, maxAgeSec: number) {
+/** maxAgeSec null: cookie de sesión del navegador (se pierde al cerrarlo). */
+export function setCookie(reply: FastifyReply, req: FastifyRequest, name: string, value: string, maxAgeSec: number | null) {
   const secure = req.protocol === "https" ? "; Secure" : "";
   const path = prefix(req) || "/";
-  const cookie = `${name}=${encodeURIComponent(value)}; Path=${path}; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure}`;
+  const age = maxAgeSec === null ? "" : `; Max-Age=${maxAgeSec}`;
+  const cookie = `${name}=${encodeURIComponent(value)}; Path=${path}; HttpOnly; SameSite=Lax${age}${secure}`;
   const prev = reply.getHeader("set-cookie");
   reply.header("set-cookie", prev === undefined ? cookie : [...(Array.isArray(prev) ? prev : [String(prev)]), cookie]);
 }
@@ -137,7 +139,7 @@ export function registerSso(app: FastifyInstance, cfg: SsoConfig) {
   app.addHook("onRequest", async (req, reply) => {
     const path = req.url.split("?")[0]!;
     // El agente de planta entra con su propio token (planta.ts), no con sesión.
-    if (OPEN.has(path) || path.startsWith("/api/planta/")) return;
+    if (OPEN.has(path) || path.startsWith("/api/planta/") || path.startsWith("/api/informes/")) return;
     if (currentPerson(req, cfg)) return;
     if (path.startsWith("/api/")) return reply.status(401).send({ error: "La sesión ha caducado. Vuelve a entrar." });
     return reply.redirect(`${publicBase(req)}/login`);
@@ -192,6 +194,8 @@ export function registerSso(app: FastifyInstance, cfg: SsoConfig) {
       exp: Date.now() + hours * 3600_000,
     };
     setCookie(reply, req, STATE, "", 0);
+    // Al entrar se vuelve a elegir empresa (si trabaja en más de una).
+    setCookie(reply, req, "sindri_empresa", "", 0);
     setCookie(reply, req, SESSION, sign(person, cfg.sessionKey), hours * 3600);
     return reply.redirect(`${publicBase(req)}/`);
   });
@@ -203,10 +207,6 @@ export function registerSso(app: FastifyInstance, cfg: SsoConfig) {
     return reply.redirect(`${issuer}/protocol/openid-connect/logout?${q}`);
   });
 
-  app.get("/api/v1/me", async (req) => {
-    const p = currentPerson(req, cfg)!;
-    return { user: p.user, name: p.name, email: p.email, admin: p.admin, logout: "logout" };
-  });
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);

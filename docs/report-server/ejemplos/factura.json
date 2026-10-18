@@ -1,0 +1,59 @@
+{
+  "empresa": {
+    "nombre": "Conservas Demo del Norte, S.L.",
+    "nombre_comercial": "",
+    "nif": "B20128567",
+    "direccion": "Polígono Industrial Ibaiondo, nave 4",
+    "cp": "20800",
+    "poblacion": "Zarautz",
+    "linea_direccion": "Polígono Industrial Ibaiondo, nave 4 · 20800 Zarautz"
+  },
+  "numero": "F2026-00002",
+  "fecha": "2026-10-18",
+  "pedido": "PV2026-00002",
+  "forma_pago": "Transferencia, 30 días",
+  "cliente": {
+    "nombre": "Ultramarinos La Prueba, S.L.",
+    "nif": "B42350470",
+    "direccion": "Calle Mayor 12",
+    "cp": "42002",
+    "poblacion": "Soria",
+    "linea_direccion": "Calle Mayor 12 · 42002 Soria"
+  },
+  "lineas": [
+    {
+      "descripcion": "Mejillones en escabeche 120 g",
+      "cantidad": 96,
+      "precio": 2.75,
+      "descuento": 0,
+      "iva": 10,
+      "base": 264
+    },
+    {
+      "descripcion": "Anchoas del Cantábrico 100 g",
+      "cantidad": 24,
+      "precio": 6.8,
+      "descuento": 0,
+      "iva": 10,
+      "base": 163.2
+    }
+  ],
+  "desglose": [
+    {
+      "iva": 10,
+      "base": 427.2,
+      "cuota": 42.72,
+      "recargo_pct": 1.4,
+      "recargo": 5.98
+    }
+  ],
+  "base": 427.2,
+  "iva": 42.72,
+  "recargo": 5.98,
+  "retencion": 0,
+  "total": 475.9,
+  "cobrado": 0,
+  "pendiente": 475.9,
+  "qr": "https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=B20128567&numserie=F2026-00002&fecha=18-10-2026&importe=475.90",
+  "verifactu": "Factura verificable en la sede electrónica de la AEAT · VERI*FACTU"
+}

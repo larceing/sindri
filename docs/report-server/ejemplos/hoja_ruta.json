@@ -1,0 +1,40 @@
+{
+  "empresa": {
+    "nombre": "Conservas Demo del Norte, S.L.",
+    "nombre_comercial": "",
+    "nif": "B20128567",
+    "direccion": "Polígono Industrial Ibaiondo, nave 4",
+    "cp": "20800",
+    "poblacion": "Zarautz",
+    "linea_direccion": "Polígono Industrial Ibaiondo, nave 4 · 20800 Zarautz"
+  },
+  "numero": "HR2026-00001",
+  "fecha": "2026-10-18",
+  "conductor": "Conductor Demo",
+  "vehiculo": "1234-ABC",
+  "zona": "Castilla",
+  "notas": "",
+  "paradas": [
+    {
+      "orden": 1,
+      "cliente": "Distribuciones Muestra, S.L.",
+      "direccion": "Polígono San Antolín, parcela 7 · 34004 Palencia",
+      "telefono": "979 000 001",
+      "horario": "L-V 8:00-13:00",
+      "pedido": "PV2026-00003 / ALB2026-00003",
+      "mercancia": "120 ud BON-250",
+      "notas": ""
+    },
+    {
+      "orden": 2,
+      "cliente": "Supermercados Ejemplo, S.A.",
+      "direccion": "Carrer de la Indústria 40 · 08020 Barcelona",
+      "telefono": "930 000 000",
+      "horario": "L-S 6:00-11:00",
+      "pedido": "PV2026-00004",
+      "mercancia": "144 ud MEJ-120, 6 ud CAJ-24",
+      "notas": "Muelle 3, avisar al llegar"
+    }
+  ],
+  "total_paradas": 2
+}

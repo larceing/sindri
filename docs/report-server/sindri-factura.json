@@ -1,0 +1,932 @@
+{
+  "nombre": "sindri-factura",
+  "titulo": "Sindri · Factura",
+  "ejemplo": {
+    "empresa": {
+      "nombre": "Conservas Demo del Norte, S.L.",
+      "nombre_comercial": "",
+      "nif": "B20128567",
+      "direccion": "Polígono Industrial Ibaiondo, nave 4",
+      "cp": "20800",
+      "poblacion": "Zarautz",
+      "linea_direccion": "Polígono Industrial Ibaiondo, nave 4 · 20800 Zarautz"
+    },
+    "numero": "F2026-00002",
+    "fecha": "2026-10-18",
+    "pedido": "PV2026-00002",
+    "forma_pago": "Transferencia, 30 días",
+    "cliente": {
+      "nombre": "Ultramarinos La Prueba, S.L.",
+      "nif": "B42350470",
+      "direccion": "Calle Mayor 12",
+      "cp": "42002",
+      "poblacion": "Soria",
+      "linea_direccion": "Calle Mayor 12 · 42002 Soria"
+    },
+    "lineas": [
+      {
+        "descripcion": "Mejillones en escabeche 120 g",
+        "cantidad": 96,
+        "precio": 2.75,
+        "descuento": 0,
+        "iva": 10,
+        "base": 264
+      },
+      {
+        "descripcion": "Anchoas del Cantábrico 100 g",
+        "cantidad": 24,
+        "precio": 6.8,
+        "descuento": 0,
+        "iva": 10,
+        "base": 163.2
+      }
+    ],
+    "desglose": [
+      {
+        "iva": 10,
+        "base": 427.2,
+        "cuota": 42.72,
+        "recargo_pct": 1.4,
+        "recargo": 5.98
+      }
+    ],
+    "base": 427.2,
+    "iva": 42.72,
+    "recargo": 5.98,
+    "retencion": 0,
+    "total": 475.9,
+    "cobrado": 0,
+    "pendiente": 475.9,
+    "qr": "https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=B20128567&numserie=F2026-00002&fecha=18-10-2026&importe=475.90",
+    "verifactu": "Factura verificable en la sede electrónica de la AEAT · VERI*FACTU"
+  },
+  "plantilla": {
+    "basePdf": {
+      "width": 210,
+      "height": 297,
+      "padding": [
+        12,
+        15,
+        18,
+        15
+      ],
+      "staticSchema": [
+        {
+          "name": "raya-pie",
+          "type": "line",
+          "position": {
+            "x": 15,
+            "y": 282
+          },
+          "width": 180,
+          "height": 0.3,
+          "rotate": 0,
+          "opacity": 1,
+          "readOnly": true,
+          "color": "#dde3ea"
+        },
+        {
+          "name": "pie-pagina",
+          "type": "text",
+          "content": "Página {currentPage} de {totalPages}",
+          "position": {
+            "x": 15,
+            "y": 284
+          },
+          "width": 180,
+          "height": 4,
+          "rotate": 0,
+          "alignment": "right",
+          "verticalAlignment": "top",
+          "fontSize": 7,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#5b6675",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        }
+      ]
+    },
+    "schemas": [
+      [
+        {
+          "name": "emisor-nombre",
+          "type": "text",
+          "content": "{siVacio(empresa.nombre_comercial, empresa.nombre)}",
+          "position": {
+            "x": 15,
+            "y": 12
+          },
+          "width": 110,
+          "height": 8,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 15,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#15202b",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "emisor-datos",
+          "type": "text",
+          "content": "{empresa.nombre_comercial ? empresa.nombre + ' · ' : ''}NIF {empresa.nif}\n{empresa.linea_direccion}",
+          "position": {
+            "x": 15,
+            "y": 21
+          },
+          "width": 110,
+          "height": 10,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 8.5,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#5b6675",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "doc-titulo",
+          "type": "text",
+          "content": "FACTURA",
+          "position": {
+            "x": 125,
+            "y": 12
+          },
+          "width": 70,
+          "height": 8,
+          "rotate": 0,
+          "alignment": "right",
+          "verticalAlignment": "top",
+          "fontSize": 15,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#1f3a68",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "doc-numero",
+          "type": "text",
+          "content": "Nº {numero}\nFecha {comoFecha(fecha)}{pedido ? '\\nPedido ' + pedido : ''}",
+          "position": {
+            "x": 125,
+            "y": 21
+          },
+          "width": 70,
+          "height": 14,
+          "rotate": 0,
+          "alignment": "right",
+          "verticalAlignment": "top",
+          "fontSize": 9,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#15202b",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "raya-cabecera",
+          "type": "line",
+          "position": {
+            "x": 15,
+            "y": 37
+          },
+          "width": 180,
+          "height": 0.3,
+          "rotate": 0,
+          "opacity": 1,
+          "readOnly": true,
+          "color": "#1f3a68"
+        },
+        {
+          "name": "bloque-cliente-caja",
+          "type": "rectangle",
+          "position": {
+            "x": 15,
+            "y": 42
+          },
+          "width": 95,
+          "height": 28,
+          "rotate": 0,
+          "opacity": 1,
+          "borderWidth": 0.3,
+          "borderColor": "#dde3ea",
+          "color": "",
+          "readOnly": true,
+          "radius": 1.5
+        },
+        {
+          "name": "bloque-cliente-titulo",
+          "type": "text",
+          "content": "CLIENTE",
+          "position": {
+            "x": 18,
+            "y": 44.5
+          },
+          "width": 89,
+          "height": 4,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 7,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0.5,
+          "fontColor": "#5b6675",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "bloque-cliente",
+          "type": "text",
+          "content": "{cliente.nombre}\nNIF {cliente.nif}\n{cliente.linea_direccion}",
+          "position": {
+            "x": 18,
+            "y": 49
+          },
+          "width": 89,
+          "height": 19,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 9.5,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#15202b",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "bloque-pago-caja",
+          "type": "rectangle",
+          "position": {
+            "x": 113,
+            "y": 42
+          },
+          "width": 50,
+          "height": 28,
+          "rotate": 0,
+          "opacity": 1,
+          "borderWidth": 0.3,
+          "borderColor": "#dde3ea",
+          "color": "",
+          "readOnly": true,
+          "radius": 1.5
+        },
+        {
+          "name": "bloque-pago-titulo",
+          "type": "text",
+          "content": "FORMA DE PAGO",
+          "position": {
+            "x": 116,
+            "y": 44.5
+          },
+          "width": 44,
+          "height": 4,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 7,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0.5,
+          "fontColor": "#5b6675",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "bloque-pago",
+          "type": "text",
+          "content": "{siVacio(forma_pago, '—')}",
+          "position": {
+            "x": 116,
+            "y": 49
+          },
+          "width": 44,
+          "height": 19,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 9.5,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#15202b",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "qr",
+          "type": "qrcode",
+          "content": "https://www2.agenciatributaria.gob.es/",
+          "position": {
+            "x": 168,
+            "y": 41
+          },
+          "width": 27,
+          "height": 27,
+          "rotate": 0,
+          "opacity": 1,
+          "backgroundColor": "#ffffff",
+          "barColor": "#000000",
+          "readOnly": false
+        },
+        {
+          "name": "verifactu-leyenda",
+          "type": "text",
+          "content": "{verifactu ? 'VERI*FACTU' : ''}",
+          "position": {
+            "x": 166,
+            "y": 68.5
+          },
+          "width": 31,
+          "height": 4,
+          "rotate": 0,
+          "alignment": "center",
+          "verticalAlignment": "top",
+          "fontSize": 7,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#15202b",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "lineas",
+          "type": "table",
+          "position": {
+            "x": 15,
+            "y": 76
+          },
+          "width": 180,
+          "height": 20,
+          "content": "[[\"{descripcion}\",\"{conDecimales(cantidad, 0)}\",\"{enEuros(precio)}\",\"{descuento ? conDecimales(descuento) + ' %' : ''}\",\"{conDecimales(iva, 0)} %\",\"{enEuros(base)}\"]]",
+          "showHead": true,
+          "repeatHead": true,
+          "head": [
+            "Descripción",
+            "Cantidad",
+            "Precio",
+            "Dto.",
+            "IVA",
+            "Base"
+          ],
+          "headWidthPercentages": [
+            44,
+            11,
+            12,
+            9,
+            8,
+            16
+          ],
+          "tableStyles": {
+            "borderColor": "#dde3ea",
+            "borderWidth": 0.2
+          },
+          "headStyles": {
+            "alignment": "left",
+            "verticalAlignment": "middle",
+            "fontSize": 8.5,
+            "lineHeight": 1,
+            "characterSpacing": 0,
+            "fontColor": "#ffffff",
+            "backgroundColor": "#1f3a68",
+            "borderColor": "#1f3a68",
+            "borderWidth": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "padding": {
+              "top": 2.2,
+              "right": 2.5,
+              "bottom": 2.2,
+              "left": 2.5
+            }
+          },
+          "bodyStyles": {
+            "alignment": "left",
+            "verticalAlignment": "middle",
+            "fontSize": 8.5,
+            "lineHeight": 1.15,
+            "characterSpacing": 0,
+            "fontColor": "#15202b",
+            "backgroundColor": "",
+            "borderColor": "#dde3ea",
+            "borderWidth": {
+              "top": 0.1,
+              "right": 0,
+              "bottom": 0.1,
+              "left": 0
+            },
+            "padding": {
+              "top": 2,
+              "right": 2.5,
+              "bottom": 2,
+              "left": 2.5
+            },
+            "alternateBackgroundColor": "#f3f5f7"
+          },
+          "columnStyles": {
+            "alignment": {
+              "1": "right",
+              "2": "right",
+              "3": "right",
+              "4": "right",
+              "5": "right"
+            }
+          },
+          "readOnly": true
+        },
+        {
+          "name": "desglose",
+          "type": "table",
+          "position": {
+            "x": 85,
+            "y": 102
+          },
+          "width": 110,
+          "height": 20,
+          "content": "[[\"{conDecimales(iva, 0)} %\",\"{enEuros(base)}\",\"{enEuros(cuota)}\",\"{recargo ? conDecimales(recargo_pct, 1) + ' % · ' + enEuros(recargo) : ''}\"]]",
+          "showHead": true,
+          "repeatHead": true,
+          "head": [
+            "Tipo IVA",
+            "Base imponible",
+            "Cuota IVA",
+            "Recargo eq."
+          ],
+          "headWidthPercentages": [
+            18,
+            28,
+            24,
+            30
+          ],
+          "tableStyles": {
+            "borderColor": "#dde3ea",
+            "borderWidth": 0.2
+          },
+          "headStyles": {
+            "alignment": "left",
+            "verticalAlignment": "middle",
+            "fontSize": 8.5,
+            "lineHeight": 1,
+            "characterSpacing": 0,
+            "fontColor": "#ffffff",
+            "backgroundColor": "#1f3a68",
+            "borderColor": "#1f3a68",
+            "borderWidth": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "padding": {
+              "top": 2.2,
+              "right": 2.5,
+              "bottom": 2.2,
+              "left": 2.5
+            }
+          },
+          "bodyStyles": {
+            "alignment": "left",
+            "verticalAlignment": "middle",
+            "fontSize": 8.5,
+            "lineHeight": 1.15,
+            "characterSpacing": 0,
+            "fontColor": "#15202b",
+            "backgroundColor": "",
+            "borderColor": "#dde3ea",
+            "borderWidth": {
+              "top": 0.1,
+              "right": 0,
+              "bottom": 0.1,
+              "left": 0
+            },
+            "padding": {
+              "top": 2,
+              "right": 2.5,
+              "bottom": 2,
+              "left": 2.5
+            },
+            "alternateBackgroundColor": ""
+          },
+          "columnStyles": {
+            "alignment": {
+              "0": "right",
+              "1": "right",
+              "2": "right",
+              "3": "right"
+            }
+          },
+          "readOnly": true
+        },
+        {
+          "name": "totales-etiquetas",
+          "type": "text",
+          "content": "Base imponible\nIVA{recargo ? '\\nRecargo de equivalencia' : ''}{retencion ? '\\nRetención IRPF' : ''}",
+          "position": {
+            "x": 110,
+            "y": 122
+          },
+          "width": 50,
+          "height": 18,
+          "rotate": 0,
+          "alignment": "right",
+          "verticalAlignment": "top",
+          "fontSize": 9.5,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#15202b",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "totales-importes",
+          "type": "text",
+          "content": "{enEuros(base)}\n{enEuros(iva)}{recargo ? '\\n' + enEuros(recargo) : ''}{retencion ? '\\n−' + enEuros(retencion) : ''}",
+          "position": {
+            "x": 160,
+            "y": 122
+          },
+          "width": 35,
+          "height": 18,
+          "rotate": 0,
+          "alignment": "right",
+          "verticalAlignment": "top",
+          "fontSize": 9.5,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#15202b",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "total-caja",
+          "type": "rectangle",
+          "position": {
+            "x": 110,
+            "y": 142
+          },
+          "width": 85,
+          "height": 10,
+          "rotate": 0,
+          "opacity": 1,
+          "borderWidth": 0.3,
+          "borderColor": "#1f3a68",
+          "color": "#1f3a68",
+          "readOnly": true,
+          "radius": 1.5
+        },
+        {
+          "name": "total-etiqueta",
+          "type": "text",
+          "content": "TOTAL FACTURA",
+          "position": {
+            "x": 113,
+            "y": 144.5
+          },
+          "width": 40,
+          "height": 6,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 10,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#ffffff",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "total-importe",
+          "type": "text",
+          "content": "{enEuros(total)}",
+          "position": {
+            "x": 150,
+            "y": 144
+          },
+          "width": 42,
+          "height": 7,
+          "rotate": 0,
+          "alignment": "right",
+          "verticalAlignment": "top",
+          "fontSize": 12,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#ffffff",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "verifactu-texto",
+          "type": "text",
+          "content": "{verifactu}",
+          "position": {
+            "x": 15,
+            "y": 156
+          },
+          "width": 180,
+          "height": 5,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 7.5,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#5b6675",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        }
+      ]
+    ]
+  }
+}

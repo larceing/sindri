@@ -21,8 +21,10 @@ describe("Sistema de prueba: datos de demostración y acceso con clave", () => {
   it("carga los datos de demostración una sola vez", async () => {
     expect(await seedDemo(db)).toBe(true);
     expect(await seedDemo(db)).toBe(false);
-    const orders = await db.query<{ state: string }>("select state from sales_order");
+    const [first] = await db.query<{ id: string }>("select id from company order by created_at, id limit 1");
+    const orders = await db.query<{ state: string }>("select state from sales_order where company_id = $1", [first!.id]);
     expect(orders.map((o) => o.state).sort()).toEqual(["confirmed", "delivered", "draft", "invoiced", "invoiced"]);
+    expect(await db.query("select 1 from company")).toHaveLength(2);
     const chain = await db.query("select * from verifactu_record");
     expect(chain).toHaveLength(2);
   });
@@ -33,7 +35,16 @@ describe("Sistema de prueba: datos de demostración y acceso con clave", () => {
     expect(sin.statusCode).toBe(401);
     expect(sin.headers["www-authenticate"]).toContain("Basic");
     expect((await app.inject({ url: "/api/v1/invoices", headers: { authorization: basic("prueba", "mala") } })).statusCode).toBe(401);
-    const ok = await app.inject({ url: "/api/v1/invoices", headers: { authorization: basic("prueba", "una:clave") } });
+    const auth = { authorization: basic("prueba", "una:clave") };
+    // Con dos empresas, primero se elige con cuál se trabaja.
+    const elegir = await app.inject({ url: "/api/v1/invoices", headers: auth });
+    expect(elegir.statusCode).toBe(409);
+    expect(JSON.parse(elegir.body).code).toBe("elegir_empresa");
+    const me = JSON.parse((await app.inject({ url: "/api/v1/me", headers: auth })).body);
+    expect(me.needs_company).toBe(true);
+    const sel = await app.inject({ method: "POST", url: "/api/v1/session/company", headers: auth, payload: { company_id: me.companies[0].id } });
+    const cookie = String(sel.headers["set-cookie"]).split(";")[0]!;
+    const ok = await app.inject({ url: "/api/v1/invoices", headers: { ...auth, cookie } });
     expect(ok.statusCode).toBe(200);
     expect(JSON.parse(ok.body)).toHaveLength(2);
   });

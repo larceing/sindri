@@ -3,6 +3,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -21,11 +22,24 @@ export async function api<T = any>(path: string, init?: { method?: string; body?
   }
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new ApiError(data?.error ?? `Error ${res.status}`, res.status);
+  if (!res.ok) {
+    // La empresa elegida caducó (sesión nueva del navegador): la web vuelve a preguntar.
+    if (res.status === 409 && (data?.code === "elegir_empresa" || data?.code === "sin_empresa"))
+      window.dispatchEvent(new CustomEvent("sindri:empresa", { detail: data.code }));
+    throw new ApiError(data?.error ?? `Error ${res.status}`, res.status, data?.code);
+  }
   return data as T;
 }
 
 export const post = <T = any>(path: string, body: unknown = {}) => api<T>(path, { method: "POST", body });
+export const patch = <T = any>(path: string, body: unknown) => api<T>(path, { method: "PATCH", body });
+export const put = <T = any>(path: string, body: unknown) => api<T>(path, { method: "PUT", body });
+export const del = <T = any>(path: string) => api<T>(path, { method: "DELETE" });
+
+/** Quita los campos vacíos: en un alta lo vacío no se manda. */
+export const sinVacios = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== "" && v !== undefined));
+/** En una modificación lo vacío se manda como null (borra el dato). */
+export const vaciosANull = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v === "" ? null : v]));
 
 /*
  * Formato es-ES para tablas: agrupación SIEMPRE (Intl es-ES no agrupa 4 cifras por defecto y
@@ -74,4 +88,7 @@ export const STATE_LABEL: Record<string, string> = {
   pending: "Pendiente de envío",
   sent: "Enviado",
   error: "Error de envío",
+  on_route: "En ruta",
+  closed: "Cerrada",
+  incident: "Incidencia",
 };

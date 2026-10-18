@@ -10,9 +10,24 @@ ERP + CRM **open source** para pymes industriales españolas. Funciona **sin dep
 
 Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 
-## Qué hace ya (versión 0.1)
+## Qué hace ya (versión 0.2)
 
-**Ciclo completo:** cliente → pedido → albarán → factura → cobro.
+**Ciclo completo:** cliente → pedido → hoja de ruta → albarán → factura → cobro.
+
+**Usuarios y empresas**
+- Varias empresas, cada una con sus datos, numeración y cadena VERI*FACTU. Quien trabaja en varias elige al entrar y puede cambiar sin salir.
+- Roles con permisos por parte de Sindri (sin acceso, ver, ver y cambiar) y departamentos.
+- Cada persona coloca su menú a la izquierda, arriba o abajo, lo ordena y oculta lo que no usa.
+
+**Comercial**
+- Ficha de cliente completa: datos, dirección fiscal, condiciones (forma y días de pago, límite de crédito, descuento, IBAN), comercial, contactos, direcciones de entrega con horario, y sus pedidos y facturas.
+- Comerciales de plantilla y representantes externos, con zona, comisión y lo facturado y su comisión del mes y del año.
+- Pedidos con comercial, dirección y fecha de entrega. Separar un pedido: pasar cantidades a un pedido nuevo.
+- Hojas de ruta: pedidos por zona, orden de paradas, salida, entregado o incidencia por parada y cierre.
+
+**Informes**
+- Facturas, pedidos, albaranes y hojas de ruta en PDF con el Report Server ([docs/report-server](docs/report-server/README.md)); sin él, se imprimen con el navegador.
+- Datos en CSV, XML o JSON para Excel o cualquier herramienta de informes, con lectores de solo lectura que se pueden revocar.
 
 **Datos maestros**
 - Empresa, clientes y proveedores con validación de NIF/NIE/CIF.

@@ -1,3 +1,4 @@
+import { DocButton } from "../docs";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { eur, fecha, pct, post, qty } from "../api";
@@ -48,7 +49,7 @@ export function InvoicePage({ id }: { id: string }) {
       title={inv.number ? `Factura ${inv.number}` : "Factura (borrador)"}
       actions={<>
         {inv.actions.includes("issue") && <button className="primary" disabled={busy} onClick={issue}>Emitir factura</button>}
-        <button onClick={() => window.print()}>Imprimir</button>
+        {inv.state === "draft" ? <button onClick={() => window.print()}>Imprimir borrador</button> : <DocButton tipo="factura" id={id} label="Imprimir" />}
       </>}
     >
       <div className="invoice">

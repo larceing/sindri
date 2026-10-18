@@ -13,6 +13,7 @@
 import { fileURLToPath } from "node:url";
 import { startServer } from "./start.js";
 import { ssoFromEnv } from "./sso.js";
+import { reportServerFromEnv } from "./documentos.js";
 
 // En PRO los datos son de verdad: sin PostgreSQL no arranca (la base integrada vale para
 // el PC, para local y para la versión 0 en DEV mientras el servidor no dé PostgreSQL).
@@ -36,6 +37,7 @@ const server = await startServer({
   auth: process.env.SINDRI_USUARIO && process.env.SINDRI_CLAVE
     ? { user: process.env.SINDRI_USUARIO, password: process.env.SINDRI_CLAVE }
     : undefined,
+  reportServer: reportServerFromEnv(),
   demo: process.env.SINDRI_DEMO === "1" || (process.env.SERVIDOR_ENTORNO === "dev" && process.env.SINDRI_DEMO !== "0"),
 });
 if (!process.env.SINDRI_USUARIO && process.env.AUTH_MODO !== "sso" && process.env.SINDRI_HOST === "0.0.0.0")

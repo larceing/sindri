@@ -33,6 +33,7 @@ describe("Entrada con Keycloak en el servidor DEV/PRO", () => {
     kc = fake.kc;
     db = await openEmbedded();
     await migrate(db);
+    await db.query("insert into company (name, tax_id) values ('Metal Demo SL', 'B12345674')");
     cfg = { issuer: fake.issuer, clientId: "sindri-dev", clientSecret: "secreto", appGroup: "DEV/Sindri", itGroup: "IT", sessionKey: "k" };
     app = await buildApp({ db, sso: cfg, version: "sha-abc1234", trustProxy: true });
   });

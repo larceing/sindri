@@ -1,39 +1,53 @@
-import { Boxes, Building2, Factory, FileText, Home, Package, ShieldCheck, ShoppingCart, Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Building2, ChevronDown, LogOut, Menu as MenuIcon } from "lucide-react";
+import { post } from "./api";
 import { useData } from "./hooks";
 import { navigate, useRoute } from "./router";
 import { usePrefs, type Densidad, type Modo, type Tema } from "./prefs";
-import { Alert } from "./ui";
+import { menuDe, SessionProvider, useSession, type Me } from "./session";
+import { Alert, Page } from "./ui";
 import { HomePage } from "./pages/Home";
 import { CompanyPage } from "./pages/Company";
-import { PartnersPage } from "./pages/Partners";
+import { PartnerPage, PartnersPage } from "./pages/Partners";
 import { ProductsPage } from "./pages/Products";
 import { StockPage } from "./pages/Stock";
 import { NewOrderPage, OrderPage, OrdersPage } from "./pages/Orders";
 import { InvoicePage, InvoicesPage } from "./pages/Invoices";
 import { VerifactuPage } from "./pages/Verifactu";
 import { PlantPage } from "./pages/Plant";
+import { RepsPage } from "./pages/Reps";
+import { RoutePage, RoutesPage } from "./pages/Routes";
+import { UsersPage } from "./pages/Users";
+import { ReportsPage } from "./pages/Reports";
+import { MyMenuPage } from "./pages/MyMenu";
 
-const NAV = [
-  ["/inicio", "Inicio", Home],
-  ["/pedidos", "Pedidos", ShoppingCart],
-  ["/facturas", "Facturas", FileText],
-  ["/clientes", "Clientes", Users],
-  ["/productos", "Productos", Package],
-  ["/almacen", "Almacén", Boxes],
-  ["/planta", "Planta", Factory],
-  ["/verifactu", "VERI*FACTU", ShieldCheck],
-  ["/empresa", "Empresa", Building2],
-] as const;
+/** Qué módulo (permiso) necesita cada pantalla. */
+const SECCION_MODULO: Record<string, string> = {
+  pedidos: "pedidos", rutas: "rutas", facturas: "facturas", clientes: "clientes", comerciales: "comerciales",
+  productos: "productos", almacen: "almacen", planta: "planta", verifactu: "verifactu", informes: "informes",
+  empresa: "empresa", usuarios: "usuarios",
+};
 
-function Screen({ route }: { route: string }) {
-  const [, section, id] = route.split("/");
+function Screen({ route, me }: { route: string; me: Me }) {
+  const [, section = "", id] = route.split("?")[0]!.split("/");
+  const mod = SECCION_MODULO[section];
+  if (mod && !me.perms[mod])
+    return (
+      <Page title="Sin acceso">
+        <Alert tone="aviso">Tu rol ({me.role ?? "sin rol"}) no da acceso a esta parte de Sindri. Si la necesitas, pídeselo a administración.</Alert>
+      </Page>
+    );
   switch (section) {
     case "pedidos":
       return id === "nuevo" ? <NewOrderPage /> : id ? <OrderPage id={id} /> : <OrdersPage />;
+    case "rutas":
+      return id ? <RoutePage id={id} /> : <RoutesPage />;
     case "facturas":
       return id ? <InvoicePage id={id} /> : <InvoicesPage />;
     case "clientes":
-      return <PartnersPage />;
+      return id ? <PartnerPage id={id} /> : <PartnersPage />;
+    case "comerciales":
+      return <RepsPage />;
     case "productos":
       return <ProductsPage />;
     case "almacen":
@@ -42,14 +56,20 @@ function Screen({ route }: { route: string }) {
       return <PlantPage />;
     case "verifactu":
       return <VerifactuPage />;
+    case "informes":
+      return <ReportsPage />;
     case "empresa":
       return <CompanyPage />;
+    case "usuarios":
+      return <UsersPage tab={id} />;
+    case "mi-menu":
+      return <MyMenuPage />;
     default:
       return <HomePage />;
   }
 }
 
-/** Marca: un crisol/lingote estilizado. Monocromo, legible a 16 px y en impresión térmica. */
+/** Marca: un yunque estilizado. Monocromo, legible a 16 px y en impresión térmica. */
 export const BrandMark = () => (
   <svg className="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
     {/* Yunque: Sindri, el herrero que forjó el martillo de Thor */}
@@ -59,55 +79,191 @@ export const BrandMark = () => (
 );
 
 export function App() {
-  const route = useRoute();
-  const [prefs, setPrefs] = usePrefs();
-  const { data: health } = useData("/health");
-  const { data: me } = useData("/me");
-  const { data: company, loading } = useData(`/company?v=${route === "/empresa" ? 1 : 0}`);
   return (
-    <div className="shell">
-      <nav className="side" aria-label="Menú principal">
-        <div className="brand"><BrandMark /> Sindri</div>
-        {NAV.map(([path, label, Icon]) => (
-          <a key={path} href={`#${path}`} className={route.startsWith(path) || (path === "/inicio" && route === "/") ? "active" : ""}>
-            <Icon size={18} aria-hidden /> {label}
-          </a>
-        ))}
-        <div className="prefs">
-          {me && (
-            <div className="conn">
-              {me.name} · <a className="salir" href="./logout">Salir</a>
-            </div>
-          )}
-          <div className="conn">
-            {health ? <><span className="dot" /> {health.db === "embedded" ? "Base de datos integrada" : "Servidor de la empresa"}</> : "Conectando…"}
-          </div>
-          <select aria-label="Modo" value={prefs.modo} onChange={(e) => setPrefs({ modo: e.target.value as Modo })}>
-            <option value="oficina">Modo oficina</option>
-            <option value="taller">Modo taller</option>
-          </select>
-          <select aria-label="Tema" value={prefs.tema} onChange={(e) => setPrefs({ tema: e.target.value as Tema })}>
-            <option value="sistema">Tema del sistema</option>
-            <option value="claro">Claro / día</option>
-            <option value="oscuro">Oscuro / noche</option>
-          </select>
-          <select aria-label="Densidad" value={prefs.densidad} onChange={(e) => setPrefs({ densidad: e.target.value as Densidad })}>
-            <option value="compacta">Densidad compacta</option>
-            <option value="normal">Densidad normal</option>
-            <option value="comoda">Densidad cómoda</option>
-            <option value="tactil">Táctil</option>
-            <option value="guantes">Con guantes</option>
-          </select>
+    <SessionProvider>
+      <Shell />
+    </SessionProvider>
+  );
+}
+
+/** Al entrar, si trabaja en varias empresas, elige en cuál (como en cualquier ERP). */
+function CompanyChooser({ me, onChosen, onCancel }: { me: Me; onChosen: () => void; onCancel?: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const preferida = me.company ?? me.last_company;
+  const ordenadas = [...me.companies].sort((a, b) => (a.id === preferida ? -1 : b.id === preferida ? 1 : a.name.localeCompare(b.name)));
+  const elegir = async (id: string) => {
+    setBusy(true);
+    try {
+      await post("/session/company", { company_id: id });
+      onChosen();
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="chooser">
+      <div className="chooser-box">
+        <div className="brand brand-dark"><BrandMark /> Sindri</div>
+        <h1>Hola, {me.name.split(" ")[0]}</h1>
+        <p className="hint">¿Con qué empresa vas a trabajar?</p>
+        <div className="chooser-list">
+          {ordenadas.map((c, i) => (
+            <button key={c.id} className="chooser-item" disabled={busy} autoFocus={i === 0} onClick={() => elegir(c.id)}>
+              <Building2 size={22} aria-hidden />
+              <span>
+                <b>{c.trade_name || c.name}</b>
+                <small>{c.trade_name ? `${c.name} · ` : ""}NIF {c.tax_id}</small>
+              </span>
+              {c.id === preferida && <em>{c.id === me.company ? "En uso" : "La última vez"}</em>}
+            </button>
+          ))}
         </div>
-      </nav>
-      <main>
-        {!loading && company === null && route !== "/empresa" && (
+        {error && <Alert tone="error">{error}</Alert>}
+        {onCancel && <button className="link" onClick={onCancel}>Seguir con la empresa actual</button>}
+      </div>
+    </div>
+  );
+}
+
+function UserMenu({ me, onCambiarEmpresa, arriba }: { me: Me; onCambiarEmpresa: () => void; arriba?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [prefs, setPrefs] = usePrefs();
+  const { empresa } = useSession();
+  const { data: health } = useData("/health");
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  return (
+    <div className={`usermenu ${arriba ? "up" : ""}`} ref={ref}>
+      <button className="usermenu-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="avatar" aria-hidden>{me.name.slice(0, 1).toUpperCase()}</span>
+        <span className="usermenu-txt">
+          <b>{me.name}</b>
+          <small>{empresa ? empresa.trade_name || empresa.name : "Sin empresa"}</small>
+        </span>
+        <ChevronDown size={16} aria-hidden />
+      </button>
+      {open && (
+        <div className="usermenu-panel" role="dialog" aria-label="Tu cuenta">
+          <p className="usermenu-who">
+            <b>{me.name}</b>
+            <small>{[me.role, me.department].filter(Boolean).join(" · ") || "Sin rol"}</small>
+          </p>
+          {me.companies.length > 1 && (
+            <button onClick={() => { setOpen(false); onCambiarEmpresa(); }}>
+              <Building2 size={16} aria-hidden /> Cambiar de empresa
+            </button>
+          )}
+          <button onClick={() => { setOpen(false); navigate("/mi-menu"); }}>
+            <MenuIcon size={16} aria-hidden /> Mi menú
+          </button>
+          <div className="usermenu-prefs">
+            <select aria-label="Modo" value={prefs.modo} onChange={(e) => setPrefs({ modo: e.target.value as Modo })}>
+              <option value="oficina">Modo oficina</option>
+              <option value="taller">Modo taller</option>
+            </select>
+            <select aria-label="Tema" value={prefs.tema} onChange={(e) => setPrefs({ tema: e.target.value as Tema })}>
+              <option value="sistema">Tema del sistema</option>
+              <option value="claro">Claro / día</option>
+              <option value="oscuro">Oscuro / noche</option>
+            </select>
+            <select aria-label="Densidad" value={prefs.densidad} onChange={(e) => setPrefs({ densidad: e.target.value as Densidad })}>
+              <option value="compacta">Densidad compacta</option>
+              <option value="normal">Densidad normal</option>
+              <option value="comoda">Densidad cómoda</option>
+              <option value="tactil">Táctil</option>
+              <option value="guantes">Con guantes</option>
+            </select>
+          </div>
+          <p className="conn">
+            {health ? <><span className="dot" /> {health.db === "embedded" ? "Base de datos integrada" : "Servidor de la empresa"}</> : "Conectando…"}
+          </p>
+          {me.logout && (
+            <a className="usermenu-salir" href={`./${me.logout}`}>
+              <LogOut size={16} aria-hidden /> Salir
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Shell() {
+  const route = useRoute();
+  const { me, error, reload } = useSession();
+  const [elegir, setElegir] = useState(false);
+  // Al cambiar de empresa se vuelve a montar todo para que ninguna pantalla enseñe datos de la otra.
+  const [gen, setGen] = useState(0);
+
+  if (!me)
+    return (
+      <div className="chooser">
+        <div className="chooser-box">
+          <div className="brand brand-dark"><BrandMark /> Sindri</div>
+          {error ? <Alert tone="error">{error}</Alert> : <p className="hint">Entrando…</p>}
+        </div>
+      </div>
+    );
+  if (me.needs_company || elegir)
+    return (
+      <CompanyChooser
+        me={me}
+        onCancel={elegir && me.company ? () => setElegir(false) : undefined}
+        onChosen={async () => {
+          setElegir(false);
+          await reload();
+          setGen((g) => g + 1);
+          if (elegir) navigate("/inicio");
+        }}
+      />
+    );
+
+  const posicion = me.menu?.posicion ?? "lateral";
+  const items = menuDe(me);
+  const active = (path: string) => route.startsWith(path) || (path === "/inicio" && route === "/");
+  const nav = items.map((m) => (
+    <a key={m.id} href={`#${m.path}`} className={active(m.path) ? "active" : ""} aria-current={active(m.path) ? "page" : undefined}>
+      <m.icon size={18} aria-hidden /> <span>{m.label}</span>
+    </a>
+  ));
+  const userMenu = <UserMenu me={me} arriba={posicion === "lateral"} onCambiarEmpresa={() => setElegir(true)} />;
+
+  return (
+    <div className={`shell shell-${posicion}`}>
+      {posicion === "lateral" ? (
+        <nav className="side" aria-label="Menú principal">
+          <div className="brand"><BrandMark /> Sindri</div>
+          {nav}
+          <div className="side-foot">{userMenu}</div>
+        </nav>
+      ) : (
+        <header className="topbar">
+          <div className="brand"><BrandMark /> Sindri</div>
+          {posicion === "superior" ? <nav className="topnav" aria-label="Menú principal">{nav}</nav> : <div className="grow" />}
+          {userMenu}
+        </header>
+      )}
+      <main key={`${me.company}-${gen}`}>
+        {me.companies.length === 0 && route !== "/empresa" && (
           <Alert tone="aviso">
             Primero configura los datos de tu empresa. <button className="link" onClick={() => navigate("/empresa")}>Configurar</button>
           </Alert>
         )}
-        <Screen route={route} />
+        <Screen route={route} me={me} />
       </main>
+      {posicion === "inferior" && <nav className="bottomnav" aria-label="Menú principal">{nav}</nav>}
     </div>
   );
 }
