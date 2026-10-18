@@ -277,7 +277,7 @@ export function registerUsuarios(app: FastifyInstance, db: Db, person: (req: Fas
       name: u?.name ?? s.person.name ?? s.person.user,
       email: u?.email ?? s.person.email ?? "",
       admin: s.admin,
-      role: u?.role_name ?? (s.person.admin ? "Administración (Keycloak)" : null),
+      role: u?.role_name ?? (s.person.admin ? "Administración" : null),
       department: u?.department_name ?? null,
       perms: s.perms,
       menu: u?.menu ?? null,

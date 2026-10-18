@@ -1,0 +1,43 @@
+{
+  "empresa": {
+    "nombre": "Conservas Demo del Norte, S.L.",
+    "nombre_comercial": "",
+    "nif": "B20128567",
+    "direccion": "Polígono Industrial Ibaiondo, nave 4",
+    "cp": "20800",
+    "poblacion": "Zarautz",
+    "linea_direccion": "Polígono Industrial Ibaiondo, nave 4 · 20800 Zarautz"
+  },
+  "numero": "PV2026-00003",
+  "pedido": "PV2026-00003",
+  "fecha": "2026-10-18",
+  "fecha_entrega": "2026-10-18",
+  "comercial": "Ana Comercial Demo",
+  "cliente": {
+    "nombre": "Distribuciones Muestra, S.L.",
+    "nif": "B34182691",
+    "telefono": "979 000 000",
+    "linea_direccion": "Avenida de Castilla 3 · 34004 Palencia"
+  },
+  "entrega": {
+    "nombre": "Almacén Palencia",
+    "linea_direccion": "Polígono San Antolín, parcela 7 · 34004 Palencia",
+    "horario": "L-V 8:00-13:00",
+    "telefono": "979 000 001"
+  },
+  "lineas": [
+    {
+      "referencia": "BON-250",
+      "descripcion": "Bonito del norte en aceite de oliva 250 g",
+      "cantidad": 120,
+      "unidad": "ud",
+      "precio": 4.95,
+      "descuento": 0,
+      "base": 594
+    }
+  ],
+  "base": 594,
+  "iva": 59.4,
+  "total": 653.4,
+  "notas": ""
+}

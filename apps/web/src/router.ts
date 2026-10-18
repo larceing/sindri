@@ -15,3 +15,6 @@ export function useRoute(): string {
   }, []);
   return route;
 }
+
+/** Parámetro tras «?» en el hash (#/pedidos/nuevo?cliente=…). */
+export const queryParam = (k: string) => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get(k);

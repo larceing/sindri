@@ -35,10 +35,15 @@ export const DOCUMENTOS = {
 export type TipoDocumento = keyof typeof DOCUMENTOS;
 
 const n = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number(v));
-const join = (...parts: unknown[]) => parts.filter((p) => p !== null && p !== undefined && String(p).trim() !== "").join(" ");
+const lleno = (p: unknown) => p !== null && p !== undefined && String(p).trim() !== "";
+const join = (...parts: unknown[]) => parts.filter(lleno).join(" ");
+/** «Calle 1 · 20800 Zarautz», sin separadores sueltos si falta algo. */
+const lineaDir = (dir: unknown, cp: unknown, pob: unknown) => [dir, join(cp, pob)].filter(lleno).join(" · ");
+/** Fecha como día (AAAA-MM-DD), venga como texto o como Date. */
+const dia = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : lleno(v) ? String(v).slice(0, 10) : "");
 
 function empresa(c: Record<string, any>) {
-  return { nombre: c.name, nombre_comercial: c.trade_name ?? "", nif: c.tax_id, direccion: c.address ?? "", cp: c.postal_code ?? "", poblacion: c.city ?? "", linea_direccion: join(c.address, "·", c.postal_code, c.city) };
+  return { nombre: c.name, nombre_comercial: c.trade_name ?? "", nif: c.tax_id, direccion: c.address ?? "", cp: c.postal_code ?? "", poblacion: c.city ?? "", linea_direccion: lineaDir(c.address, c.postal_code, c.city) };
 }
 
 /** Los datos que recibe cada plantilla. Los importes van como números: la plantilla les da formato. */
@@ -49,12 +54,14 @@ export async function datosDocumento(q: Queryable, ctx: Ctx, tipo: TipoDocumento
     if (f.state === "draft") throw new BusinessError("Una factura en borrador no se imprime: emítela primero", 409);
     const cli = f.partner_snapshot ?? {};
     const [orden] = f.order_id ? await q.query<{ number: string }>("select number from sales_order where id = $1", [f.order_id]) : [];
+    const [pago] = await q.query<{ payment_method: string | null; payment_days: number | null }>("select payment_method, payment_days from partner where id = $1", [f.partner_id]);
     return {
       empresa: empresa(company),
       numero: f.number,
-      fecha: f.issue_date,
+      fecha: dia(f.issue_date),
       pedido: orden?.number ?? "",
-      cliente: { nombre: cli.name, nif: cli.tax_id, direccion: cli.address ?? "", cp: cli.postal_code ?? "", poblacion: cli.city ?? "", linea_direccion: join(cli.address, "·", cli.postal_code, cli.city) },
+      forma_pago: [pago?.payment_method, pago?.payment_days ? `${pago.payment_days} días` : null].filter(lleno).join(", "),
+      cliente: { nombre: cli.name, nif: cli.tax_id, direccion: cli.address ?? "", cp: cli.postal_code ?? "", poblacion: cli.city ?? "", linea_direccion: lineaDir(cli.address, cli.postal_code, cli.city) },
       lineas: f.lines.map((l: Record<string, string>) => ({
         descripcion: l.description, cantidad: n(l.quantity), precio: n(l.unit_price), descuento: n(l.discount_pct), iva: n(l.vat_rate), base: n(l.base),
       })),
@@ -77,13 +84,13 @@ export async function datosDocumento(q: Queryable, ctx: Ctx, tipo: TipoDocumento
       empresa: empresa(company),
       numero: tipo === "albaran" ? alb!.number : o.number,
       pedido: o.number,
-      fecha: tipo === "albaran" ? String(alb!.done_at).slice(0, 10) : o.order_date,
-      fecha_entrega: o.delivery_date ?? "",
+      fecha: dia(tipo === "albaran" ? alb!.done_at : o.order_date),
+      fecha_entrega: dia(o.delivery_date),
       comercial: o.sales_rep_name ?? "",
-      cliente: { nombre: cli!.name, nif: cli!.tax_id ?? "", telefono: cli!.phone ?? "", linea_direccion: join(cli!.address, "·", cli!.postal_code, cli!.city) },
+      cliente: { nombre: cli!.name, nif: cli!.tax_id ?? "", telefono: cli!.phone ?? "", linea_direccion: lineaDir(cli!.address, cli!.postal_code, cli!.city) },
       entrega: {
         nombre: a?.label ?? cli!.name,
-        linea_direccion: a ? join(a.address, "·", a.postal_code, a.city) : join(cli!.address, "·", cli!.postal_code, cli!.city),
+        linea_direccion: a ? lineaDir(a.address, a.postal_code, a.city) : lineaDir(cli!.address, cli!.postal_code, cli!.city),
         horario: a?.schedule ?? "",
         telefono: a?.phone ?? cli!.phone ?? "",
       },
@@ -98,7 +105,7 @@ export async function datosDocumento(q: Queryable, ctx: Ctx, tipo: TipoDocumento
   return {
     empresa: empresa(company),
     numero: r.number,
-    fecha: r.route_date,
+    fecha: dia(r.route_date),
     conductor: r.driver ?? "",
     vehiculo: r.vehicle ?? "",
     zona: r.zone ?? "",
@@ -106,7 +113,7 @@ export async function datosDocumento(q: Queryable, ctx: Ctx, tipo: TipoDocumento
     paradas: r.stops.map((s: Record<string, any>) => ({
       orden: s.position,
       cliente: s.partner_name,
-      direccion: join(s.address, "·", s.postal_code, s.city),
+      direccion: lineaDir(s.address, s.postal_code, s.city),
       telefono: s.phone ?? "",
       horario: s.schedule ?? "",
       pedido: s.delivery_number ? `${s.order_number} / ${s.delivery_number}` : s.order_number,
