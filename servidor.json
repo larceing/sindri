@@ -1,0 +1,13 @@
+{
+  "nombre": "Sindri ERP",
+  "ruta": "sindri",
+  "grupo": "Sindri",
+  "puerto": 3210,
+  "prefijo": "quitar",
+  "version": "version/",
+  "despliegue": {
+    "tipo": "servidor",
+    "imagen": "ghcr.io/larceing/sindri",
+    "memoria_mb": 384
+  }
+}

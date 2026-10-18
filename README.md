@@ -82,6 +82,10 @@ Para generar los instaladores de escritorio: `pnpm --filter @sindri/desktop dist
 
 Las pruebas contra PostgreSQL real se activan con `TEST_DATABASE_URL=postgres://...`.
 
+## En el servidor DEV/PRO
+
+Sindri se da de alta como una app más del servidor común (`servidor.json`, imagen en GHCR y entrada con Keycloak): ver [docs/SERVIDOR-DEV-PRO.md](docs/SERVIDOR-DEV-PRO.md).
+
 ## Sistema de prueba en un servidor
 
 Con Docker, en un servidor Linux: ver [despliegue/README.md](despliegue/README.md). Monta la web, la API y PostgreSQL, con usuario y clave y datos de demostración.

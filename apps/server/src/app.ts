@@ -7,6 +7,7 @@ import { z, ZodError } from "zod";
 import { TransitionError } from "@sindri/core";
 import type { Db } from "./db.js";
 import * as s from "./services.js";
+import { registerSso, type SsoConfig } from "./sso.js";
 
 const dec = z.union([z.string(), z.number()]).transform(String).refine((v) => /^-?\d+([.,]\d+)?$/.test(v.trim()), "Número no válido");
 const optText = z.string().trim().min(1).nullish();
@@ -81,6 +82,12 @@ export interface AppOptions {
   logger?: boolean;
   /** Usuario y clave de acceso. Si se indican, todo salvo /api/health pide identificarse. */
   auth?: { user: string; password: string };
+  /** Entrada con Keycloak (servidor DEV/PRO). Si está, sustituye a `auth`. */
+  sso?: SsoConfig;
+  /** Versión que corre (la etiqueta de la imagen, p. ej. sha-1a2b3c4). Se publica en /version/. */
+  version?: string;
+  /** Detrás de un proxy: fiarse de X-Forwarded-Proto y X-Forwarded-Host. */
+  trustProxy?: boolean;
 }
 
 const sameText = (a: string, b: string) => {
@@ -89,12 +96,18 @@ const sameText = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-export async function buildApp({ db, webDir, logger = false, auth }: AppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger });
+export async function buildApp({ db, webDir, logger = false, auth, sso, version = "dev", trustProxy = false }: AppOptions): Promise<FastifyInstance> {
+  const app = Fastify({ logger, trustProxy });
+
+  // Página de versión que lee el servidor DEV/PRO (punto verde, «Pasar a PRO»).
+  app.get("/version", async () => ({ version }));
+  app.get("/version/", async () => ({ version }));
+
+  if (sso) registerSso(app, sso);
 
   // Acceso con usuario y clave (autenticación básica de HTTP). Pensado para el sistema
   // de prueba: hasta que existan usuarios y permisos, impide que entre cualquiera.
-  if (auth) {
+  if (auth && !sso) {
     app.addHook("onRequest", async (req, reply) => {
       if (req.url === "/api/health") return;
       const header = req.headers.authorization ?? "";
@@ -120,7 +133,7 @@ export async function buildApp({ db, webDir, logger = false, auth }: AppOptions)
     return reply.status(500).send({ error: "Error interno" });
   });
 
-  app.get("/api/health", async () => ({ ok: true, db: db.kind, version: "0.1.0" }));
+  app.get("/api/health", async () => ({ ok: true, db: db.kind, version }));
 
   app.get("/api/company", async () => s.getCompany(db));
   app.put("/api/company", async (req) => s.setupCompany(db, CompanySchema.parse(req.body)));

@@ -19,7 +19,10 @@ RUN --mount=type=secret,id=ca,required=false \
  && cp -r apps/web/dist /app/web
 
 FROM node:22-bookworm-slim
-ENV NODE_ENV=production \
+# Etiqueta de la imagen (sha-xxxxxxx o vX.Y.Z): se publica en /version/.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION \
+    NODE_ENV=production \
     SINDRI_HOST=0.0.0.0 \
     PORT=3210 \
     SINDRI_WEB_DIR=/app/web \

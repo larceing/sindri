@@ -26,6 +26,7 @@ body {
 .prefs select { background: transparent; color: var(--lateral-texto); border-color: #ffffff2e; min-height: 28px; padding: 0 var(--s-1); font-size: var(--t-xs); }
 .prefs option { color: #181d24; }
 .conn { display: flex; align-items: center; gap: var(--s-1); }
+.prefs a.salir { display: inline; padding: 0; min-height: 0; color: var(--lateral-texto); text-decoration: underline; }
 .dot { width: 8px; height: 8px; border-radius: var(--r-full); background: var(--ok-9); }
 main { padding: var(--s-6) var(--s-8); min-width: 0; max-width: 1440px; }
 

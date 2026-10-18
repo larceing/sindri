@@ -58,6 +58,7 @@ export function App() {
   const route = useRoute();
   const [prefs, setPrefs] = usePrefs();
   const { data: health } = useData("/health");
+  const { data: me } = useData("/me");
   const { data: company, loading } = useData(`/company?v=${route === "/empresa" ? 1 : 0}`);
   return (
     <div className="shell">
@@ -69,8 +70,13 @@ export function App() {
           </a>
         ))}
         <div className="prefs">
+          {me && (
+            <div className="conn">
+              {me.name} · <a className="salir" href="./logout">Salir</a>
+            </div>
+          )}
           <div className="conn">
-            {health ? <><span className="dot" /> {health.db === "embedded" ? "Modo local (sin servidor)" : "Servidor de la empresa"}</> : "Conectando…"}
+            {health ? <><span className="dot" /> {health.db === "embedded" ? "Base de datos integrada" : "Servidor de la empresa"}</> : "Conectando…"}
           </div>
           <select aria-label="Modo" value={prefs.modo} onChange={(e) => setPrefs({ modo: e.target.value as Modo })}>
             <option value="oficina">Modo oficina</option>

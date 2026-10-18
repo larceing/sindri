@@ -13,6 +13,9 @@ export interface StartOptions {
   webDir?: string;
   logger?: boolean;
   auth?: { user: string; password: string };
+  sso?: import("./sso.js").SsoConfig;
+  version?: string;
+  trustProxy?: boolean;
   /** Carga datos de demostración si la base está vacía. */
   demo?: boolean;
 }
@@ -27,7 +30,7 @@ export async function startServer(o: StartOptions = {}): Promise<RunningServer> 
   const db = o.databaseUrl ? openPostgres(o.databaseUrl) : await openEmbedded(o.dataDir);
   await migrate(db);
   if (o.demo) await seedDemo(db);
-  const app = await buildApp({ db, webDir: o.webDir, logger: o.logger ?? false, auth: o.auth });
+  const app = await buildApp({ db, webDir: o.webDir, logger: o.logger ?? false, auth: o.auth, sso: o.sso, version: o.version, trustProxy: o.trustProxy });
   const address = await app.listen({ host: o.host ?? "127.0.0.1", port: o.port ?? 3210 });
   return {
     url: address,

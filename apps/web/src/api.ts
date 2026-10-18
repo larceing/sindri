@@ -14,6 +14,11 @@ export async function api<T = any>(path: string, init?: { method?: string; body?
     headers: init?.body !== undefined ? { "content-type": "application/json" } : undefined,
     body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
   });
+  // Con Keycloak, una sesión caducada se renueva volviendo a entrar (con usuario y clave lo pide el navegador).
+  if (res.status === 401 && !res.headers.get("www-authenticate")) {
+    window.location.assign("./login");
+    return new Promise<T>(() => {});
+  }
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) throw new ApiError(data?.error ?? `Error ${res.status}`, res.status);
