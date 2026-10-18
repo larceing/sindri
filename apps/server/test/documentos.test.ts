@@ -3,11 +3,11 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { buildApp, migrate, openEmbedded } from "../src/index.js";
 
 /** Report Server de mentira: comprueba la llave y devuelve un «PDF» con lo que ha recibido. */
-async function fakeReportServer() {
+async function fakeReportServer(llave = "llave-de-prueba") {
   const rs = Fastify();
   const recibido: { plantilla?: string; nombre?: string; datos?: Record<string, any> }[] = [];
   rs.addHook("onRequest", async (req, reply) => {
-    if (req.headers.authorization !== "Bearer llave-de-prueba") return reply.status(401).send({ error: "Llave no válida." });
+    if (req.headers.authorization !== `Bearer ${llave}`) return reply.status(401).send({ error: "Llave no válida." });
   });
   rs.get("/api/plantillas", async () => [{ nombre: "sindri-pedido" }, { nombre: "sindri-factura" }, { nombre: "otra-app" }]);
   rs.post("/api/generar", async (req, reply) => {
@@ -71,5 +71,64 @@ describe("Documentos en PDF con el Report Server", () => {
     expect(r.statusCode).toBe(404);
     expect(r.json().error).toBe("Report Server: No existe la plantilla «sindri-factura».");
     expect(fake.recibido.at(-1)!.datos).toMatchObject({ numero: expect.stringMatching(/^F/), qr: expect.stringContaining("ValidarQR") });
+  });
+});
+
+describe("Conectar el Report Server desde la pantalla (sin tocar app.env)", () => {
+  const LLAVE = "rs_" + "a".repeat(32);
+  let app: FastifyInstance;
+  let fake: Awaited<ReturnType<typeof fakeReportServer>>;
+  const put = (payload: object) => app.inject({ method: "PUT", url: "/api/v1/documentos/conexion", payload });
+
+  beforeAll(async () => {
+    fake = await fakeReportServer(LLAVE);
+    const db = await openEmbedded();
+    await migrate(db);
+    app = await buildApp({ db });
+    await app.inject({ method: "PUT", url: "/api/v1/company", payload: { name: "Empresa Prueba SL", tax_id: "B12345674" } });
+  });
+  afterAll(async () => {
+    await app.close();
+    await fake.rs.close();
+  });
+
+  it("sin conectar, lo dice y los PDF piden conectarlo", async () => {
+    expect((await app.inject("/api/v1/documentos/conexion")).json()).toEqual({ origen: null, url: "", llave_fin: null });
+    expect((await app.inject("/api/v1/documentos")).json()).toEqual({ report_server: false, plantillas: [] });
+  });
+
+  it("no guarda una llave que el Report Server no acepta, ni una dirección mala", async () => {
+    const mala = await put({ url: fake.url, llave: "rs_" + "b".repeat(32) });
+    expect(mala.statusCode).toBe(422);
+    expect(mala.json().error).toMatch(/no acepta la llave/);
+    expect((await put({ url: "report-server", llave: LLAVE })).statusCode).toBe(400);
+    expect((await put({ url: fake.url, llave: "otra" })).statusCode).toBe(400);
+    expect((await app.inject("/api/v1/documentos/conexion")).json().origen).toBeNull();
+  });
+
+  it("guarda la conexión probada; la llave no se vuelve a enseñar", async () => {
+    const ok = await put({ url: fake.url, llave: LLAVE });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json()).toMatchObject({ origen: "sindri", llave_fin: "aaaa", plantillas: ["sindri-pedido", "sindri-factura"] });
+    const conexion = await app.inject("/api/v1/documentos/conexion");
+    expect(conexion.body).not.toContain(LLAVE);
+    expect((await app.inject("/api/v1/documentos")).json()).toMatchObject({ report_server: true, plantillas: ["sindri-pedido", "sindri-factura"] });
+    // Cambiar solo la dirección deja la llave que había.
+    expect((await put({ url: fake.url + "/" })).statusCode).toBe(200);
+  });
+
+  it("se puede desconectar", async () => {
+    expect((await app.inject({ method: "DELETE", url: "/api/v1/documentos/conexion" })).statusCode).toBe(200);
+    expect((await app.inject("/api/v1/documentos")).json().report_server).toBe(false);
+  });
+
+  it("si la conexión viene del app.env, la pantalla no la cambia", async () => {
+    const db = await openEmbedded();
+    await migrate(db);
+    const conEnv = await buildApp({ db, reportServer: { url: fake.url.replace(/\/$/, ""), key: LLAVE } });
+    await conEnv.inject({ method: "PUT", url: "/api/v1/company", payload: { name: "Empresa Prueba SL", tax_id: "B12345674" } });
+    expect((await conEnv.inject("/api/v1/documentos/conexion")).json()).toMatchObject({ origen: "variables", llave_fin: "aaaa" });
+    expect((await conEnv.inject({ method: "PUT", url: "/api/v1/documentos/conexion", payload: { url: fake.url, llave: LLAVE } })).statusCode).toBe(409);
+    await conEnv.close();
   });
 });

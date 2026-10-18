@@ -7,6 +7,10 @@ const PLANTILLA = { factura: "sindri-factura", pedido: "sindri-pedido", albaran:
 export type TipoDocumento = keyof typeof PLANTILLA;
 
 let estado: Promise<{ report_server: boolean; plantillas: string[] }> | null = null;
+/** Tras conectar o desconectar el Report Server, los botones vuelven a preguntar. */
+export const olvidarDocumentos = () => {
+  estado = null;
+};
 const cargar = () => (estado ??= api("/documentos").catch(() => ({ report_server: false, plantillas: [] })));
 
 /**

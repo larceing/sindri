@@ -14,20 +14,19 @@ imprimen la pantalla con el navegador.
    textos); lo único que hay que respetar es el **nombre** de la plantilla y de las tablas
    (`lineas`, `desglose`, `paradas`) y del QR (`qr`).
 2. **Crear la llave.** En el Report Server → Llaves, crea una para la app `sindri`.
-3. **Decírselo a Sindri.** En el `app.env` de Sindri del entorno (a mano, mientras Ajustes no
-   tenga secretos por app) añade:
+3. **Conectar Sindri.** En Sindri → Informes → **Conectar** (hace falta ser administrador), pon la
+   dirección del Report Server y la llave, y pulsa **Probar y guardar**. Sindri prueba la llave
+   antes de guardarla y dice cuántas de sus plantillas encuentra. La llave se guarda en la base de
+   Sindri, no se vuelve a enseñar y nunca va al repositorio ni a un chat. La dirección buena es la
+   interna del servidor (la que pone el README del Report Server, en «Cómo genera una app»).
 
-   ```
-   REPORT_URL=<dirección interna del Report Server, la que se ve desde el contenedor de Sindri>
-   REPORT_LLAVE=<la llave del paso 2>
-   ```
-
-   y reinicia Sindri. La llave no va nunca al repositorio ni a un chat.
-4. **Comprobarlo.** En Sindri → Informes, el recuadro «Documentos en PDF» dice si llega al
-   Report Server y qué plantillas tiene. Los botones de factura, pedido, albarán y hoja de ruta
+   Si se prefiere, también vale ponerlo en el `app.env` de Sindri como `REPORT_URL` y
+   `REPORT_LLAVE`; entonces mandan esas variables y la pantalla solo las enseña.
+4. **Comprobarlo.** En Sindri → Informes, el recuadro «Documentos en PDF» dice a qué Report
+   Server está conectado y qué plantillas tiene. Los botones de factura, pedido, albarán y hoja de ruta
    pasan a decir «(PDF)».
 
-Para PRO se repite lo mismo con el Report Server de PRO: en el de DEV, **Descargar** cada
+Para PRO se repite lo mismo en el Sindri y el Report Server de PRO: en el de DEV, **Descargar** cada
 plantilla ya retocada y en el de PRO **Importar .json**.
 
 ## Qué datos recibe cada plantilla

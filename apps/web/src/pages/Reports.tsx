@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { fecha, post } from "../api";
+import { api, fecha, post } from "../api";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
+import { olvidarDocumentos } from "../docs";
 import { Alert, Code, Empty, ErrorBox, Field, Page, Table } from "../ui";
 
 const PLANTILLAS = [
@@ -15,7 +16,6 @@ const cell = (v: unknown) => (v === null || v === undefined ? "" : typeof v === 
 
 export function ReportsPage() {
   const { data: sets } = useData<{ id: string; label: string }[]>("/informes");
-  const { data: docs } = useData("/documentos");
   const { puede } = useSession();
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
@@ -24,29 +24,7 @@ export function ReportsPage() {
   const { data: rows, error: rowsError } = useData<any[]>(ver ? `/informes/datos/${ver}?${qs()}` : null);
   return (
     <Page title="Informes">
-      <div className="card">
-        <h2>Documentos en PDF (Report Server)</h2>
-        {!docs ? null : !docs.report_server ? (
-          <Alert tone="info">
-            Sindri no tiene Report Server configurado: facturas, pedidos, albaranes y hojas de ruta se imprimen con el navegador.
-            Para sacarlos en PDF con vuestras plantillas, pon <Code>REPORT_URL</Code> y <Code>REPORT_LLAVE</Code> en la configuración de Sindri (ver docs/report-server).
-          </Alert>
-        ) : docs.error ? (
-          <Alert tone="error">{docs.error}. Revisa REPORT_URL y la llave.</Alert>
-        ) : (
-          <Table>
-            <thead><tr><th>Documento</th><th>Plantilla</th><th>Estado</th></tr></thead>
-            <tbody>
-              {PLANTILLAS.map(([p, l]) => (
-                <tr key={p}>
-                  <td>{l}</td><td><Code>{p}</Code></td>
-                  <td>{docs.plantillas.includes(p) ? <span className="ok">Lista</span> : <span className="muted">Falta importarla en el Report Server: se imprime con el navegador</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </div>
+      <ReportServer />
 
       <h2>Datos para informes</h2>
       <p className="hint">Datos de la empresa en uso, para Excel o cualquier herramienta de informes. CSV con punto y coma (se abre directo en Excel).</p>
@@ -123,6 +101,89 @@ function Readers() {
             ))}
           </tbody>
         </Table>
+      )}
+    </div>
+  );
+}
+
+/** Conexión con el Report Server: dirección y llave, probadas antes de guardarlas. */
+function ReportServer() {
+  const { me } = useSession();
+  const { data: docs, reload } = useData("/documentos");
+  const { data: con, reload: reloadCon } = useData(me?.admin ? "/documentos/conexion" : null);
+  const [f, setF] = useState<{ url: string; llave: string } | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const { run, error, busy } = useAction();
+  const recargar = async () => { olvidarDocumentos(); await reload(); await reloadCon(); };
+  const guardar = () =>
+    run(async () => {
+      const r = await api("/documentos/conexion", { method: "PUT", body: { url: f!.url, llave: f!.llave } });
+      setF(null);
+      setOk(`Conectado. Plantillas de Sindri encontradas: ${r.plantillas.length} de ${PLANTILLAS.length}.`);
+      await recargar();
+    });
+  const quitar = () =>
+    run(async () => {
+      if (!confirm("¿Desconectar Sindri del Report Server? Los documentos volverán a imprimirse con el navegador.")) return;
+      await api("/documentos/conexion", { method: "DELETE" });
+      setOk(null);
+      await recargar();
+    });
+  const editable = me?.admin && con && con.origen !== "variables";
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h2>Documentos en PDF (Report Server)</h2>
+        {editable && !f && <button onClick={() => { setOk(null); setF({ url: con.url ?? "", llave: "" }); }}>{con.origen ? "Cambiar conexión" : "Conectar"}</button>}
+      </div>
+      {f ? (
+        <>
+          <p className="hint">
+            En el Report Server, entra en <b>Llaves</b> y crea una para la app <Code>sindri</Code>; cópiala aquí. La dirección es la del
+            Report Server por la red interna del servidor (la que pone su README, «Cómo genera una app»); también vale la pública si se
+            llega a ella desde el servidor. Sindri la prueba antes de guardarla.
+          </p>
+          <div className="form">
+            <Field label="Dirección del Report Server"><input value={f.url} placeholder="http://…:3000" onChange={(e) => setF({ ...f, url: e.target.value })} /></Field>
+            <Field label={con?.llave_fin ? `Llave (vacía = seguir con …${con.llave_fin})` : "Llave (rs_…)"}>
+              <input value={f.llave} type="password" autoComplete="off" placeholder="rs_…" onChange={(e) => setF({ ...f, llave: e.target.value })} />
+            </Field>
+          </div>
+          <ErrorBox error={error} />
+          <div className="row">
+            <button className="primary" disabled={busy || !f.url || (!f.llave && !con?.llave_fin)} onClick={guardar}>{busy ? "Probando…" : "Probar y guardar"}</button>
+            <button onClick={() => setF(null)}>Cancelar</button>
+          </div>
+        </>
+      ) : !docs ? null : !docs.report_server ? (
+        <Alert tone="info">
+          Sindri no está conectado al Report Server: facturas, pedidos, albaranes y hojas de ruta se imprimen con el navegador.
+          {me?.admin ? " Pulsa «Conectar» y pon la dirección y la llave." : " Pídele a administración que lo conecte."}
+        </Alert>
+      ) : (
+        <>
+          {ok && <Alert tone="ok">{ok}</Alert>}
+          {docs.error && <Alert tone="error">{docs.error}.</Alert>}
+          {con?.origen && (
+            <p className="hint">
+              Conectado a <Code>{con.url}</Code> con la llave …{con.llave_fin}
+              {con.origen === "variables" ? " (viene del app.env del servidor; se cambia ahí)." : "."}
+            </p>
+          )}
+          <Table>
+            <thead><tr><th>Documento</th><th>Plantilla</th><th>Estado</th></tr></thead>
+            <tbody>
+              {PLANTILLAS.map(([p, l]) => (
+                <tr key={p}>
+                  <td>{l}</td><td><Code>{p}</Code></td>
+                  <td>{docs.plantillas.includes(p) ? <span className="ok">Lista</span> : <span className="muted">Falta importarla en el Report Server (docs/report-server): mientras, se imprime con el navegador</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          {editable && <div className="row"><button className="danger" onClick={quitar} disabled={busy}>Desconectar</button></div>}
+          {!f && <ErrorBox error={error} />}
+        </>
       )}
     </div>
   );
