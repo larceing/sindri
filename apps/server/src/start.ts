@@ -2,6 +2,8 @@ import { openEmbedded, openPostgres, type Db } from "./db.js";
 import { migrate } from "./migrate.js";
 import { buildApp } from "./app.js";
 import { seedDemo, seedDemoPlanta } from "./demo.js";
+import { repairCompanyColumns } from "./services.js";
+import type { ReportServerConfig } from "./documentos.js";
 
 export interface StartOptions {
   /** postgres://... para usar el servidor PostgreSQL de la empresa. */
@@ -19,6 +21,7 @@ export interface StartOptions {
   entorno?: string;
   /** Carga datos de demostración si la base está vacía. */
   demo?: boolean;
+  reportServer?: ReportServerConfig;
 }
 
 export interface RunningServer {
@@ -30,11 +33,12 @@ export interface RunningServer {
 export async function startServer(o: StartOptions = {}): Promise<RunningServer> {
   const db = o.databaseUrl ? openPostgres(o.databaseUrl) : await openEmbedded(o.dataDir);
   await migrate(db);
+  await repairCompanyColumns(db);
   if (o.demo) {
     await seedDemo(db);
     await seedDemoPlanta(db);
   }
-  const app = await buildApp({ db, webDir: o.webDir, logger: o.logger ?? false, auth: o.auth, sso: o.sso, version: o.version, trustProxy: o.trustProxy, entorno: o.entorno });
+  const app = await buildApp({ db, webDir: o.webDir, logger: o.logger ?? false, auth: o.auth, sso: o.sso, version: o.version, trustProxy: o.trustProxy, entorno: o.entorno, reportServer: o.reportServer });
   const address = await app.listen({ host: o.host ?? "127.0.0.1", port: o.port ?? 8000 });
   return {
     url: address,
