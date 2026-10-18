@@ -23,10 +23,11 @@ import { ReportsPage } from "./pages/Reports";
 import { MyMenuPage } from "./pages/MyMenu";
 import { OpportunitiesPage, OpportunityPage } from "./pages/Opportunities";
 import { NewQuotationPage, QuotationPage, QuotationsPage, TemplatesPage } from "./pages/Quotations";
+import { RelacionesPage } from "./pages/Relaciones";
 
 /** Qué módulo (permiso) necesita cada pantalla. */
 const SECCION_MODULO: Record<string, string> = {
-  oportunidades: "crm", presupuestos: "presupuestos", pedidos: "pedidos", rutas: "rutas", facturas: "facturas", clientes: "clientes", comerciales: "comerciales",
+  relaciones: "relaciones", oportunidades: "crm", presupuestos: "presupuestos", pedidos: "pedidos", rutas: "rutas", facturas: "facturas", clientes: "clientes", comerciales: "comerciales",
   productos: "productos", almacen: "almacen", planta: "planta", verifactu: "verifactu", informes: "informes",
   empresa: "empresa", usuarios: "usuarios",
 };
@@ -41,6 +42,8 @@ function Screen({ route, me }: { route: string; me: Me }) {
       </Page>
     );
   switch (section) {
+    case "relaciones":
+      return <RelacionesPage key={route} tipo={id} id={route.split("?")[0]!.split("/")[3]} />;
     case "oportunidades":
       return id ? <OpportunityPage id={id} /> : <OpportunitiesPage />;
     case "presupuestos":

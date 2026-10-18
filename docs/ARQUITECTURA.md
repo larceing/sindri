@@ -68,10 +68,11 @@ Las decisiones salen de lo aprendido al analizar Odoo, ERPNext, Dolibarr, Tryton
 | `migrate.ts` | Migraciones versionadas |
 | `services.ts` | Casos de uso en transacción, con auditoría |
 | `app.ts` | Rutas REST, validación con zod y errores en español |
+| `grafo.ts` | Relaciones: cada registro es un nodo y cada vínculo una arista (cliente → oportunidad → presupuesto → pedido → albarán / hoja de ruta / factura → lote / cobro). `GET /api/v1/grafo?tipo=&id=` recorre la cadena; `GET /api/v1/grafo/buscar?q=` busca en todos los tipos. Un tipo nuevo (fabricación, tareas, correos…) se añade en el registro `TIPOS` |
 
 ### `@sindri/web`
 
-React. Pantallas de pedidos, facturas (con QR), clientes, productos, almacén, VERI\*FACTU y empresa.
+React. Pantallas de pedidos, facturas (con QR), clientes, productos, almacén, VERI\*FACTU y empresa. **Relaciones** dibuja el grafo de cualquier registro (diagrama por columnas con su traza al pulsar un nodo, o lista) y se abre desde el menú, desde el botón «Relaciones» de cada ficha y desde los lotes de Almacén.
 
 ### `@sindri/escritorio`
 

@@ -6,6 +6,7 @@ import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { DocButton } from "../docs";
 import { Badge, Code, Empty, ErrorBox, Field, Page, Table } from "../ui";
+import { RelacionesBoton } from "./Relaciones";
 
 const RUTA: Record<string, string> = { draft: "Preparando", on_route: "En ruta", closed: "Cerrada" };
 const PARADA: Record<string, string> = { pending: "Pendiente", delivered: "Entregado", incident: "Incidencia" };
@@ -127,6 +128,7 @@ export function RoutePage({ id }: { id: string }) {
     <Page
       title={`Hoja de ruta ${r.number}`}
       actions={<>
+        <RelacionesBoton tipo="ruta" id={id} />
         {editar && r.state === "draft" && <button className="primary" disabled={busy || !stops.length} onClick={() => go(() => post(`/routes/${id}/start`))}>Salir a ruta</button>}
         {editar && r.state === "on_route" && <button className="primary" disabled={busy || pendientes > 0} title={pendientes ? "Marca antes todas las paradas" : undefined} onClick={() => go(() => post(`/routes/${id}/close`))}>Cerrar hoja</button>}
         <DocButton tipo="hoja_ruta" id={id} label="Imprimir hoja" />

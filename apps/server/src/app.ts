@@ -16,6 +16,7 @@ import { registerInformes } from "./informes.js";
 import { registerDocumentos, type ReportServerConfig } from "./documentos.js";
 import { registerIntegracion, releaseOrderItems } from "./integracion.js";
 import { confirmacionAutomatica, registerCorreo, type MailConfig } from "./correo.js";
+import { registerGrafo } from "./grafo.js";
 
 const dec = z.union([z.string(), z.number()]).transform(String).refine((v) => /^-?\d+([.,]\d+)?$/.test(v.trim()), "Número no válido");
 const optText = z.string().trim().min(1).nullish();
@@ -383,6 +384,7 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   registerDocumentos(app, db, reportServer);
   registerIntegracion(app, db);
   registerCorreo(app, db, { mail, reportServer });
+  registerGrafo(app, db);
 
   registerPlanta(app, db, {
     entorno,

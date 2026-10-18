@@ -260,3 +260,57 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
 /* Empresa de demostración: que se note siempre en qué empresa se trabaja. */
 .demo-strip { background: var(--aviso-3); color: var(--aviso-11); border-radius: var(--r-2); padding: var(--s-1) var(--s-3); margin-bottom: var(--s-4); font-size: var(--t-sm); font-weight: 500; }
 .chooser-filter { width: 100%; margin-bottom: var(--s-3); }
+
+/* ---------- Relaciones: grafo de registros ---------- */
+.tabs-inline { display: inline-flex; gap: var(--s-1); }
+.rel-buscar { position: relative; max-width: 480px; margin-bottom: var(--s-4); }
+.rel-buscar-campo { display: flex; align-items: center; gap: var(--s-2); color: var(--texto-2); }
+.rel-buscar-campo input { flex: 1; }
+.rel-resultados { position: absolute; z-index: 15; left: 0; right: 0; top: calc(100% + 4px); list-style: none; margin: 0; padding: var(--s-1); background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--r-4); box-shadow: var(--e-3, 0 8px 24px #0003); max-height: 360px; overflow: auto; }
+.rel-resultados li.muted { padding: var(--s-2) var(--s-3); }
+.rel-resultado { width: 100%; justify-content: flex-start; text-align: left; border: 0; gap: var(--s-2); }
+.rel-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+.rel-cuerpo.con-detalle { grid-template-columns: minmax(0, 1fr) 300px; }
+@media (max-width: 900px) { .rel-cuerpo.con-detalle { grid-template-columns: minmax(0, 1fr); } }
+.rel-diagrama { position: relative; border: 1px solid var(--borde); border-radius: var(--r-4); background: var(--superficie-2); box-shadow: var(--e-1); }
+.rel-barra { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); flex-wrap: wrap; padding: var(--s-1) var(--s-2) var(--s-1) var(--s-3); border-bottom: 1px solid var(--borde); background: var(--superficie); border-radius: var(--r-4) var(--r-4) 0 0; }
+.rel-barra .hint { font-size: var(--t-sm); }
+.rel-zoom { display: flex; gap: var(--s-1); margin-left: auto; }
+.rel-zoom button { min-height: 32px; padding: 0 var(--s-2); background: var(--superficie); }
+.rel-marco { overflow: auto; max-height: 70vh; min-height: 240px; background-image: radial-gradient(var(--n-5) 1px, transparent 1px); background-size: 16px 16px; }
+.rel-lienzo { position: relative; }
+.rel-aristas { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.rel-arista path { fill: none; stroke: var(--n-8); stroke-width: 1.5; }
+.rel-arista.oculta path { stroke-dasharray: 5 4; }
+.rel-arista.on path { stroke: var(--accion); stroke-width: 2.5; }
+.rel-arista.tenue path { opacity: 0.25; }
+.rel-nodo {
+  position: absolute; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 2px;
+  min-height: 0; padding: var(--s-1) var(--s-3) var(--s-1) calc(var(--s-3) + 2px); text-align: left; font-weight: 400;
+  background: var(--superficie); border: 1px solid var(--borde); border-left: 4px solid var(--rel-color, var(--n-8));
+  border-radius: var(--r-2); box-shadow: var(--e-1); transition: opacity 0.15s;
+}
+.rel-nodo:hover { background: var(--superficie); border-color: var(--borde-control); border-left-color: var(--rel-color, var(--n-8)); }
+.rel-nodo.rel-inicio { outline: 2px solid var(--accion); outline-offset: 2px; }
+.rel-nodo.rel-sel { background: var(--seleccion); border-color: var(--accion); border-left-color: var(--rel-color, var(--n-8)); }
+.rel-nodo.rel-tenue { opacity: 0.35; }
+.rel-nodo-tipo { display: flex; align-items: center; gap: var(--s-1); font-size: var(--t-xs); line-height: var(--lh-xs); color: var(--texto-2); }
+.rel-nodo-tipo .badge { margin-left: auto; padding: 0 var(--s-1); }
+.rel-nodo-titulo { font-family: var(--fuente-mono); font-size: var(--t-sm); line-height: var(--lh-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rel-nodo-sub { font-size: var(--t-xs); line-height: var(--lh-xs); color: var(--texto-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+/* Un color fijo por tipo (paleta de series): el tipo también va escrito, el color no es el único canal. */
+.rel-cliente { --rel-color: var(--serie-1); }
+.rel-oportunidad { --rel-color: var(--serie-5); }
+.rel-presupuesto { --rel-color: var(--serie-4); }
+.rel-pedido { --rel-color: var(--accion); }
+.rel-albaran, .rel-ruta { --rel-color: var(--serie-2); }
+.rel-lote { --rel-color: var(--serie-6); }
+.rel-factura { --rel-color: var(--serie-3); }
+.rel-cobro { --rel-color: var(--ok-9); }
+.rel-detalle { margin: 0; position: sticky; top: var(--s-4); }
+.rel-detalle h2 { margin: 0; font-size: var(--t-md); line-height: var(--lh-md); }
+.rel-detalle h3 { font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--texto-2); margin: var(--s-3) 0 var(--s-1); }
+.rel-detalle ul { margin: 0; padding-left: var(--s-5); }
+.rel-fila-inicio td { background: var(--seleccion); }
+.rel-acciones { white-space: nowrap; }
+@media print { .rel-buscar, .rel-zoom, .tabs-inline { display: none; } .rel-marco { max-height: none; overflow: visible; } }
