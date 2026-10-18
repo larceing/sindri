@@ -2,6 +2,8 @@
 # y la sube a GHCR (ghcr.io/<usuario>/<repo>:sha-xxxxxxx o :vX.Y.Z).
 # La despliega el servidor DEV/PRO desde Ajustes (servidor.json, tipo "servidor"):
 # aquí no hacen falta ni SSH ni secretos.
+# El escritorio y el agente de planta van en sus propios workflows (etiquetas
+# escritorio-vX.Y.Z y planta-vX.Y.Z), para no mezclarse con las vX.Y.Z de la web.
 name: Imagen
 
 on:
@@ -43,7 +45,7 @@ jobs:
 
   imagen:
     needs: comprobar
-    if: github.event_name == 'push' || github.event_name == 'release'
+    if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v'))
     runs-on: ubuntu-latest
     permissions:
       contents: read

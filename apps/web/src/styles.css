@@ -127,6 +127,7 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
 .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s-4); margin-bottom: var(--s-6); }
 .kpi { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--r-4); padding: var(--s-4); box-shadow: var(--e-1); }
 .kpi span { color: var(--texto-2); font-size: var(--t-sm); }
+.kpi b.kpi-texto { font-size: var(--t-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi b { display: block; font-size: var(--t-2xl); line-height: var(--lh-2xl); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
 @media (max-width: 760px) {

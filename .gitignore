@@ -6,3 +6,5 @@ out/
 coverage/
 .env
 copias/
+desarrollo/planta.token
+__pycache__/

@@ -1,4 +1,4 @@
-import { Boxes, Building2, FileText, Home, Package, ShieldCheck, ShoppingCart, Users } from "lucide-react";
+import { Boxes, Building2, Factory, FileText, Home, Package, ShieldCheck, ShoppingCart, Users } from "lucide-react";
 import { useData } from "./hooks";
 import { navigate, useRoute } from "./router";
 import { usePrefs, type Densidad, type Modo, type Tema } from "./prefs";
@@ -11,6 +11,7 @@ import { StockPage } from "./pages/Stock";
 import { NewOrderPage, OrderPage, OrdersPage } from "./pages/Orders";
 import { InvoicePage, InvoicesPage } from "./pages/Invoices";
 import { VerifactuPage } from "./pages/Verifactu";
+import { PlantPage } from "./pages/Plant";
 
 const NAV = [
   ["/inicio", "Inicio", Home],
@@ -19,6 +20,7 @@ const NAV = [
   ["/clientes", "Clientes", Users],
   ["/productos", "Productos", Package],
   ["/almacen", "Almacén", Boxes],
+  ["/planta", "Planta", Factory],
   ["/verifactu", "VERI*FACTU", ShieldCheck],
   ["/empresa", "Empresa", Building2],
 ] as const;
@@ -36,6 +38,8 @@ function Screen({ route }: { route: string }) {
       return <ProductsPage />;
     case "almacen":
       return <StockPage />;
+    case "planta":
+      return <PlantPage />;
     case "verifactu":
       return <VerifactuPage />;
     case "empresa":

@@ -99,6 +99,14 @@ docker compose up --build
 - Keycloak de pruebas: http://localhost:8080 (realm `general`, grupos `/DEV/Sindri/...` como en el servidor).
 - Simulador OPC UA: `opc.tcp://localhost:4840/`, carpeta `Planta/Linea1`. Nunca se conecta a la planta de verdad.
 
+Para ver datos de planta en Sindri → Planta:
+
+1. Entra como `prueba`, crea un agente y guarda su token en `desarrollo/planta.token` (no se sube al repositorio).
+2. En la misma pantalla, asigna la Línea 1 a ese agente.
+3. `docker compose --profile planta up -d --build agente-planta`
+
+Más detalle en [planta/README.md](planta/README.md).
+
 ## Documentación
 
 - [Arquitectura](docs/ARQUITECTURA.md)

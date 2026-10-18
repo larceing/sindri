@@ -28,7 +28,7 @@ Sindri se registra como cualquier app del servidor común ([larceing/servidor](h
 ## API
 
 - `/sindri/api/v1/...`: la web y el escritorio.
-- `/sindri/api/planta/v1/...`: el agente de planta (pendiente).
+- `/sindri/api/planta/v1/...`: el agente de planta, con su token (ver [planta/README.md](../planta/README.md)).
 
 Un cambio que rompa algo va a `v2`; `v1` sigue mientras haya clientes que la usen.
 
@@ -49,7 +49,8 @@ Sin `DATABASE_URL`, Sindri usa su base integrada, pero gasta unos 460 MB frente 
 
 ## Lo que todavía no está
 
-- **API de planta y agente** (`/api/planta/v1/`, `planta/agente`).
+- **Aviso por correo o campana** cuando un agente se calla. Hoy se ve en la pantalla de Planta.
+- **Instalador del agente como servicio de Windows.** Hoy va en Docker.
 - **Escritorio como ventana sobre la web** (opción A), con instalador de DEV aparte.
 - **Permisos por rol dentro de Sindri.** Hoy, quien entra puede hacerlo todo; la marca de administrador ya llega en la sesión.
 - **Envío a la AEAT.**

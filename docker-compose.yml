@@ -75,6 +75,29 @@ services:
     build: ./planta/simulador
     ports: ["4840:4840"]
 
+  # Agente de planta contra el simulador. Arranca aparte, cuando ya tiene token:
+  #   1. En Sindri → Planta, crea un agente y copia su token en desarrollo/planta.token
+  #      (en Linux, chmod 644: el agente corre como nobody y Docker monta el fichero tal cual)
+  #   2. Asigna la Línea 1 a ese agente
+  #   3. docker compose --profile planta up -d --build agente-planta
+  agente-planta:
+    build: ./planta/agente
+    profiles: [planta]
+    depends_on: [entrada, simulador-opcua]
+    environment:
+      SINDRI_URL: http://entrada:8000/sindri
+      SINDRI_PERMITIR_HTTP: "1"
+      SINDRI_PLANTA_TOKEN_FICHERO: /run/secrets/planta_token
+      OPCUA_URL: opc.tcp://simulador-opcua:4840/
+    secrets: [planta_token]
+    volumes:
+      - planta:/datos
+
+secrets:
+  planta_token:
+    file: ./desarrollo/planta.token
+
 volumes:
   bd:
   datos:
+  planta:

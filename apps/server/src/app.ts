@@ -7,7 +7,8 @@ import { z, ZodError } from "zod";
 import { TransitionError } from "@sindri/core";
 import type { Db } from "./db.js";
 import * as s from "./services.js";
-import { registerSso, type SsoConfig } from "./sso.js";
+import { currentPerson, registerSso, type SsoConfig } from "./sso.js";
+import { PLANTA_MINIMA, registerPlanta } from "./planta.js";
 
 const dec = z.union([z.string(), z.number()]).transform(String).refine((v) => /^-?\d+([.,]\d+)?$/.test(v.trim()), "Número no válido");
 const optText = z.string().trim().min(1).nullish();
@@ -75,8 +76,7 @@ const PaymentSchema = z.object({ amount: dec, paid_on: z.iso.date().optional(), 
 
 /** Versión más vieja del escritorio que esta API sigue sirviendo. Subirla obliga a actualizar. */
 export const ESCRITORIO_MINIMA = "0.1.0";
-/** Ídem para el agente de planta. */
-export const PLANTA_MINIMA = "0.1.0";
+export { PLANTA_MINIMA };
 
 type IdParams = { Params: { id: string } };
 
@@ -93,6 +93,8 @@ export interface AppOptions {
   version?: string;
   /** Detrás de un proxy: fiarse de X-Forwarded-Proto y X-Forwarded-Host. */
   trustProxy?: boolean;
+  /** dev, pro o local (SERVIDOR_ENTORNO). El agente de planta lo usa para no tocar la planta real desde DEV. */
+  entorno?: string;
 }
 
 const sameText = (a: string, b: string) => {
@@ -101,7 +103,7 @@ const sameText = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-export async function buildApp({ db, webDir, logger = false, auth, sso, version = "dev", trustProxy = false }: AppOptions): Promise<FastifyInstance> {
+export async function buildApp({ db, webDir, logger = false, auth, sso, version = "dev", trustProxy = false, entorno = "local" }: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy });
 
   // Página de versión que lee el servidor DEV/PRO (punto verde, «Pasar a PRO»).
@@ -115,7 +117,8 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   // de prueba: hasta que existan usuarios y permisos, impide que entre cualquiera.
   if (auth && !sso) {
     app.addHook("onRequest", async (req, reply) => {
-      if (["/api/health", "/api/v1/health", "/version", "/version/"].includes(req.url.split("?")[0]!)) return;
+      const path = req.url.split("?")[0]!;
+      if (["/api/health", "/api/v1/health", "/version", "/version/"].includes(path) || path.startsWith("/api/planta/")) return;
       const header = req.headers.authorization ?? "";
       const [user = "", password = ""] = header.startsWith("Basic ")
         ? Buffer.from(header.slice(6), "base64").toString("utf8").split(/:(.*)/s)
@@ -177,6 +180,11 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   app.get("/api/v1/verifactu/records", async () => s.listVerifactu(db));
   app.get("/api/v1/verifactu/verify", async () => s.verifyVerifactuChain(db));
   app.get("/api/v1/events", async () => s.listEvents(db));
+
+  registerPlanta(app, db, {
+    entorno,
+    person: (req) => (sso ? currentPerson(req, sso) : { user: auth?.user ?? "local", admin: true }),
+  });
 
   if (webDir && existsSync(webDir)) {
     await app.register(fastifyStatic, { root: webDir, wildcard: false });

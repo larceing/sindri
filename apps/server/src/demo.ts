@@ -5,6 +5,7 @@
  */
 import type { Db } from "./db.js";
 import * as s from "./services.js";
+import { saveMachine } from "./planta.js";
 
 const isoDaysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
@@ -78,3 +79,28 @@ export async function seedDemo(db: Db): Promise<boolean> {
   return true;
 }
 
+
+/**
+ * La línea del simulador OPC UA (planta/simulador). Sin agente: el token lo crea un
+ * administrador en la pantalla de Planta y se asigna la máquina a ese agente.
+ */
+export async function seedDemoPlanta(db: Db): Promise<boolean> {
+  const rows = await db.query("select 1 from plant_machine limit 1");
+  if (rows.length > 0) return false;
+  const p = "Planta/Linea1/";
+  await saveMachine(db, {
+    code: "LINEA1",
+    name: "Línea 1 de envasado (simulador)",
+    namespace_uri: "urn:sindri:simulador",
+    tags: [
+      { key: "Estado", source: p + "Estado", kind: "state", label: "Estado" },
+      { key: "PiezasBuenas", source: p + "PiezasBuenas", kind: "counter", label: "Piezas buenas", unit: "uds" },
+      { key: "PiezasMalas", source: p + "PiezasMalas", kind: "counter", label: "Piezas malas", unit: "uds" },
+      { key: "Velocidad", source: p + "Velocidad", kind: "value", label: "Velocidad", unit: "uds/min" },
+      { key: "TemperaturaHorno", source: p + "TemperaturaHorno", kind: "value", label: "Temperatura del horno", unit: "°C" },
+      { key: "OrdenActual", source: p + "OrdenActual", kind: "text", label: "Orden en curso" },
+      { key: "Alarma", source: p + "Alarma", kind: "text", label: "Alarma" },
+    ],
+  });
+  return true;
+}

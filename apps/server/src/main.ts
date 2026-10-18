@@ -24,6 +24,7 @@ const server = await startServer({
   logger: true,
   sso: ssoFromEnv(),
   version: process.env.APP_VERSION ?? "dev",
+  entorno: process.env.SERVIDOR_ENTORNO ?? "local",
   trustProxy: !!process.env.SERVIDOR_ENTORNO || process.env.SINDRI_PROXY === "1",
   auth: process.env.SINDRI_USUARIO && process.env.SINDRI_CLAVE
     ? { user: process.env.SINDRI_USUARIO, password: process.env.SINDRI_CLAVE }
