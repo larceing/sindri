@@ -31,7 +31,7 @@ export async function startServer(o: StartOptions = {}): Promise<RunningServer> 
   await migrate(db);
   if (o.demo) await seedDemo(db);
   const app = await buildApp({ db, webDir: o.webDir, logger: o.logger ?? false, auth: o.auth, sso: o.sso, version: o.version, trustProxy: o.trustProxy });
-  const address = await app.listen({ host: o.host ?? "127.0.0.1", port: o.port ?? 3210 });
+  const address = await app.listen({ host: o.host ?? "127.0.0.1", port: o.port ?? 8000 });
   return {
     url: address,
     db,

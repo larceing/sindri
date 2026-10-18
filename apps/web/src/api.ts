@@ -9,7 +9,7 @@ export class ApiError extends Error {
 }
 
 export async function api<T = any>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
-  const res = await fetch(`./api${path}`, {
+  const res = await fetch(`./api/v1${path}`, {
     method: init?.method ?? "GET",
     headers: init?.body !== undefined ? { "content-type": "application/json" } : undefined,
     body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,

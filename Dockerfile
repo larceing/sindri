@@ -24,14 +24,14 @@ ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION \
     NODE_ENV=production \
     SINDRI_HOST=0.0.0.0 \
-    PORT=3210 \
+    PORT=8000 \
     SINDRI_WEB_DIR=/app/web \
     SINDRI_DATA_DIR=/datos
 WORKDIR /app
 COPY --from=build /app /app
 RUN mkdir -p /datos && chown node:node /datos
 USER node
-EXPOSE 3210
+EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD node -e "fetch('http://127.0.0.1:3210/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "dist/main.js"]

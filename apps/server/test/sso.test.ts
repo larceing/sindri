@@ -45,14 +45,14 @@ describe("Entrada con Keycloak en el servidor DEV/PRO", () => {
   it("responde la versión sin sesión, como espera Ajustes", async () => {
     const r = await app.inject({ url: "/version/" });
     expect(r.statusCode).toBe(200);
-    expect(JSON.parse(r.body)).toEqual({ version: "sha-abc1234" });
+    expect(JSON.parse(r.body)).toMatchObject({ version: "sha-abc1234", escritorio_minima: expect.any(String) });
   });
 
   it("sin sesión, la web lleva al login y la API responde 401", async () => {
     const page = await app.inject({ url: "/", headers: proxied });
     expect(page.statusCode).toBe(302);
     expect(page.headers.location).toBe("https://dev.ejemplo.test/sindri/login");
-    expect((await app.inject({ url: "/api/invoices", headers: proxied })).statusCode).toBe(401);
+    expect((await app.inject({ url: "/api/v1/invoices", headers: proxied })).statusCode).toBe(401);
   });
 
   it("el login va a Keycloak con la vuelta bajo la ruta de la app", async () => {
@@ -78,9 +78,9 @@ describe("Entrada con Keycloak en el servidor DEV/PRO", () => {
     expect(r.headers.location).toBe("https://dev.ejemplo.test/sindri/");
     const cookies = ([] as string[]).concat(r.headers["set-cookie"] ?? []);
     const session = cookies.find((c) => c.startsWith("sindri_sesion="))!.split(";")[0]!;
-    const me = await app.inject({ url: "/api/me", headers: { ...proxied, cookie: session } });
+    const me = await app.inject({ url: "/api/v1/me", headers: { ...proxied, cookie: session } });
     expect(JSON.parse(me.body)).toMatchObject({ user: "luis", admin: false });
-    expect((await app.inject({ url: "/api/invoices", headers: { ...proxied, cookie: session } })).statusCode).toBe(200);
+    expect((await app.inject({ url: "/api/v1/invoices", headers: { ...proxied, cookie: session } })).statusCode).toBe(200);
   });
 
   it("rechaza a quien no está en el grupo de la app ni en IT", async () => {

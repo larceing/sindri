@@ -1,0 +1,80 @@
+# Desarrollo en local: Sindri como lo verá el servidor DEV/PRO, en tu PC.
+#
+#   http://localhost:8000/sindri/   la app, detrás de una "entrada" que hace lo mismo que la
+#                                   del servidor (quita /sindri y manda X-Forwarded-Prefix)
+#   http://localhost:8080/          Keycloak de pruebas (realm "general"), usuario prueba / prueba
+#   opc.tcp://localhost:4840/       simulador OPC UA de una línea de planta
+#
+# Uso: cp desarrollo/.env.ejemplo .env && docker compose up --build
+# Nada de esto va al servidor: allí la app la despliega Ajustes y Keycloak es el de verdad.
+name: sindri-local
+
+services:
+  bd:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: sindri
+      POSTGRES_USER: sindri
+      POSTGRES_PASSWORD: ${CLAVE_BASE_LOCAL:-sindri-local}
+    volumes:
+      - bd:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sindri -d sindri"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # El navegador y la app ven el mismo emisor de tokens.
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KEYCLOAK_SECRETO_LOCAL: ${KEYCLOAK_SECRETO_LOCAL:-solo-para-el-keycloak-local}
+    volumes:
+      - ./desarrollo/keycloak:/opt/keycloak/data/import:ro
+    ports: ["8080:8080"]
+
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: local
+    depends_on:
+      bd:
+        condition: service_healthy
+    environment:
+      # Lo mismo que el servidor pone en app.env, con valores de tu PC.
+      SERVIDOR_ENTORNO: dev
+      APP_URL_PUBLICA: http://localhost:8000/sindri
+      APP_RUTA_BASE: /sindri
+      AUTH_MODO: sso
+      KEYCLOAK_ISSUER: http://localhost:8080/realms/general
+      KEYCLOAK_INTERNO: http://keycloak:8080/realms/general
+      KEYCLOAK_CLIENT_ID: sindri-dev
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_SECRETO_LOCAL:-solo-para-el-keycloak-local}
+      KEYCLOAK_GRUPO_APP: DEV/Sindri
+      KEYCLOAK_GRUPO_ADMIN_GLOBAL: IT
+      DATABASE_URL: postgres://sindri:${CLAVE_BASE_LOCAL:-sindri-local}@bd:5432/sindri
+    volumes:
+      - datos:/datos
+
+  # Hace de entrada-dev: /sindri/ → app, quitando el prefijo, como "prefijo": "quitar".
+  entrada:
+    image: nginx:1.27-alpine
+    depends_on: [app]
+    volumes:
+      - ./desarrollo/entrada/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports: ["8000:8000"]
+
+  simulador-opcua:
+    build: ./planta/simulador
+    ports: ["4840:4840"]
+
+volumes:
+  bd:
+  datos:

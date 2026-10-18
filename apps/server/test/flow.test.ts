@@ -29,28 +29,28 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
   let customer: string, steel: string, service: string, order: string, invoice: string;
 
   it("configura la empresa y valida el NIF", async () => {
-    expect((await call("PUT", "/api/company", { name: "Metal Demo SL", tax_id: "B12345674" })).status).toBe(200);
-    expect((await call("PUT", "/api/company", { name: "Otra", tax_id: "B00000000" })).status).toBe(422);
+    expect((await call("PUT", "/api/v1/company", { name: "Metal Demo SL", tax_id: "B12345674" })).status).toBe(200);
+    expect((await call("PUT", "/api/v1/company", { name: "Otra", tax_id: "B00000000" })).status).toBe(422);
   });
 
   it("crea cliente y productos", async () => {
-    expect((await call("POST", "/api/partners", { name: "Cliente malo", tax_id: "12345678A" })).status).toBe(422);
-    customer = (await call("POST", "/api/partners", { name: "Ferretería Norte SL", tax_id: "A58818501", surcharge_regime: true })).body.id;
-    steel = (await call("POST", "/api/products", { sku: "SOP-01", name: "Soporte acero", sale_price: "12.50", track_lots: true })).body.id;
-    service = (await call("POST", "/api/products", { sku: "MONT", name: "Montaje", kind: "service", sale_price: "40", vat_rate: "21" })).body.id;
-    expect((await call("POST", "/api/products", { sku: "SOP-01", name: "Duplicado" })).status).toBe(409);
+    expect((await call("POST", "/api/v1/partners", { name: "Cliente malo", tax_id: "12345678A" })).status).toBe(422);
+    customer = (await call("POST", "/api/v1/partners", { name: "Ferretería Norte SL", tax_id: "A58818501", surcharge_regime: true })).body.id;
+    steel = (await call("POST", "/api/v1/products", { sku: "SOP-01", name: "Soporte acero", sale_price: "12.50", track_lots: true })).body.id;
+    service = (await call("POST", "/api/v1/products", { sku: "MONT", name: "Montaje", kind: "service", sale_price: "40", vat_rate: "21" })).body.id;
+    expect((await call("POST", "/api/v1/products", { sku: "SOP-01", name: "Duplicado" })).status).toBe(409);
   });
 
   it("recibe stock en dos lotes", async () => {
-    expect((await call("POST", "/api/stock/receipts", { product_id: steel, quantity: "10" })).status).toBe(422); // exige lote
-    await call("POST", "/api/stock/receipts", { product_id: steel, quantity: "6", lot_code: "L-B", expiry_date: "2027-06-30" });
-    await call("POST", "/api/stock/receipts", { product_id: steel, quantity: "10", lot_code: "L-A", expiry_date: "2027-01-31" });
-    const prods = (await call("GET", "/api/products?q=SOP")).body;
+    expect((await call("POST", "/api/v1/stock/receipts", { product_id: steel, quantity: "10" })).status).toBe(422); // exige lote
+    await call("POST", "/api/v1/stock/receipts", { product_id: steel, quantity: "6", lot_code: "L-B", expiry_date: "2027-06-30" });
+    await call("POST", "/api/v1/stock/receipts", { product_id: steel, quantity: "10", lot_code: "L-A", expiry_date: "2027-01-31" });
+    const prods = (await call("GET", "/api/v1/products?q=SOP")).body;
     expect(prods[0].on_hand).toBe("16.0000");
   });
 
   it("crea y confirma el pedido; no deja facturar antes de entregar", async () => {
-    const r = await call("POST", "/api/sales-orders", {
+    const r = await call("POST", "/api/v1/sales-orders", {
       partner_id: customer,
       lines: [
         { product_id: steel, quantity: "12" },
@@ -61,14 +61,14 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
     order = r.body.id;
     expect(r.body.number).toMatch(/^PV\d{4}-00001$/);
     expect(r.body.totals.untaxed).toBe("186.00");
-    expect((await call("POST", `/api/sales-orders/${order}/invoice`)).status).toBe(409);
-    expect((await call("POST", `/api/sales-orders/${order}/confirm`)).body.state).toBe("confirmed");
+    expect((await call("POST", `/api/v1/sales-orders/${order}/invoice`)).status).toBe(409);
+    expect((await call("POST", `/api/v1/sales-orders/${order}/confirm`)).body.state).toBe("confirmed");
   });
 
   it("entrega consumiendo primero el lote que caduca antes (FEFO)", async () => {
-    const r = await call("POST", `/api/sales-orders/${order}/deliver`);
+    const r = await call("POST", `/api/v1/sales-orders/${order}/deliver`);
     expect(r.status).toBe(200);
-    const stock = (await call("GET", "/api/stock")).body;
+    const stock = (await call("GET", "/api/v1/stock")).body;
     expect(stock).toHaveLength(1);
     expect(stock[0].lot_code).toBe("L-B");
     expect(stock[0].quantity).toBe("4.0000");
@@ -79,20 +79,20 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
   });
 
   it("factura con IVA + recargo de equivalencia y emite con VERI*FACTU", async () => {
-    const draft = (await call("POST", `/api/sales-orders/${order}/invoice`)).body;
+    const draft = (await call("POST", `/api/v1/sales-orders/${order}/invoice`)).body;
     invoice = draft.id;
     expect(draft.number).toBeNull();
     expect(draft.untaxed).toBe("186.00");
     expect(draft.vat_total).toBe("39.06");
     expect(draft.surcharge_total).toBe("9.67");
     expect(draft.total).toBe("234.73");
-    const issued = (await call("POST", `/api/invoices/${invoice}/issue`)).body;
+    const issued = (await call("POST", `/api/v1/invoices/${invoice}/issue`)).body;
     expect(issued.state).toBe("issued");
     expect(issued.number).toMatch(/^F\d{4}-00001$/);
     expect(issued.verifactu.hash).toMatch(/^[0-9A-F]{64}$/);
     expect(issued.verifactu.previous_hash).toBe("");
     expect(issued.verifactu.qr_url).toContain("numserie=F");
-    expect((await call("POST", `/api/invoices/${invoice}/issue`)).status).toBe(409);
+    expect((await call("POST", `/api/v1/invoices/${invoice}/issue`)).status).toBe(409);
   });
 
   it("protege la factura emitida en la propia base de datos", async () => {
@@ -102,37 +102,37 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
   });
 
   it("cobra en dos pagos y marca la factura como pagada", async () => {
-    expect((await call("POST", `/api/invoices/${invoice}/payments`, { amount: "500" })).status).toBe(422);
-    expect((await call("POST", `/api/invoices/${invoice}/payments`, { amount: "100" })).body.pending).toBe("134.73");
-    const paid = (await call("POST", `/api/invoices/${invoice}/payments`, { amount: "134.73" })).body;
+    expect((await call("POST", `/api/v1/invoices/${invoice}/payments`, { amount: "500" })).status).toBe(422);
+    expect((await call("POST", `/api/v1/invoices/${invoice}/payments`, { amount: "100" })).body.pending).toBe("134.73");
+    const paid = (await call("POST", `/api/v1/invoices/${invoice}/payments`, { amount: "134.73" })).body;
     expect(paid.state).toBe("paid");
   });
 
   it("encadena la segunda factura y verifica la cadena", async () => {
-    const o2 = (await call("POST", "/api/sales-orders", { partner_id: customer, lines: [{ product_id: steel, quantity: "2" }] })).body.id;
-    await call("POST", `/api/sales-orders/${o2}/confirm`);
-    await call("POST", `/api/sales-orders/${o2}/deliver`);
-    const inv2 = (await call("POST", `/api/sales-orders/${o2}/invoice`)).body.id;
-    const issued = (await call("POST", `/api/invoices/${inv2}/issue`)).body;
-    const first = (await call("GET", `/api/invoices/${invoice}`)).body;
+    const o2 = (await call("POST", "/api/v1/sales-orders", { partner_id: customer, lines: [{ product_id: steel, quantity: "2" }] })).body.id;
+    await call("POST", `/api/v1/sales-orders/${o2}/confirm`);
+    await call("POST", `/api/v1/sales-orders/${o2}/deliver`);
+    const inv2 = (await call("POST", `/api/v1/sales-orders/${o2}/invoice`)).body.id;
+    const issued = (await call("POST", `/api/v1/invoices/${inv2}/issue`)).body;
+    const first = (await call("GET", `/api/v1/invoices/${invoice}`)).body;
     expect(issued.verifactu.previous_hash).toBe(first.verifactu.hash);
-    expect((await call("GET", "/api/verifactu/verify")).body).toEqual({ records: 2, ok: true, firstBrokenSeq: null });
-    const pending = (await call("GET", "/api/verifactu/records")).body;
+    expect((await call("GET", "/api/v1/verifactu/verify")).body).toEqual({ records: 2, ok: true, firstBrokenSeq: null });
+    const pending = (await call("GET", "/api/v1/verifactu/records")).body;
     expect(pending.every((r: { send_state: string }) => r.send_state === "pending")).toBe(true);
   });
 
   it("rechaza vender más stock del que hay", async () => {
-    const o3 = (await call("POST", "/api/sales-orders", { partner_id: customer, lines: [{ product_id: steel, quantity: "50" }] })).body.id;
-    await call("POST", `/api/sales-orders/${o3}/confirm`);
-    const r = await call("POST", `/api/sales-orders/${o3}/deliver`);
+    const o3 = (await call("POST", "/api/v1/sales-orders", { partner_id: customer, lines: [{ product_id: steel, quantity: "50" }] })).body.id;
+    await call("POST", `/api/v1/sales-orders/${o3}/confirm`);
+    const r = await call("POST", `/api/v1/sales-orders/${o3}/deliver`);
     expect(r.status).toBe(422);
     expect(r.body.error).toMatch(/Stock insuficiente/);
     // la transacción se deshizo: el pedido sigue confirmado y el número de albarán no se gastó
-    expect((await call("GET", `/api/sales-orders/${o3}`)).body.state).toBe("confirmed");
+    expect((await call("GET", `/api/v1/sales-orders/${o3}`)).body.state).toBe("confirmed");
   });
 
   it("deja auditoría de todo", async () => {
-    const ev = (await call("GET", "/api/events")).body;
+    const ev = (await call("GET", "/api/v1/events")).body;
     expect(ev.some((e: { action: string }) => e.action === "issue")).toBe(true);
   });
 });

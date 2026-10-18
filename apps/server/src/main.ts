@@ -19,7 +19,7 @@ const server = await startServer({
   databaseUrl: process.env.DATABASE_URL,
   dataDir: process.env.SINDRI_DATA_DIR ?? ".data",
   host: process.env.SINDRI_HOST ?? "127.0.0.1",
-  port: Number(process.env.PORT ?? 3210),
+  port: Number(process.env.PORT ?? 8000),
   webDir,
   logger: true,
   sso: ssoFromEnv(),

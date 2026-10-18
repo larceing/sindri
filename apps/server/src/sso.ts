@@ -126,7 +126,7 @@ export function currentPerson(req: FastifyRequest, cfg: SsoConfig): Person | nul
 }
 
 /** Rutas que no piden sesión. */
-const OPEN = new Set(["/login", "/sso", "/logout", "/version", "/version/", "/api/health"]);
+const OPEN = new Set(["/login", "/sso", "/logout", "/version", "/version/", "/api/health", "/api/v1/health", "/api/v1/compat"]);
 
 export function registerSso(app: FastifyInstance, cfg: SsoConfig) {
   const issuer = noTrailing(cfg.issuer);
@@ -202,7 +202,7 @@ export function registerSso(app: FastifyInstance, cfg: SsoConfig) {
     return reply.redirect(`${issuer}/protocol/openid-connect/logout?${q}`);
   });
 
-  app.get("/api/me", async (req) => {
+  app.get("/api/v1/me", async (req) => {
     const p = currentPerson(req, cfg)!;
     return { user: p.user, name: p.name, email: p.email, admin: p.admin, logout: "logout" };
   });

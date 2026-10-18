@@ -1,0 +1,118 @@
+{
+  "realm": "general",
+  "enabled": true,
+  "groups": [
+    {
+      "name": "DEV",
+      "subGroups": [
+        {
+          "name": "Sindri",
+          "subGroups": [
+            {
+              "name": "Admin"
+            },
+            {
+              "name": "CRM"
+            },
+            {
+              "name": "Produccion"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IT"
+    }
+  ],
+  "users": [
+    {
+      "username": "prueba",
+      "enabled": true,
+      "email": "prueba@sindri.local",
+      "emailVerified": true,
+      "firstName": "Usuario",
+      "lastName": "de Prueba",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "prueba",
+          "temporary": false
+        }
+      ],
+      "groups": [
+        "/DEV/Sindri/Admin"
+      ]
+    },
+    {
+      "username": "comercial",
+      "enabled": true,
+      "email": "comercial@sindri.local",
+      "emailVerified": true,
+      "firstName": "Comercial",
+      "lastName": "de Prueba",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "comercial",
+          "temporary": false
+        }
+      ],
+      "groups": [
+        "/DEV/Sindri/CRM"
+      ]
+    },
+    {
+      "username": "fuera",
+      "enabled": true,
+      "email": "fuera@sindri.local",
+      "emailVerified": true,
+      "firstName": "Sin",
+      "lastName": "Acceso",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "fuera",
+          "temporary": false
+        }
+      ],
+      "groups": []
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "sindri-dev",
+      "name": "Sindri (DEV, local)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_SECRETO_LOCAL:solo-para-el-keycloak-local}",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8000/sindri/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8000"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8000/sindri/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "grupos",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "full.path": "true",
+            "claim.name": "groups",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ]
+}

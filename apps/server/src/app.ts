@@ -73,6 +73,11 @@ const OrderSchema = z.object({
 });
 const PaymentSchema = z.object({ amount: dec, paid_on: z.iso.date().optional(), method: z.string().optional() });
 
+/** Versión más vieja del escritorio que esta API sigue sirviendo. Subirla obliga a actualizar. */
+export const ESCRITORIO_MINIMA = "0.1.0";
+/** Ídem para el agente de planta. */
+export const PLANTA_MINIMA = "0.1.0";
+
 type IdParams = { Params: { id: string } };
 
 export interface AppOptions {
@@ -100,8 +105,9 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   const app = Fastify({ logger, trustProxy });
 
   // Página de versión que lee el servidor DEV/PRO (punto verde, «Pasar a PRO»).
-  app.get("/version", async () => ({ version }));
-  app.get("/version/", async () => ({ version }));
+  const versionBody = async () => ({ version, escritorio_minima: ESCRITORIO_MINIMA });
+  app.get("/version", versionBody);
+  app.get("/version/", versionBody);
 
   if (sso) registerSso(app, sso);
 
@@ -109,7 +115,7 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   // de prueba: hasta que existan usuarios y permisos, impide que entre cualquiera.
   if (auth && !sso) {
     app.addHook("onRequest", async (req, reply) => {
-      if (req.url === "/api/health") return;
+      if (["/api/health", "/api/v1/health", "/version", "/version/"].includes(req.url.split("?")[0]!)) return;
       const header = req.headers.authorization ?? "";
       const [user = "", password = ""] = header.startsWith("Basic ")
         ? Buffer.from(header.slice(6), "base64").toString("utf8").split(/:(.*)/s)
@@ -133,40 +139,44 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
     return reply.status(500).send({ error: "Error interno" });
   });
 
-  app.get("/api/health", async () => ({ ok: true, db: db.kind, version }));
+  const health = async () => ({ ok: true, db: db.kind, version });
+  app.get("/api/health", health);
+  app.get("/api/v1/health", health);
+  // Compatibilidad: el escritorio y los agentes de planta van por detrás de la web.
+  app.get("/api/v1/compat", async () => ({ api: "v1", escritorio_minima: ESCRITORIO_MINIMA, planta_minima: PLANTA_MINIMA }));
 
-  app.get("/api/company", async () => s.getCompany(db));
-  app.put("/api/company", async (req) => s.setupCompany(db, CompanySchema.parse(req.body)));
+  app.get("/api/v1/company", async () => s.getCompany(db));
+  app.put("/api/v1/company", async (req) => s.setupCompany(db, CompanySchema.parse(req.body)));
 
-  app.get<{ Querystring: { q?: string } }>("/api/partners", async (req) => s.listPartners(db, req.query.q));
-  app.post("/api/partners", async (req, reply) => reply.status(201).send(await s.createPartner(db, PartnerSchema.parse(req.body))));
-  app.patch<IdParams>("/api/partners/:id", async (req) => s.updatePartner(db, req.params.id, PartnerSchema.partial().parse(req.body)));
+  app.get<{ Querystring: { q?: string } }>("/api/v1/partners", async (req) => s.listPartners(db, req.query.q));
+  app.post("/api/v1/partners", async (req, reply) => reply.status(201).send(await s.createPartner(db, PartnerSchema.parse(req.body))));
+  app.patch<IdParams>("/api/v1/partners/:id", async (req) => s.updatePartner(db, req.params.id, PartnerSchema.partial().parse(req.body)));
 
-  app.get<{ Querystring: { q?: string } }>("/api/products", async (req) => s.listProducts(db, req.query.q));
-  app.post("/api/products", async (req, reply) => reply.status(201).send(await s.createProduct(db, ProductSchema.parse(req.body))));
-  app.patch<IdParams>("/api/products/:id", async (req) => s.updateProduct(db, req.params.id, ProductSchema.partial().parse(req.body)));
+  app.get<{ Querystring: { q?: string } }>("/api/v1/products", async (req) => s.listProducts(db, req.query.q));
+  app.post("/api/v1/products", async (req, reply) => reply.status(201).send(await s.createProduct(db, ProductSchema.parse(req.body))));
+  app.patch<IdParams>("/api/v1/products/:id", async (req) => s.updateProduct(db, req.params.id, ProductSchema.partial().parse(req.body)));
 
-  app.get("/api/locations", async () => s.listLocations(db));
-  app.get("/api/stock", async () => s.stockBalances(db));
-  app.get<{ Querystring: { product_id?: string } }>("/api/stock/moves", async (req) => s.listMoves(db, req.query.product_id));
-  app.post("/api/stock/receipts", async (req, reply) => reply.status(201).send(await s.receiveStock(db, ReceiptSchema.parse(req.body))));
+  app.get("/api/v1/locations", async () => s.listLocations(db));
+  app.get("/api/v1/stock", async () => s.stockBalances(db));
+  app.get<{ Querystring: { product_id?: string } }>("/api/v1/stock/moves", async (req) => s.listMoves(db, req.query.product_id));
+  app.post("/api/v1/stock/receipts", async (req, reply) => reply.status(201).send(await s.receiveStock(db, ReceiptSchema.parse(req.body))));
 
-  app.get("/api/sales-orders", async () => s.listSalesOrders(db));
-  app.post("/api/sales-orders", async (req, reply) => reply.status(201).send(await s.createSalesOrder(db, OrderSchema.parse(req.body))));
-  app.get<IdParams>("/api/sales-orders/:id", async (req) => s.getSalesOrder(db, req.params.id));
-  app.post<IdParams>("/api/sales-orders/:id/confirm", async (req) => s.confirmSalesOrder(db, req.params.id));
-  app.post<IdParams>("/api/sales-orders/:id/deliver", async (req) => s.deliverSalesOrder(db, req.params.id));
-  app.post<IdParams>("/api/sales-orders/:id/invoice", async (req) => s.invoiceSalesOrder(db, req.params.id));
-  app.post<IdParams>("/api/sales-orders/:id/cancel", async (req) => s.cancelSalesOrder(db, req.params.id));
+  app.get("/api/v1/sales-orders", async () => s.listSalesOrders(db));
+  app.post("/api/v1/sales-orders", async (req, reply) => reply.status(201).send(await s.createSalesOrder(db, OrderSchema.parse(req.body))));
+  app.get<IdParams>("/api/v1/sales-orders/:id", async (req) => s.getSalesOrder(db, req.params.id));
+  app.post<IdParams>("/api/v1/sales-orders/:id/confirm", async (req) => s.confirmSalesOrder(db, req.params.id));
+  app.post<IdParams>("/api/v1/sales-orders/:id/deliver", async (req) => s.deliverSalesOrder(db, req.params.id));
+  app.post<IdParams>("/api/v1/sales-orders/:id/invoice", async (req) => s.invoiceSalesOrder(db, req.params.id));
+  app.post<IdParams>("/api/v1/sales-orders/:id/cancel", async (req) => s.cancelSalesOrder(db, req.params.id));
 
-  app.get("/api/invoices", async () => s.listInvoices(db));
-  app.get<IdParams>("/api/invoices/:id", async (req) => s.getInvoice(db, req.params.id));
-  app.post<IdParams>("/api/invoices/:id/issue", async (req) => s.issueInvoice(db, req.params.id));
-  app.post<IdParams>("/api/invoices/:id/payments", async (req) => s.registerPayment(db, req.params.id, PaymentSchema.parse(req.body)));
+  app.get("/api/v1/invoices", async () => s.listInvoices(db));
+  app.get<IdParams>("/api/v1/invoices/:id", async (req) => s.getInvoice(db, req.params.id));
+  app.post<IdParams>("/api/v1/invoices/:id/issue", async (req) => s.issueInvoice(db, req.params.id));
+  app.post<IdParams>("/api/v1/invoices/:id/payments", async (req) => s.registerPayment(db, req.params.id, PaymentSchema.parse(req.body)));
 
-  app.get("/api/verifactu/records", async () => s.listVerifactu(db));
-  app.get("/api/verifactu/verify", async () => s.verifyVerifactuChain(db));
-  app.get("/api/events", async () => s.listEvents(db));
+  app.get("/api/v1/verifactu/records", async () => s.listVerifactu(db));
+  app.get("/api/v1/verifactu/verify", async () => s.verifyVerifactuChain(db));
+  app.get("/api/v1/events", async () => s.listEvents(db));
 
   if (webDir && existsSync(webDir)) {
     await app.register(fastifyStatic, { root: webDir, wildcard: false });

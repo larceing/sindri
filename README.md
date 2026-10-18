@@ -68,7 +68,7 @@ pnpm test                 # pruebas del núcleo y del servidor
 pnpm desktop
 
 # Opción 2: servidor + web en el navegador
-pnpm --filter @sindri/server start      # http://127.0.0.1:3210  (datos en ./.data)
+pnpm --filter @sindri/server start      # http://127.0.0.1:8000  (datos en ./.data)
 
 # Servidor de empresa con PostgreSQL, accesible desde la red local
 DATABASE_URL=postgres://usuario:clave@localhost/sindri SINDRI_HOST=0.0.0.0 pnpm --filter @sindri/server start
@@ -86,9 +86,18 @@ Las pruebas contra PostgreSQL real se activan con `TEST_DATABASE_URL=postgres://
 
 Sindri se da de alta como una app más del servidor común (`servidor.json`, imagen en GHCR y entrada con Keycloak): ver [docs/SERVIDOR-DEV-PRO.md](docs/SERVIDOR-DEV-PRO.md).
 
-## Sistema de prueba en un servidor
+## Desarrollo en local
 
-Con Docker, en un servidor Linux: ver [despliegue/README.md](despliegue/README.md). Monta la web, la API y PostgreSQL, con usuario y clave y datos de demostración.
+Con Docker: la app, PostgreSQL, un Keycloak de pruebas y el simulador OPC UA de planta, detrás de una entrada que imita la del servidor (todo bajo `/sindri/`).
+
+```bash
+cp desarrollo/.env.ejemplo .env     # claves solo para este equipo
+docker compose up --build
+```
+
+- Sindri: http://localhost:8000/sindri/ (usuarios de prueba `prueba`/`prueba` administrador, `comercial`/`comercial` de CRM, `fuera`/`fuera` sin acceso).
+- Keycloak de pruebas: http://localhost:8080 (realm `general`, grupos `/DEV/Sindri/...` como en el servidor).
+- Simulador OPC UA: `opc.tcp://localhost:4840/`, carpeta `Planta/Linea1`. Nunca se conecta a la planta de verdad.
 
 ## Documentación
 

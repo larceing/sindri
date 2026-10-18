@@ -29,11 +29,11 @@ describe("Sistema de prueba: datos de demostración y acceso con clave", () => {
 
   it("pide usuario y clave salvo para la comprobación de salud", async () => {
     expect((await app.inject({ url: "/api/health" })).statusCode).toBe(200);
-    const sin = await app.inject({ url: "/api/invoices" });
+    const sin = await app.inject({ url: "/api/v1/invoices" });
     expect(sin.statusCode).toBe(401);
     expect(sin.headers["www-authenticate"]).toContain("Basic");
-    expect((await app.inject({ url: "/api/invoices", headers: { authorization: basic("prueba", "mala") } })).statusCode).toBe(401);
-    const ok = await app.inject({ url: "/api/invoices", headers: { authorization: basic("prueba", "una:clave") } });
+    expect((await app.inject({ url: "/api/v1/invoices", headers: { authorization: basic("prueba", "mala") } })).statusCode).toBe(401);
+    const ok = await app.inject({ url: "/api/v1/invoices", headers: { authorization: basic("prueba", "una:clave") } });
     expect(ok.statusCode).toBe(200);
     expect(JSON.parse(ok.body)).toHaveLength(2);
   });
