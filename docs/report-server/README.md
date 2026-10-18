@@ -7,27 +7,33 @@ imprimen la pantalla con el navegador.
 
 ## Ponerlo en marcha (una vez por entorno, primero DEV)
 
-1. **Importar las plantillas.** En el Report Server → Plantillas → **Importar .json**, sube los
-   cuatro ficheros de esta carpeta: `sindri-factura.json`, `sindri-pedido.json`,
-   `sindri-albaran.json` y `sindri-hoja-ruta.json`. Cada uno trae datos de ejemplo, así que en el
-   diseñador se ve el documento tal como saldrá. Se pueden retocar a gusto (logo, colores,
-   textos); lo único que hay que respetar es el **nombre** de la plantilla y de las tablas
-   (`lineas`, `desglose`, `paradas`) y del QR (`qr`).
-2. **Crear la llave.** En el Report Server → Llaves, crea una para la app `sindri`.
-3. **Conectar Sindri.** En Sindri → Informes → **Conectar** (hace falta ser administrador), pon la
+1. **Crear la llave.** En el Report Server → Llaves, crea una para la app `sindri`.
+2. **Conectar Sindri.** En Sindri → Informes → **Conectar** (hace falta ser administrador), pon la
    dirección del Report Server y la llave, y pulsa **Probar y guardar**. Sindri prueba la llave
-   antes de guardarla y dice cuántas de sus plantillas encuentra. La llave se guarda en la base de
-   Sindri, no se vuelve a enseñar y nunca va al repositorio ni a un chat. La dirección buena es la
-   interna del servidor (la que pone el README del Report Server, en «Cómo genera una app»).
+   antes de guardarla y **instala él solo sus cuatro plantillas** en el Report Server
+   (`sindri-factura`, `sindri-pedido`, `sindri-albaran`, `sindri-hoja-ruta`). Las que ya estén
+   allí no las toca, para no perder lo retocado. La llave se guarda en la base de Sindri, no se
+   vuelve a enseñar y nunca va al repositorio ni a un chat. La dirección buena es la interna del
+   servidor (la que pone el README del Report Server, en «Cómo genera una app»).
 
    Si se prefiere, también vale ponerlo en el `app.env` de Sindri como `REPORT_URL` y
    `REPORT_LLAVE`; entonces mandan esas variables y la pantalla solo las enseña.
-4. **Comprobarlo.** En Sindri → Informes, el recuadro «Documentos en PDF» dice a qué Report
-   Server está conectado y qué plantillas tiene. Los botones de factura, pedido, albarán y hoja de ruta
-   pasan a decir «(PDF)».
+3. **Elegir plantillas (si se quiere).** En Sindri → Informes, cada documento tiene su
+   desplegable con las plantillas del Report Server (primero las de su grupo: `factura`, `pedido`,
+   `albaran`, `hoja-ruta`) o «Imprimir con el navegador». Por defecto, la de Sindri. Así se puede
+   diseñar en el Report Server una «Factura con logo» y elegirla aquí sin tocar código.
+4. **Comprobarlo.** Los botones de factura, pedido, albarán y hoja de ruta pasan a decir «(PDF)».
 
-Para PRO se repite lo mismo en el Sindri y el Report Server de PRO: en el de DEV, **Descargar** cada
-plantilla ya retocada y en el de PRO **Importar .json**.
+En Informes también están **Instalar las plantillas de Sindri** (si falta alguna), **Volver a las de
+partida** (las deja como vienen, perdiendo lo retocado) y **Descargar las de partida** (las cuatro
+en un `.json` que acepta «Importar .json» del Report Server, por si se quieren guardar o importar
+a mano). Instalar desde Sindri necesita un Report Server que lo permita (`POST /api/plantillas`);
+con uno anterior, Sindri conecta igual y avisa de que hay que importarlas a mano.
+
+Para PRO se repite lo mismo con el Sindri y el Report Server de PRO. Si se han retocado en DEV, en el
+Report Server de DEV **Descargar** cada plantilla y en el de PRO **Importar .json**.
+
+En la aplicación de escritorio, los PDF se guardan en Descargas y se abren con el visor del sistema.
 
 ## Qué datos recibe cada plantilla
 
@@ -48,8 +54,8 @@ documento en `GET /api/v1/documentos/<tipo>/<id>/datos` (tipo: `factura`, `pedid
 
 ## Regenerar las plantillas de partida
 
-`node docs/report-server/generar-plantillas.mjs` vuelve a escribir los cuatro `.json` desde el
-script. Solo hace falta si se cambian aquí; lo retocado en el diseñador vive en el Report Server.
+`node docs/report-server/generar-plantillas.mjs` vuelve a escribir los cuatro `.json` de
+`apps/server/plantillas/` (las que Sindri lleva dentro e instala) desde el script. Solo hace falta si se cambian aquí; lo retocado en el diseñador vive en el Report Server.
 
 ## Datos para otras herramientas de informes
 

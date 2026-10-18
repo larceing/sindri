@@ -186,7 +186,7 @@ describe("Versión 0.2: empresas, usuarios, ficha de cliente, comerciales, separ
     const alb = (await call("admin", "GET", `/api/v1/documentos/albaran/${pedido}/datos`)).body;
     expect(alb).toMatchObject({ pedido: expect.stringMatching(/^PV/), cliente: { nombre: "Ferretería Norte SL" }, comercial: "Carla" });
     expect(alb.lineas[0]).toMatchObject({ referencia: "SOP-01", cantidad: 6 });
-    expect((await call("admin", "GET", "/api/v1/documentos")).body).toEqual({ report_server: false, plantillas: [] });
+    expect((await call("admin", "GET", "/api/v1/documentos")).body).toMatchObject({ report_server: false, plantillas: [] });
     expect((await call("admin", "GET", `/api/v1/documentos/pedido/${pedido}/pdf`)).status).toBe(501);
   });
 });

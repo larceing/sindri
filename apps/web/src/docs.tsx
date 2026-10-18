@@ -2,25 +2,24 @@ import { useEffect, useState } from "react";
 import { FileDown, Printer } from "lucide-react";
 import { api } from "./api";
 
-/** Plantilla del Report Server para cada documento (docs/report-server/). */
-const PLANTILLA = { factura: "sindri-factura", pedido: "sindri-pedido", albaran: "sindri-albaran", hoja_ruta: "sindri-hoja-ruta" } as const;
-export type TipoDocumento = keyof typeof PLANTILLA;
+export type TipoDocumento = "factura" | "pedido" | "albaran" | "hoja_ruta";
 
-let estado: Promise<{ report_server: boolean; plantillas: string[] }> | null = null;
+type Estado = { report_server: boolean; documentos?: Partial<Record<TipoDocumento, { lista: boolean }>> };
+let estado: Promise<Estado> | null = null;
 /** Tras conectar o desconectar el Report Server, los botones vuelven a preguntar. */
 export const olvidarDocumentos = () => {
   estado = null;
 };
-const cargar = () => (estado ??= api("/documentos").catch(() => ({ report_server: false, plantillas: [] })));
+const cargar = () => (estado ??= api("/documentos").catch(() => ({ report_server: false })));
 
 /**
- * Botón de documento: con el Report Server configurado y su plantilla importada saca el PDF;
- * si no, imprime la pantalla con el navegador.
+ * Botón de documento: con el Report Server conectado y la plantilla elegida en Informes, saca el
+ * PDF; si no, imprime la pantalla con el navegador.
  */
 export function DocButton({ tipo, id, label, primary }: { tipo: TipoDocumento; id: string; label: string; primary?: boolean }) {
   const [pdf, setPdf] = useState(false);
   useEffect(() => {
-    void cargar().then((e) => setPdf(e.report_server && e.plantillas.includes(PLANTILLA[tipo])));
+    void cargar().then((e) => setPdf(e.report_server && !!e.documentos?.[tipo]?.lista));
   }, [tipo]);
   return pdf ? (
     <a className={`button ${primary ? "primary" : ""}`} href={`./api/v1/documentos/${tipo}/${id}/pdf`} target="_blank" rel="noopener">

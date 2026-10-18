@@ -6,15 +6,28 @@
  * - La dirección no está en el código: viene de entorno.json, que se genera al construir
  *   el instalador (vars.URL_DEV en GitHub), o de SINDRI_URL al desarrollar.
  * - La ventana solo navega por Sindri y por Keycloak; el resto se abre en el navegador.
+ * - Lo que Sindri abre aparte (los PDF de facturas, pedidos…) se descarga con la sesión de la
+ *   ventana a la carpeta de Descargas y se abre con el visor del sistema: el navegador del
+ *   sistema no tiene la sesión de Sindri.
  * - Al arrancar mira escritorio_minima en /version/ y, si esta versión es más vieja, pide actualizar.
  * - El instalador de DEV se llama «Sindri DEV», tiene su carpeta de datos y una franja que lo dice.
  */
 import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, extname, join } from "node:path";
 import { esMasVieja, leerEntorno, origenKeycloak, type Entorno } from "./entorno.js";
 
 const RELEASES = "https://github.com/larceing/sindri/releases";
+
+/** «Factura F1.pdf», y si ya existe «Factura F1 (2).pdf»… */
+function rutaLibre(carpeta: string, fichero: string) {
+  const limpio = basename(fichero).replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_") || "documento";
+  const ext = extname(limpio);
+  const base = limpio.slice(0, limpio.length - ext.length);
+  let ruta = join(carpeta, limpio);
+  for (let i = 2; existsSync(ruta); i++) ruta = join(carpeta, `${base} (${i})${ext}`);
+  return ruta;
+}
 
 function cargarEntorno(): Entorno {
   let fichero: unknown = undefined;
@@ -113,7 +126,8 @@ async function abrir() {
 
   // Solo Sindri y Keycloak dentro de la ventana; lo demás, al navegador del sistema.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    abrirFuera(url);
+    if (permitido(url)) win.webContents.downloadURL(url);
+    else abrirFuera(url);
     return { action: "deny" };
   });
   const vigilar = (e: Electron.Event, url: string) => {
@@ -126,7 +140,17 @@ async function abrir() {
   if (entorno.entorno !== "pro") win.webContents.on("dom-ready", () => void win.webContents.insertCSS(FRANJA(entorno.entorno.toUpperCase())));
 
   // Sin permisos de cámara, micrófono, ubicación…: la web no los necesita.
-  session.fromPartition(`persist:sindri-${entorno.entorno}`).setPermissionRequestHandler((_wc, _p, cb) => cb(false));
+  const sesion = session.fromPartition(`persist:sindri-${entorno.entorno}`);
+  sesion.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
+
+  // Descargas: a Descargas sin preguntar (sin pisar otra con el mismo nombre); los PDF se abren al acabar.
+  sesion.on("will-download", (_e, item) => {
+    const destino = rutaLibre(app.getPath("downloads"), item.getFilename());
+    item.setSavePath(destino);
+    item.once("done", (_ev, estado) => {
+      if (estado === "completed" && /\.pdf$/i.test(destino)) void shell.openPath(destino);
+    });
+  });
 
   const arrancar = async () => {
     const estado = await comprobarVersion(win);

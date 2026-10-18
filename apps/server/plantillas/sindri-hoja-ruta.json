@@ -1,6 +1,7 @@
 {
   "nombre": "sindri-hoja-ruta",
   "titulo": "Sindri · Hoja de ruta",
+  "grupo": "hoja-ruta",
   "ejemplo": {
     "empresa": {
       "nombre": "Conservas Demo del Norte, S.L.",

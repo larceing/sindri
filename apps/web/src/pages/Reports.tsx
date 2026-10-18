@@ -5,12 +5,18 @@ import { useSession } from "../session";
 import { olvidarDocumentos } from "../docs";
 import { Alert, Code, Empty, ErrorBox, Field, Page, Table } from "../ui";
 
-const PLANTILLAS = [
-  ["sindri-factura", "Factura"],
-  ["sindri-pedido", "Pedido"],
-  ["sindri-albaran", "Albarán"],
-  ["sindri-hoja-ruta", "Hoja de ruta"],
-];
+/** Documentos de Sindri y su grupo en el Report Server (las del mismo grupo salen primero al elegir). */
+const DOCUMENTOS = [
+  ["factura", "Factura", "factura"],
+  ["pedido", "Pedido", "pedido"],
+  ["albaran", "Albarán", "albaran"],
+  ["hoja_ruta", "Hoja de ruta", "hoja-ruta"],
+] as const;
+type PlantillaRS = { nombre: string; titulo: string; grupo: string };
+const resumen = (i: { estado: string }[]) => {
+  const nuevas = i.filter((x) => x.estado !== "ya estaba").length;
+  return nuevas ? `Instaladas ${nuevas} plantilla(s) de Sindri en el Report Server.` : "Las plantillas de Sindri ya estaban en el Report Server.";
+};
 
 const cell = (v: unknown) => (v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
 
@@ -106,20 +112,36 @@ function Readers() {
   );
 }
 
-/** Conexión con el Report Server: dirección y llave, probadas antes de guardarlas. */
+/** Conexión con el Report Server: dirección y llave, probadas antes de guardarlas; y qué plantilla usa cada documento. */
 function ReportServer() {
   const { me } = useSession();
   const { data: docs, reload } = useData("/documentos");
   const { data: con, reload: reloadCon } = useData(me?.admin ? "/documentos/conexion" : null);
   const [f, setF] = useState<{ url: string; llave: string } | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const { run, error, busy } = useAction();
   const recargar = async () => { olvidarDocumentos(); await reload(); await reloadCon(); };
   const guardar = () =>
     run(async () => {
       const r = await api("/documentos/conexion", { method: "PUT", body: { url: f!.url, llave: f!.llave } });
       setF(null);
-      setOk(`Conectado. Plantillas de Sindri encontradas: ${r.plantillas.length} de ${PLANTILLAS.length}.`);
+      setOk(`Conectado. ${r.aviso ? "" : resumen(r.instaladas)}`);
+      setAviso(r.aviso ?? null);
+      await recargar();
+    });
+  const instalar = (sustituir: boolean) =>
+    run(async () => {
+      if (sustituir && !confirm("¿Dejar las cuatro plantillas de Sindri como las de partida? Se pierde lo retocado en ellas en el diseñador del Report Server.")) return;
+      const r = await post("/documentos/plantillas/instalar", { sustituir });
+      setOk(sustituir ? "Plantillas de Sindri como las de partida." : resumen(r.instaladas));
+      setAviso(null);
+      await recargar();
+    });
+  const elegir = (tipo: string, nombre: string) =>
+    run(async () => {
+      await api("/documentos/plantillas", { method: "PUT", body: { [tipo]: nombre } });
+      setOk(null);
       await recargar();
     });
   const quitar = () =>
@@ -127,9 +149,12 @@ function ReportServer() {
       if (!confirm("¿Desconectar Sindri del Report Server? Los documentos volverán a imprimirse con el navegador.")) return;
       await api("/documentos/conexion", { method: "DELETE" });
       setOk(null);
+      setAviso(null);
       await recargar();
     });
   const editable = me?.admin && con && con.origen !== "variables";
+  const disponibles: PlantillaRS[] = docs?.disponibles ?? [];
+  const faltan = docs ? DOCUMENTOS.some(([t]) => !docs.plantillas.includes(docs.documentos?.[t]?.de_sindri)) : false;
   return (
     <div className="card">
       <div className="card-head">
@@ -141,7 +166,7 @@ function ReportServer() {
           <p className="hint">
             En el Report Server, entra en <b>Llaves</b> y crea una para la app <Code>sindri</Code>; cópiala aquí. La dirección es la del
             Report Server por la red interna del servidor (la que pone su README, «Cómo genera una app»); también vale la pública si se
-            llega a ella desde el servidor. Sindri la prueba antes de guardarla.
+            llega a ella desde el servidor. Sindri la prueba antes de guardarla e instala él solo sus plantillas en el Report Server.
           </p>
           <div className="form">
             <Field label="Dirección del Report Server"><input value={f.url} placeholder="http://…:3000" onChange={(e) => setF({ ...f, url: e.target.value })} /></Field>
@@ -163,6 +188,7 @@ function ReportServer() {
       ) : (
         <>
           {ok && <Alert tone="ok">{ok}</Alert>}
+          {aviso && <Alert tone="aviso">{aviso}.</Alert>}
           {docs.error && <Alert tone="error">{docs.error}.</Alert>}
           {con?.origen && (
             <p className="hint">
@@ -173,15 +199,40 @@ function ReportServer() {
           <Table>
             <thead><tr><th>Documento</th><th>Plantilla</th><th>Estado</th></tr></thead>
             <tbody>
-              {PLANTILLAS.map(([p, l]) => (
-                <tr key={p}>
-                  <td>{l}</td><td><Code>{p}</Code></td>
-                  <td>{docs.plantillas.includes(p) ? <span className="ok">Lista</span> : <span className="muted">Falta importarla en el Report Server (docs/report-server): mientras, se imprime con el navegador</span>}</td>
-                </tr>
-              ))}
+              {DOCUMENTOS.map(([t, label, grupo]) => {
+                const d = docs.documentos?.[t] ?? { plantilla: "", lista: false };
+                // Primero las del mismo grupo (las de este documento), luego las demás.
+                const orden = [...disponibles].sort((a, b) => Number(b.grupo === grupo) - Number(a.grupo === grupo));
+                return (
+                  <tr key={t}>
+                    <td>{label}</td>
+                    <td>
+                      {me?.admin ? (
+                        <select aria-label={`Plantilla para ${label}`} value={d.plantilla} disabled={busy} onChange={(e) => elegir(t, e.target.value)}>
+                          <option value="">Imprimir con el navegador</option>
+                          {d.plantilla && !disponibles.some((p) => p.nombre === d.plantilla) && <option value={d.plantilla}>{d.plantilla} (no está en el Report Server)</option>}
+                          {orden.map((p) => <option key={p.nombre} value={p.nombre}>{p.titulo} ({p.nombre})</option>)}
+                        </select>
+                      ) : d.plantilla ? <Code>{d.plantilla}</Code> : "Navegador"}
+                    </td>
+                    <td>
+                      {!d.plantilla ? <span className="muted">Se imprime con el navegador</span>
+                        : d.lista ? <span className="ok">Lista</span>
+                        : <span className="muted">No está en el Report Server: mientras, se imprime con el navegador</span>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
-          {editable && <div className="row"><button className="danger" onClick={quitar} disabled={busy}>Desconectar</button></div>}
+          {me?.admin && (
+            <div className="row">
+              {faltan && <button className="primary" onClick={() => instalar(false)} disabled={busy}>Instalar las plantillas de Sindri</button>}
+              <button onClick={() => instalar(true)} disabled={busy}>Volver a las de partida</button>
+              <a className="button" href="./api/v1/documentos/plantillas/partida.json" download="sindri-plantillas.json">Descargar las de partida</a>
+              {editable && <button className="danger" onClick={quitar} disabled={busy}>Desconectar</button>}
+            </div>
+          )}
           {!f && <ErrorBox error={error} />}
         </>
       )}
