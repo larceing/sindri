@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { post } from "../api";
 import { useAction, useData } from "../hooks";
-import { Empty, ErrorBox, Field, Page } from "../ui";
+import { Empty, ErrorBox, Field, Page, Table, Code } from "../ui";
 
 const blank = { name: "", tax_id: "", email: "", phone: "", city: "", kind: "customer", surcharge_regime: false, withholding_rate: "0" };
 
@@ -50,19 +50,19 @@ export function PartnersPage() {
       {data && data.length === 0 ? (
         <Empty>Todavía no hay terceros.</Empty>
       ) : (
-        <table>
+        <Table>
           <thead><tr><th>Nombre</th><th>NIF</th><th>Tipo</th><th>Población</th><th>Régimen</th></tr></thead>
           <tbody>
             {data?.map((p) => (
               <tr key={p.id}>
-                <td>{p.name}</td><td>{p.tax_id}</td>
+                <td>{p.name}</td><td><Code>{p.tax_id}</Code></td>
                 <td>{({ customer: "Cliente", supplier: "Proveedor", both: "Ambos" } as Record<string, string>)[p.kind]}</td>
                 <td>{p.city}</td>
                 <td>{p.surcharge_regime ? "Recargo eq." : ""}{Number(p.withholding_rate) ? ` IRPF ${Number(p.withholding_rate)}%` : ""}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
     </Page>
   );

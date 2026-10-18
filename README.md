@@ -84,3 +84,4 @@ Las pruebas contra PostgreSQL real se activan con `TEST_DATABASE_URL=postgres://
 
 - [Arquitectura](docs/ARQUITECTURA.md)
 - [Hoja de ruta](docs/HOJA-DE-RUTA.md)
+- [Sistema de diseño](docs/SISTEMA-DE-DISENO.md)

@@ -204,7 +204,8 @@ async function locationId(q: Queryable, code: string): Promise<string> {
 
 async function lockProduct(q: Queryable, productId: string) {
   // Bloqueo por producto mientras dure la transacción: evita vender dos veces la misma unidad.
-  await q.query("select pg_advisory_xact_lock(hashtext($1))", [productId]);
+  // Clave de 64 bits derivada del UUID (hashtext es de 32 bits y podría colisionar entre productos).
+  await q.query("select pg_advisory_xact_lock(('x' || substr(md5($1), 1, 16))::bit(64)::bigint)", [productId]);
 }
 
 export async function available(q: Queryable, productId: string, locId: string, lotId: string | null = null): Promise<Dec> {
@@ -511,7 +512,7 @@ export async function issueInvoice(db: Db, id: string, opts: { now?: Date; aeatE
     );
 
     // Registro VERI*FACTU encadenado al anterior de la empresa.
-    await q.query("select pg_advisory_xact_lock(hashtext('verifactu:' || $1))", [company.id]);
+    await q.query("select pg_advisory_xact_lock(('x' || substr(md5('verifactu:' || $1), 1, 16))::bit(64)::bigint)", [company.id]);
     const [last] = await q.query<{ seq: string; hash: string }>(
       "select seq, hash from verifactu_record where company_id = $1 order by seq desc limit 1",
       [company.id],

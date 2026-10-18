@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { eur, post, qty } from "../api";
+import { eur, pct, post, qty } from "../api";
 import { useAction, useData } from "../hooks";
-import { Empty, ErrorBox, Field, Page } from "../ui";
+import { Empty, ErrorBox, Field, Page, Table, Code } from "../ui";
 
 const blank = { sku: "", name: "", kind: "stockable", uom: "ud", gtin: "", sale_price: "", cost_price: "", vat_rate: "21", track_lots: false };
 
@@ -54,19 +54,19 @@ export function ProductsPage() {
       {data && data.length === 0 ? (
         <Empty>Todavía no hay productos.</Empty>
       ) : (
-        <table>
+        <Table>
           <thead><tr><th>Ref.</th><th>Nombre</th><th className="num">Precio</th><th className="num">IVA</th><th className="num">Stock</th><th>Lotes</th></tr></thead>
           <tbody>
             {data?.map((p) => (
               <tr key={p.id}>
-                <td>{p.sku}</td><td>{p.name}</td><td className="num">{eur(p.sale_price)}</td>
-                <td className="num">{Number(p.vat_rate)}%</td>
-                <td className="num">{p.kind === "service" ? "—" : `${qty(p.on_hand)} ${p.uom}`}</td>
+                <td><Code>{p.sku}</Code></td><td>{p.name}</td><td className="num">{eur(p.sale_price)}</td>
+                <td className="num">{pct(p.vat_rate)}</td>
+                <td className="num">{p.kind === "service" ? "—" : `${qty(p.on_hand)} ${p.uom}`}</td>
                 <td>{p.track_lots ? "Sí" : ""}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
     </Page>
   );

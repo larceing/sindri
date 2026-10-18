@@ -1,24 +1,24 @@
 import { useState } from "react";
-import { eur, post, qty } from "../api";
+import { eur, fecha, pct, post, qty } from "../api";
 import { navigate } from "../router";
 import { useAction, useData } from "../hooks";
-import { Badge, Empty, ErrorBox, Field, Page } from "../ui";
+import { Badge, Empty, ErrorBox, Field, Page, Table, Code } from "../ui";
 
 export function OrdersPage() {
   const { data } = useData<any[]>("/sales-orders");
   return (
     <Page title="Pedidos de venta" actions={<button className="primary" onClick={() => navigate("/pedidos/nuevo")}>Nuevo pedido</button>}>
       {data && data.length === 0 ? <Empty>Todavía no hay pedidos.</Empty> : (
-        <table className="clickable">
-          <thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th className="num">Base</th><th>Estado</th></tr></thead>
+        <Table clickable>
+          <thead><tr><th>Número</th><th className="num">Fecha</th><th>Cliente</th><th className="num">Base</th><th>Estado</th></tr></thead>
           <tbody>
             {data?.map((o) => (
               <tr key={o.id} onClick={() => navigate(`/pedidos/${o.id}`)}>
-                <td>{o.number}</td><td>{o.order_date}</td><td>{o.partner_name}</td><td className="num">{eur(o.untaxed)}</td><td><Badge state={o.state} /></td>
+                <td><Code>{o.number}</Code></td><td className="num">{fecha(o.order_date)}</td><td>{o.partner_name}</td><td className="num">{eur(o.untaxed)}</td><td><Badge state={o.state} /></td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
     </Page>
   );
@@ -51,7 +51,7 @@ export function NewOrderPage() {
           </select>
         </Field>
       </div>
-      <table>
+      <Table>
         <thead><tr><th>Producto</th><th className="num">Cantidad</th><th className="num">Precio (vacío = tarifa)</th><th className="num">Dto. %</th><th /></tr></thead>
         <tbody>
           {lines.map((l, i) => (
@@ -69,7 +69,7 @@ export function NewOrderPage() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
       <div className="row">
         <button onClick={() => setLines([...lines, { product_id: "", quantity: "1", unit_price: "", discount_pct: "" }])}>Añadir línea</button>
         <button className="primary" onClick={save} disabled={busy || !partner}>Crear pedido</button>
@@ -95,20 +95,20 @@ export function OrderPage({ id }: { id: string }) {
     <Page title={`Pedido ${o.number}`} actions={o.actions.map((a: string) => (
       <button key={a} className={a === "cancel" ? "danger" : "primary"} disabled={busy} onClick={() => act(a)}>{ACTION_LABEL[a]}</button>
     ))}>
-      <p><Badge state={o.state} /> · {o.partner_name} · {o.order_date}</p>
+      <p><Badge state={o.state} /> · {o.partner_name} · {fecha(o.order_date)}</p>
       <ErrorBox error={error} />
-      <table>
+      <Table>
         <thead><tr><th>Ref.</th><th>Descripción</th><th className="num">Cantidad</th><th className="num">Precio</th><th className="num">Dto.</th><th className="num">IVA</th><th className="num">Base</th></tr></thead>
         <tbody>
           {o.lines.map((l: any, i: number) => (
             <tr key={l.id}>
-              <td>{l.sku}</td><td>{l.description}</td><td className="num">{qty(l.quantity)} {l.uom}</td><td className="num">{eur(l.unit_price)}</td>
-              <td className="num">{Number(l.discount_pct) ? `${Number(l.discount_pct)}%` : ""}</td><td className="num">{Number(l.vat_rate)}%</td>
+              <td><Code>{l.sku}</Code></td><td className="wrap">{l.description}</td><td className="num">{qty(l.quantity)} {l.uom}</td><td className="num">{eur(l.unit_price)}</td>
+              <td className="num">{Number(l.discount_pct) ? pct(l.discount_pct) : ""}</td><td className="num">{pct(l.vat_rate)}</td>
               <td className="num">{eur(o.totals.lines[i]?.base)}</td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
       <Totals t={o.totals} />
     </Page>
   );

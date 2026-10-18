@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { post, qty } from "../api";
+import { fecha, post, qty } from "../api";
 import { useAction, useData } from "../hooks";
-import { Empty, ErrorBox, Field, Page } from "../ui";
+import { Empty, ErrorBox, Field, Page, Table, Code } from "../ui";
 
 export function StockPage() {
   const { data: stock, reload } = useData<any[]>("/stock");
@@ -48,25 +48,25 @@ export function StockPage() {
 
       <h2>Existencias</h2>
       {stock && stock.length === 0 ? <Empty>Sin existencias.</Empty> : (
-        <table>
-          <thead><tr><th>Ref.</th><th>Producto</th><th>Lote</th><th>Caducidad</th><th>Ubicación</th><th className="num">Cantidad</th></tr></thead>
+        <Table>
+          <thead><tr><th>Ref.</th><th>Producto</th><th>Lote</th><th className="num">Caducidad</th><th>Ubicación</th><th className="num">Cantidad</th></tr></thead>
           <tbody>
             {stock?.map((s, i) => (
-              <tr key={i}><td>{s.sku}</td><td>{s.product_name}</td><td>{s.lot_code}</td><td>{s.expiry_date}</td><td>{s.location_code}</td><td className="num">{qty(s.quantity)} {s.uom}</td></tr>
+              <tr key={i}><td><Code>{s.sku}</Code></td><td>{s.product_name}</td><td><Code>{s.lot_code}</Code></td><td className="num">{fecha(s.expiry_date)}</td><td><Code>{s.location_code}</Code></td><td className="num">{qty(s.quantity)} {s.uom}</td></tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
 
       <h2>Últimos movimientos</h2>
-      <table>
-        <thead><tr><th>Fecha</th><th>Ref.</th><th>Lote</th><th>De</th><th>A</th><th className="num">Cantidad</th></tr></thead>
+      <Table>
+        <thead><tr><th className="num">Fecha</th><th>Ref.</th><th>Lote</th><th>De</th><th>A</th><th className="num">Cantidad</th></tr></thead>
         <tbody>
           {moves?.map((m) => (
-            <tr key={m.id}><td>{new Date(m.done_at).toLocaleString("es-ES")}</td><td>{m.sku}</td><td>{m.lot_code}</td><td>{m.from_code}</td><td>{m.to_code}</td><td className="num">{qty(m.quantity)}</td></tr>
+            <tr key={m.id}><td className="num">{new Date(m.done_at).toLocaleString("es-ES")}</td><td><Code>{m.sku}</Code></td><td><Code>{m.lot_code}</Code></td><td><Code>{m.from_code}</Code></td><td><Code>{m.to_code}</Code></td><td className="num">{qty(m.quantity)}</td></tr>
           ))}
         </tbody>
-      </table>
+      </Table>
     </Page>
   );
 }

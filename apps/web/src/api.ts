@@ -22,11 +22,40 @@ export async function api<T = any>(path: string, init?: { method?: string; body?
 
 export const post = <T = any>(path: string, body: unknown = {}) => api<T>(path, { method: "POST", body });
 
-export const eur = (v: string | number | null | undefined) =>
-  v === null || v === undefined || v === "" ? "" : new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(Number(v));
+/*
+ * Formato es-ES para tablas: agrupación SIEMPRE (Intl es-ES no agrupa 4 cifras por defecto y
+ * descuadraría las columnas), decimales fijos por columna y signo menos tipográfico (U+2212).
+ */
+const fmtCache = new Map<string, Intl.NumberFormat>();
+function nf(min: number, max: number, currency?: boolean) {
+  const k = `${min}|${max}|${currency}`;
+  let f = fmtCache.get(k);
+  if (!f) {
+    f = new Intl.NumberFormat("es-ES", {
+      useGrouping: "always",
+      minimumFractionDigits: min,
+      maximumFractionDigits: max,
+      ...(currency ? { style: "currency", currency: "EUR" } : {}),
+    } as Intl.NumberFormatOptions);
+    fmtCache.set(k, f);
+  }
+  return f;
+}
+const minus = (s: string) => s.replace("-", "−");
 
-export const qty = (v: string | number | null | undefined) =>
-  v === null || v === undefined ? "" : new Intl.NumberFormat("es-ES", { maximumFractionDigits: 4 }).format(Number(v));
+export const eur = (v: string | number | null | undefined) =>
+  v === null || v === undefined || v === "" ? "" : minus(nf(2, 2, true).format(Number(v)));
+
+export const qty = (v: string | number | null | undefined, decimals = 0) =>
+  v === null || v === undefined || v === "" ? "" : minus(nf(decimals, Math.max(decimals, 4)).format(Number(v)));
+
+export const pct = (v: string | number) => `${minus(nf(0, 2).format(Number(v)))} %`;
+
+export const fecha = (iso: string | null | undefined) => {
+  if (!iso) return "";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+};
 
 export const STATE_LABEL: Record<string, string> = {
   draft: "Borrador",
@@ -39,5 +68,5 @@ export const STATE_LABEL: Record<string, string> = {
   discarded: "Descartada",
   pending: "Pendiente de envío",
   sent: "Enviado",
-  error: "Error",
+  error: "Error de envío",
 };

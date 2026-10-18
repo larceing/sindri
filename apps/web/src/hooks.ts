@@ -4,7 +4,7 @@ import { api } from "./api";
 export function useData<T = any>(path: string | null) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(path !== null);
   const reload = useCallback(async () => {
     if (!path) return;
     setLoading(true);
