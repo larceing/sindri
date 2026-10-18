@@ -14,6 +14,8 @@ export interface Company {
   name: string;
   trade_name: string | null;
   tax_id: string;
+  code: string | null;
+  demo: boolean;
 }
 export interface Me {
   user: string;
@@ -102,3 +104,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 }
 
 export const useSession = () => useContext(Ctx);
+
+/** «001 · Mi empresa»: el código delante, para reconocerla y filtrar. */
+export const nombreEmpresa = (c: Company) => `${c.code ? `${c.code} · ` : ""}${c.trade_name || c.name}`;

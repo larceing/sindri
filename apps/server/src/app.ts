@@ -96,6 +96,8 @@ const CompanySchema = z.object({
   city: z.string().optional(),
   postal_code: z.string().optional(),
   gs1_prefix: z.string().regex(/^\d{6,12}$/).optional(),
+  code: z.string().trim().min(1).max(10).optional(),
+  demo: z.boolean().optional(),
 });
 const ReceiptSchema = z.object({
   product_id: z.uuid(),

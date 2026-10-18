@@ -70,6 +70,10 @@ export interface CompanyInput {
   city?: string;
   postal_code?: string;
   gs1_prefix?: string;
+  /** Código corto (001, 002…). Si no se indica, el siguiente libre. */
+  code?: string;
+  /** Empresa de demostración: abierta a todos y con su marca en pantalla. */
+  demo?: boolean;
 }
 
 export async function getCompany(q: Queryable, id?: string | null) {
@@ -80,7 +84,19 @@ export async function getCompany(q: Queryable, id?: string | null) {
 }
 
 export async function listCompanies(q: Queryable) {
-  return q.query("select * from company where not archived order by created_at, id");
+  return q.query("select * from company where not archived order by code nulls last, created_at, id");
+}
+
+/** El siguiente código libre: 001, 002… */
+async function nextCompanyCode(q: Queryable) {
+  const [r] = await q.query<{ n: number }>("select coalesce(max(case when code ~ '^[0-9]+$' then code::int end), 0)::int + 1 as n from company");
+  return String(r?.n ?? 1).padStart(3, "0");
+}
+
+async function checkCompanyCode(q: Queryable, code: string, id: string | null) {
+  if (!/^[A-Za-z0-9-]{1,10}$/.test(code)) throw new BusinessError("El código de empresa son hasta 10 letras o números (p. ej. 001)");
+  const [dup] = await q.query("select 1 from company where code = $1 and not archived and ($2::uuid is null or id <> $2)", [code, id]);
+  if (dup) throw new BusinessError(`Ya hay una empresa con el código ${code}`, 409);
 }
 
 /** Empresa nueva con su almacén. Las ubicaciones virtuales (clientes, proveedores...) son comunes. */
@@ -89,9 +105,11 @@ export async function createCompany(db: Db, input: CompanyInput, actor = "system
   return db.tx(async (q) => {
     const [dup] = await q.query("select 1 from company where tax_id = $1 and not archived", [input.tax_id.toUpperCase()]);
     if (dup) throw new BusinessError("Ya hay una empresa con ese NIF", 409);
+    const code = input.code ?? (await nextCompanyCode(q));
+    await checkCompanyCode(q, code, null);
     const [c] = await q.query<{ id: string }>(
-      "insert into company (name, trade_name, tax_id, address, city, postal_code, gs1_prefix) values ($1,$2,$3,$4,$5,$6,$7) returning *",
-      [input.name, input.trade_name ?? null, input.tax_id.toUpperCase(), input.address ?? null, input.city ?? null, input.postal_code ?? null, input.gs1_prefix ?? null],
+      "insert into company (name, trade_name, tax_id, address, city, postal_code, gs1_prefix, code, demo) values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",
+      [input.name, input.trade_name ?? null, input.tax_id.toUpperCase(), input.address ?? null, input.city ?? null, input.postal_code ?? null, input.gs1_prefix ?? null, code, input.demo ?? false],
     );
     const first = await firstCompanyId(q);
     // La primera empresa ya tiene el almacén de siempre (WH/STOCK sin empresa de antes de 0004).
@@ -109,9 +127,11 @@ export async function updateCompany(db: Db, ctx: Ctx, input: CompanyInput) {
     if (!existing) throw notFound("Empresa");
     if ((existing as { tax_id: string }).tax_id !== input.tax_id.toUpperCase())
       throw new BusinessError("El NIF de la empresa no se puede cambiar una vez creada");
+    if (input.code !== undefined) await checkCompanyCode(q, input.code, ctx.company);
     const [c] = await q.query(
-      "update company set name=$2, trade_name=$3, address=$4, city=$5, postal_code=$6, gs1_prefix=$7 where id=$1 returning *",
-      [ctx.company, input.name, input.trade_name ?? null, input.address ?? null, input.city ?? null, input.postal_code ?? null, input.gs1_prefix ?? null],
+      `update company set name=$2, trade_name=$3, address=$4, city=$5, postal_code=$6, gs1_prefix=$7,
+         code = coalesce($8, code), demo = coalesce($9, demo) where id=$1 returning *`,
+      [ctx.company, input.name, input.trade_name ?? null, input.address ?? null, input.city ?? null, input.postal_code ?? null, input.gs1_prefix ?? null, input.code ?? null, input.demo ?? null],
     );
     await log(q, ctx, "company", ctx.company, "update", input);
     return c;

@@ -73,6 +73,8 @@ describe("Versión 0.2: empresas, usuarios, ficha de cliente, comerciales, separ
     expect((await call("admin", "GET", "/api/v1/me")).body).toMatchObject({ needs_company: true, admin: true });
     expect((await call("admin", "POST", "/api/v1/session/company", { company_id: empresaA })).status).toBe(200);
     expect((await call("admin", "GET", "/api/v1/me")).body.company).toBe(empresaA);
+    // Cada empresa lleva su código, el siguiente libre.
+    expect((await call("admin", "GET", "/api/v1/companies")).body.map((c: { code: string }) => c.code)).toEqual(["001", "002"]);
   });
 
   it("roles: una persona nueva entra como Consulta; con el rol Comercial edita clientes y pedidos, pero no productos ni usuarios", async () => {
@@ -188,5 +190,15 @@ describe("Versión 0.2: empresas, usuarios, ficha de cliente, comerciales, separ
     expect(alb.lineas[0]).toMatchObject({ referencia: "SOP-01", cantidad: 6 });
     expect((await call("admin", "GET", "/api/v1/documentos")).body).toMatchObject({ report_server: false, plantillas: [] });
     expect((await call("admin", "GET", `/api/v1/documentos/pedido/${pedido}/pdf`)).status).toBe(501);
+  });
+
+  it("empresas de demostración: código propio y abiertas a todos; la real, solo a quien se le asigna", async () => {
+    expect((await call("admin", "POST", "/api/v1/companies", { name: "Demo Uno SL", tax_id: "B20128567", code: "002" })).status).toBe(409);
+    const demo = (await call("admin", "POST", "/api/v1/companies", { name: "Demo Uno SL", tax_id: "B20128567", demo: true })).body;
+    expect(demo).toMatchObject({ code: "003", demo: true });
+    const vistas = (await call("comercial", "GET", "/api/v1/me")).body.companies.map((c: { code: string }) => c.code);
+    expect(vistas).toEqual(["001", "003"]); // la 002 es real y no la tiene asignada
+    expect((await call("comercial", "POST", "/api/v1/session/company", { company_id: demo.id })).status).toBe(200);
+    await call("comercial", "POST", "/api/v1/session/company", { company_id: empresaA });
   });
 });

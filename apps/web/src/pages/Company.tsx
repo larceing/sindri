@@ -4,13 +4,21 @@ import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { Code, ErrorBox, Field, Page, Table } from "../ui";
 
-const BLANK = { name: "", trade_name: "", tax_id: "", address: "", city: "", postal_code: "", gs1_prefix: "" };
+const BLANK = { code: "", name: "", trade_name: "", tax_id: "", address: "", city: "", postal_code: "", gs1_prefix: "", demo: "" };
 type F = typeof BLANK;
+const cuerpo = (f: F) => ({ ...sinVacios({ ...f, demo: undefined }), demo: f.demo === "1" });
 
 function CompanyForm({ f, setF, nifFijo }: { f: F; setF: (f: F) => void; nifFijo?: boolean }) {
-  const set = (k: keyof F) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
+  const set = (k: keyof F) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
   return (
     <div className="form">
+      <Field label="Código"><input value={f.code} onChange={set("code")} placeholder="El siguiente libre (001, 002…)" /></Field>
+      <Field label="Tipo">
+        <select value={f.demo} onChange={set("demo")}>
+          <option value="">Empresa real</option>
+          <option value="1">Demostración o pruebas (abierta a todos)</option>
+        </select>
+      </Field>
       <Field label="Razón social"><input value={f.name} onChange={set("name")} /></Field>
       <Field label="Nombre comercial"><input value={f.trade_name} onChange={set("trade_name")} /></Field>
       <Field label="NIF"><input value={f.tax_id} onChange={set("tax_id")} disabled={nifFijo} /></Field>
@@ -31,18 +39,18 @@ export function CompanyPage() {
   const { run, error, busy } = useAction();
   const [saved, setSaved] = useState(false);
   useEffect(() => {
-    if (data) setF(Object.fromEntries(Object.keys(BLANK).map((k) => [k, data[k] ?? ""])) as F);
+    if (data) setF(Object.fromEntries(Object.keys(BLANK).map((k) => [k, k === "demo" ? (data.demo ? "1" : "") : data[k] ?? ""])) as F);
   }, [data]);
   const save = () =>
     run(async () => {
-      await api("/company", { method: "PUT", body: sinVacios(f) });
+      await api("/company", { method: "PUT", body: cuerpo(f) });
       setSaved(true);
       await reload();
       await reloadMe();
     });
   const crear = () =>
     run(async () => {
-      await post("/companies", sinVacios(nueva!));
+      await post("/companies", cuerpo(nueva!));
       setNueva(null);
       await reloadList();
       await reloadMe();
@@ -63,10 +71,10 @@ export function CompanyPage() {
           <h2>Empresas del grupo</h2>
           <p className="hint">Cada empresa lleva sus clientes, productos, pedidos, facturas, numeración y su cadena VERI*FACTU por separado. Quien trabaja en varias elige una al entrar.</p>
           <Table>
-            <thead><tr><th>Razón social</th><th>Nombre comercial</th><th>NIF</th><th>Población</th></tr></thead>
+            <thead><tr><th>Código</th><th>Razón social</th><th>Nombre comercial</th><th>NIF</th><th>Población</th></tr></thead>
             <tbody>
               {companies.map((c) => (
-                <tr key={c.id}><td>{c.name}{c.id === me.company ? " (en uso)" : ""}</td><td>{c.trade_name}</td><td><Code>{c.tax_id}</Code></td><td>{c.city}</td></tr>
+                <tr key={c.id}><td><Code>{c.code}</Code></td><td>{c.name}{c.id === me.company ? " (en uso)" : ""}{c.demo && <span className="tag tag-aviso">DEMO</span>}</td><td>{c.trade_name}</td><td><Code>{c.tax_id}</Code></td><td>{c.city}</td></tr>
               ))}
             </tbody>
           </Table>

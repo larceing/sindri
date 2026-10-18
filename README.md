@@ -30,6 +30,9 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 - Seguimiento: llamadas, correos, reuniones, tareas y notas, con lo pendiente de hoy a la vista.
 - Presupuestos desde modelos editables (de partida: Proyecto, Soporte y Servicios) con título, presentación, condiciones y validez. Se envían, se aceptan o se rechazan; aceptar crea el pedido confirmado y gana la oportunidad.
 
+**Empresas**
+- Cada empresa lleva un código (001, 002…) que se ve al elegirla y sirve para buscarla. Las de demostración llevan la marca DEMO, una franja en todas las pantallas y están abiertas a cualquiera que entre en Sindri; las reales, solo a quien se le asignen.
+
 **Informes**
 - Facturas, pedidos, albaranes y hojas de ruta en PDF con el Report Server ([docs/report-server](docs/report-server/README.md)); sin él, se imprimen con el navegador.
 - Datos en CSV, XML o JSON para Excel o cualquier herramienta de informes, con lectores de solo lectura que se pueden revocar.

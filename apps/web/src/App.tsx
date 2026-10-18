@@ -4,7 +4,7 @@ import { post } from "./api";
 import { useData } from "./hooks";
 import { navigate, useRoute } from "./router";
 import { usePrefs, type Densidad, type Modo, type Tema } from "./prefs";
-import { menuDe, SessionProvider, useSession, type Me } from "./session";
+import { menuDe, nombreEmpresa, SessionProvider, useSession, type Me } from "./session";
 import { Alert, Page } from "./ui";
 import { HomePage } from "./pages/Home";
 import { CompanyPage } from "./pages/Company";
@@ -97,7 +97,12 @@ function CompanyChooser({ me, onChosen, onCancel }: { me: Me; onChosen: () => vo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const preferida = me.company ?? me.last_company;
-  const ordenadas = [...me.companies].sort((a, b) => (a.id === preferida ? -1 : b.id === preferida ? 1 : a.name.localeCompare(b.name)));
+  const [filtro, setFiltro] = useState("");
+  const f = filtro.trim().toLowerCase();
+  // La preferida primero; el resto por código (001, 002…), las reales antes que las de demo.
+  const ordenadas = [...me.companies]
+    .filter((c) => !f || [c.code, c.name, c.trade_name, c.tax_id].some((v) => v?.toLowerCase().includes(f)))
+    .sort((a, b) => (a.id === preferida ? -1 : b.id === preferida ? 1 : Number(a.demo) - Number(b.demo) || (a.code ?? "").localeCompare(b.code ?? "") || a.name.localeCompare(b.name)));
   const elegir = async (id: string) => {
     setBusy(true);
     try {
@@ -114,12 +119,13 @@ function CompanyChooser({ me, onChosen, onCancel }: { me: Me; onChosen: () => vo
         <div className="brand brand-dark"><BrandMark /> Sindri</div>
         <h1>Hola, {me.name.split(" ")[0]}</h1>
         <p className="hint">¿Con qué empresa vas a trabajar?</p>
+        {me.companies.length > 5 && <input className="chooser-filter" autoFocus placeholder="Buscar por código, nombre o NIF" value={filtro} onChange={(e) => setFiltro(e.target.value)} />}
         <div className="chooser-list">
           {ordenadas.map((c, i) => (
-            <button key={c.id} className="chooser-item" disabled={busy} autoFocus={i === 0} onClick={() => elegir(c.id)}>
+            <button key={c.id} className="chooser-item" disabled={busy} autoFocus={i === 0 && me.companies.length <= 5} onClick={() => elegir(c.id)}>
               <Building2 size={22} aria-hidden />
               <span>
-                <b>{c.trade_name || c.name}</b>
+                <b>{nombreEmpresa(c)}{c.demo && <span className="tag tag-aviso">DEMO</span>}</b>
                 <small>{c.trade_name ? `${c.name} · ` : ""}NIF {c.tax_id}</small>
               </span>
               {c.id === preferida && <em>{c.id === me.company ? "En uso" : "La última vez"}</em>}
@@ -156,7 +162,7 @@ function UserMenu({ me, onCambiarEmpresa, arriba }: { me: Me; onCambiarEmpresa: 
         <span className="avatar" aria-hidden>{me.name.slice(0, 1).toUpperCase()}</span>
         <span className="usermenu-txt">
           <b>{me.name}</b>
-          <small>{empresa ? empresa.trade_name || empresa.name : "Sin empresa"}</small>
+          <small>{empresa ? <>{nombreEmpresa(empresa)}{empresa.demo && " · DEMO"}</> : "Sin empresa"}</small>
         </span>
         <ChevronDown size={16} aria-hidden />
       </button>
@@ -208,7 +214,7 @@ function UserMenu({ me, onCambiarEmpresa, arriba }: { me: Me; onCambiarEmpresa: 
 
 function Shell() {
   const route = useRoute();
-  const { me, error, reload } = useSession();
+  const { me, error, reload, empresa } = useSession();
   const [elegir, setElegir] = useState(false);
   // Al cambiar de empresa se vuelve a montar todo para que ninguna pantalla enseñe datos de la otra.
   const [gen, setGen] = useState(0);
@@ -262,6 +268,7 @@ function Shell() {
         </header>
       )}
       <main key={`${me.company}-${gen}`}>
+        {empresa?.demo && <div className="demo-strip" role="note">Empresa de demostración: los datos son de prueba.</div>}
         {me.companies.length === 0 && route !== "/empresa" && (
           <Alert tone="aviso">
             Primero configura los datos de tu empresa. <button className="link" onClick={() => navigate("/empresa")}>Configurar</button>

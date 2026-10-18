@@ -78,7 +78,7 @@ export interface Session {
   /** Administra: grupo de administración de Keycloak o rol con «usuarios: editar». */
   admin: boolean;
   perms: Record<string, Level>;
-  companies: { id: string; name: string; trade_name: string | null; tax_id: string }[];
+  companies: { id: string; name: string; trade_name: string | null; tax_id: string; code: string | null; demo: boolean }[];
   company: string | null;
   needsCompany: boolean;
 }
@@ -122,7 +122,8 @@ export async function loadSession(db: Db, req: FastifyRequest, person: Person): 
   const all = (await listCompanies(db)) as Session["companies"];
   const assigned = new Set((await db.query<{ company_id: string }>("select company_id from user_company where user_id = $1", [u.id])).map((r) => r.company_id));
   // Sin empresas asignadas, trabaja en todas; en cuanto se le asigna alguna, solo en esas.
-  const companies = admin || assigned.size === 0 ? all : all.filter((c) => assigned.has(c.id));
+  // Las empresas de demostración están abiertas a todos; las reales, a quien se le asignen.
+  const companies = admin || assigned.size === 0 ? all : all.filter((c) => assigned.has(c.id) || c.demo);
   const chosen = readCookie(req, COOKIE);
   const company = companies.find((c) => c.id === chosen)?.id ?? (companies.length === 1 ? companies[0]!.id : null);
   return { person, userId: u.id, admin, perms, companies, company, needsCompany: !company && companies.length > 1 };
@@ -172,6 +173,8 @@ const CompanySchema = z.object({
   city: z.string().optional(),
   postal_code: z.string().optional(),
   gs1_prefix: z.string().regex(/^\d{6,12}$/).optional(),
+  code: z.string().trim().min(1).max(10).optional(),
+  demo: z.boolean().optional(),
 });
 
 // Servicios --------------------------------------------------------------------------
