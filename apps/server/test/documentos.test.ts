@@ -2,22 +2,40 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { buildApp, migrate, openEmbedded } from "../src/index.js";
 
-/** Report Server de mentira: comprueba la llave y devuelve un «PDF» con lo que ha recibido. */
-async function fakeReportServer(llave = "llave-de-prueba") {
-  const rs = Fastify();
+/**
+ * Report Server de mentira: comprueba la llave, deja instalar plantillas «sindri-…» (sin pisar
+ * las que hay salvo con «sustituir») y devuelve un «PDF» con lo que ha recibido.
+ */
+async function fakeReportServer(llave = "llave-de-prueba", { instala = true } = {}) {
+  const rs = Fastify({ bodyLimit: 20 * 1024 * 1024 });
   const recibido: { plantilla?: string; nombre?: string; datos?: Record<string, any> }[] = [];
+  const plantillas = new Map<string, { nombre: string; titulo: string; grupo: string; retocada?: boolean }>([
+    ["sindri-pedido", { nombre: "sindri-pedido", titulo: "Sindri · Pedido", grupo: "pedido" }],
+    ["sindri-factura", { nombre: "sindri-factura", titulo: "Sindri · Factura", grupo: "factura" }],
+    ["otra-app", { nombre: "otra-app", titulo: "Otra", grupo: "" }],
+  ]);
   rs.addHook("onRequest", async (req, reply) => {
     if (req.headers.authorization !== `Bearer ${llave}`) return reply.status(401).send({ error: "Llave no válida." });
   });
-  rs.get("/api/plantillas", async () => [{ nombre: "sindri-pedido" }, { nombre: "sindri-factura" }, { nombre: "otra-app" }]);
+  rs.get("/api/plantillas", async () => [...plantillas.values()].map(({ nombre, titulo, grupo }) => ({ nombre, titulo, grupo, formatos: ["pdf"], parametros: [] })));
+  if (instala)
+    rs.post("/api/plantillas", async (req, reply) => {
+      const b = req.body as { nombre: string; titulo: string; grupo: string; plantilla: unknown; sustituir?: boolean };
+      if (!b.nombre.startsWith("sindri-")) return reply.status(403).send({ error: "Solo sindri-…" });
+      if (!b.plantilla) return reply.status(400).send({ error: "Falta la plantilla." });
+      const antes = plantillas.get(b.nombre);
+      if (antes && !b.sustituir) return { nombre: b.nombre, estado: "ya estaba" };
+      plantillas.set(b.nombre, { nombre: b.nombre, titulo: b.titulo, grupo: b.grupo });
+      return { nombre: b.nombre, estado: antes ? "sustituida" : "instalada" };
+    });
   rs.post("/api/generar", async (req, reply) => {
     const b = req.body as (typeof recibido)[number];
     recibido.push(b);
-    if (b.plantilla === "sindri-factura") return reply.status(404).send({ error: "No existe la plantilla «sindri-factura»." });
+    if (!plantillas.has(b.plantilla!) || b.plantilla === "sindri-factura") return reply.status(404).send({ error: `No existe la plantilla «${b.plantilla}».` });
     return reply.type("application/pdf").header("content-disposition", `attachment; filename="${b.nombre}.pdf"`).send(Buffer.from("%PDF-1.7 prueba"));
   });
   await rs.listen({ port: 0, host: "127.0.0.1" });
-  return { rs, recibido, url: `http://127.0.0.1:${(rs.server.address() as { port: number }).port}/` };
+  return { rs, recibido, plantillas, url: `http://127.0.0.1:${(rs.server.address() as { port: number }).port}/` };
 }
 
 describe("Documentos en PDF con el Report Server", () => {
@@ -46,7 +64,10 @@ describe("Documentos en PDF con el Report Server", () => {
   });
 
   it("dice qué plantillas de Sindri tiene el Report Server", async () => {
-    expect((await app.inject("/api/v1/documentos")).json()).toEqual({ report_server: true, plantillas: ["sindri-pedido", "sindri-factura"] });
+    const d = (await app.inject("/api/v1/documentos")).json();
+    expect(d).toMatchObject({ report_server: true, plantillas: ["sindri-pedido", "sindri-factura", "otra-app"] });
+    expect(d.documentos.pedido).toEqual({ plantilla: "sindri-pedido", de_sindri: "sindri-pedido", lista: true });
+    expect(d.documentos.albaran).toMatchObject({ plantilla: "sindri-albaran", lista: false });
   });
 
   it("manda los datos con la llave y devuelve el PDF", async () => {
@@ -94,7 +115,7 @@ describe("Conectar el Report Server desde la pantalla (sin tocar app.env)", () =
 
   it("sin conectar, lo dice y los PDF piden conectarlo", async () => {
     expect((await app.inject("/api/v1/documentos/conexion")).json()).toEqual({ origen: null, url: "", llave_fin: null });
-    expect((await app.inject("/api/v1/documentos")).json()).toEqual({ report_server: false, plantillas: [] });
+    expect((await app.inject("/api/v1/documentos")).json()).toMatchObject({ report_server: false, plantillas: [] });
   });
 
   it("no guarda una llave que el Report Server no acepta, ni una dirección mala", async () => {
@@ -109,12 +130,54 @@ describe("Conectar el Report Server desde la pantalla (sin tocar app.env)", () =
   it("guarda la conexión probada; la llave no se vuelve a enseñar", async () => {
     const ok = await put({ url: fake.url, llave: LLAVE });
     expect(ok.statusCode, ok.body).toBe(200);
-    expect(ok.json()).toMatchObject({ origen: "sindri", llave_fin: "aaaa", plantillas: ["sindri-pedido", "sindri-factura"] });
+    // Al conectar instala las de Sindri que faltan y deja las que ya estaban.
+    expect(ok.json()).toMatchObject({ origen: "sindri", llave_fin: "aaaa" });
+    expect(ok.json().instaladas.map((i: any) => `${i.plantilla}: ${i.estado}`)).toEqual([
+      "sindri-factura: ya estaba", "sindri-pedido: ya estaba", "sindri-albaran: instalada", "sindri-hoja-ruta: instalada",
+    ]);
+    expect(fake.plantillas.get("sindri-hoja-ruta")).toMatchObject({ titulo: "Sindri · Hoja de ruta", grupo: "hoja-ruta" });
     const conexion = await app.inject("/api/v1/documentos/conexion");
     expect(conexion.body).not.toContain(LLAVE);
-    expect((await app.inject("/api/v1/documentos")).json()).toMatchObject({ report_server: true, plantillas: ["sindri-pedido", "sindri-factura"] });
+    const d = (await app.inject("/api/v1/documentos")).json();
+    expect(d.report_server).toBe(true);
+    expect(Object.values(d.documentos).every((x: any) => x.lista)).toBe(true);
     // Cambiar solo la dirección deja la llave que había.
     expect((await put({ url: fake.url + "/" })).statusCode).toBe(200);
+  });
+
+  it("se elige qué plantilla usa cada documento, o imprimir con el navegador", async () => {
+    const elegir = (payload: object) => app.inject({ method: "PUT", url: "/api/v1/documentos/plantillas", payload });
+    expect((await elegir({ pedido: "no-existe" })).statusCode).toBe(422);
+    expect((await elegir({ pedido: "otra-app", albaran: "" })).json()).toMatchObject({ pedido: "otra-app", albaran: "", factura: "sindri-factura" });
+    const d = (await app.inject("/api/v1/documentos")).json();
+    expect(d.documentos.pedido).toMatchObject({ plantilla: "otra-app", lista: true });
+    expect(d.documentos.albaran).toMatchObject({ plantilla: "", lista: false });
+    expect(d.disponibles).toContainEqual({ nombre: "otra-app", titulo: "Otra", grupo: "" });
+    // Lo elegido se queda al cambiar otro documento.
+    expect((await elegir({ factura: "sindri-factura" })).json().pedido).toBe("otra-app");
+    expect((await elegir({ pedido: "sindri-pedido", albaran: "sindri-albaran" })).statusCode).toBe(200);
+  });
+
+  it("vuelve a dejar las plantillas como las de partida, y se pueden descargar", async () => {
+    fake.plantillas.get("sindri-pedido")!.titulo = "Retocada";
+    const r = await app.inject({ method: "POST", url: "/api/v1/documentos/plantillas/instalar", payload: { sustituir: true, tipos: ["pedido"] } });
+    expect(r.json().instaladas).toEqual([{ tipo: "pedido", plantilla: "sindri-pedido", estado: "sustituida" }]);
+    expect(fake.plantillas.get("sindri-pedido")!.titulo).toBe("Sindri · Pedido");
+    const f = await app.inject("/api/v1/documentos/plantillas/partida.json");
+    expect(f.headers["content-disposition"]).toContain("sindri-plantillas.json");
+    expect(f.json().plantillas.map((p: any) => [p.nombre, p.grupo, Array.isArray(p.plantilla.schemas)])).toEqual([
+      ["sindri-factura", "factura", true], ["sindri-pedido", "pedido", true], ["sindri-albaran", "albaran", true], ["sindri-hoja-ruta", "hoja-ruta", true],
+    ]);
+  });
+
+  it("con un Report Server que aún no instala plantillas, conecta igual y lo avisa", async () => {
+    const viejo = await fakeReportServer(LLAVE, { instala: false });
+    const r = await put({ url: viejo.url, llave: LLAVE });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().aviso).toMatch(/todavía no deja que Sindri instale/);
+    expect((await app.inject({ method: "POST", url: "/api/v1/documentos/plantillas/instalar", payload: {} })).statusCode).toBe(422);
+    expect((await put({ url: fake.url, llave: LLAVE })).statusCode).toBe(200);
+    await viejo.rs.close();
   });
 
   it("se puede desconectar", async () => {

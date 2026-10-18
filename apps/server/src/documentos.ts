@@ -6,9 +6,12 @@
  * La conexión (dirección y llave creada en Report Server → Llaves) se pone en Sindri →
  * Informes, y queda guardada en la base de Sindri. Si el app.env trae REPORT_URL y
  * REPORT_LLAVE, mandan esas variables y la pantalla solo las enseña.
- * Las plantillas de partida están en docs/report-server/ (Importar .json en Report Server).
- * Sin Report Server, la web imprime con el navegador.
+ * Las plantillas de partida van dentro (plantillas/, se generan con docs/report-server/): Sindri
+ * las instala él solo en el Report Server al conectar. En Informes se elige qué plantilla usa cada
+ * documento (las de Sindri u otras del Report Server). Sin Report Server, la web imprime con el
+ * navegador.
  */
+import { readFileSync } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Db, Queryable } from "./db.js";
@@ -127,6 +130,7 @@ export async function datosDocumento(q: Queryable, ctx: Ctx, tipo: TipoDocumento
 const D2 = (l: Record<string, string>) => (Number(l.quantity) * Number(l.unit_price) * (1 - Number(l.discount_pct) / 100)).toFixed(2);
 
 const AJUSTE = "report_server";
+const AJUSTE_PLANTILLAS = "documentos_plantillas";
 const ConfigSchema = z.object({
   url: z
     .string()
@@ -136,19 +140,51 @@ const ConfigSchema = z.object({
   // Vacía o sin mandar: se queda la llave que ya había.
   llave: z.string().trim().regex(/^rs_[A-Za-z0-9_-]{20,}$/, "La llave del Report Server empieza por rs_").or(z.literal("")).optional(),
 });
+const TIPOS = Object.keys(DOCUMENTOS) as [TipoDocumento, ...TipoDocumento[]];
+/** Por documento, el nombre de la plantilla del Report Server, o "" para imprimir con el navegador. */
+const EleccionSchema = z.object(Object.fromEntries(TIPOS.map((t) => [t, z.string().trim().max(40).optional()])) as Record<TipoDocumento, z.ZodOptional<z.ZodString>>);
+
+type PlantillaRS = { nombre: string; titulo: string; grupo: string };
+
+/** Las plantillas de partida que lleva Sindri dentro (plantillas/*.json). */
+const PARTIDA_DIR = new URL("../plantillas/", import.meta.url);
+export const plantillaDePartida = (tipo: TipoDocumento) =>
+  JSON.parse(readFileSync(new URL(`${DOCUMENTOS[tipo].plantilla}.json`, PARTIDA_DIR), "utf8")) as Record<string, unknown> & { nombre: string };
 
 /** Prueba la conexión: la lista de plantillas con esa llave. */
-async function plantillasDe(rs: ReportServerConfig) {
+async function plantillasDe(rs: ReportServerConfig): Promise<{ error?: string; plantillas: PlantillaRS[] }> {
   try {
     const r = await fetch(`${rs.url}/api/plantillas`, { headers: { authorization: `Bearer ${rs.key}` }, signal: AbortSignal.timeout(5000) });
-    if (r.status === 401) return { error: "El Report Server no acepta la llave (no válida o revocada)", plantillas: [] as string[] };
-    if (!r.ok) return { error: `El Report Server responde ${r.status}: revisa la dirección`, plantillas: [] as string[] };
-    const list = (await r.json()) as { nombre: string }[];
-    if (!Array.isArray(list)) return { error: "Esa dirección no es la de un Report Server", plantillas: [] as string[] };
-    return { plantillas: list.map((p) => p.nombre).filter((p) => p.startsWith("sindri-")) };
+    if (r.status === 401) return { error: "El Report Server no acepta la llave (no válida o revocada)", plantillas: [] };
+    if (!r.ok) return { error: `El Report Server responde ${r.status}: revisa la dirección`, plantillas: [] };
+    const list = (await r.json()) as PlantillaRS[];
+    if (!Array.isArray(list)) return { error: "Esa dirección no es la de un Report Server", plantillas: [] };
+    return { plantillas: list.map((p) => ({ nombre: String(p.nombre), titulo: String(p.titulo ?? p.nombre), grupo: String(p.grupo ?? "") })) };
   } catch {
-    return { error: "No se llega al Report Server con esa dirección", plantillas: [] as string[] };
+    return { error: "No se llega al Report Server con esa dirección", plantillas: [] };
   }
+}
+
+/**
+ * Instala en el Report Server las plantillas de partida de Sindri. Las que ya están no se tocan
+ * (pueden estar retocadas en el diseñador) salvo con «sustituir».
+ */
+async function instalar(rs: ReportServerConfig, tipos: TipoDocumento[], sustituir: boolean) {
+  const hechas: { tipo: TipoDocumento; plantilla: string; estado: string }[] = [];
+  for (const tipo of tipos) {
+    const r = await fetch(`${rs.url}/api/plantillas`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${rs.key}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...plantillaDePartida(tipo), sustituir }),
+      signal: AbortSignal.timeout(30_000),
+    }).catch(() => null);
+    if (!r) throw new BusinessError("No se llega al Report Server", 502);
+    if (r.status === 404) throw new BusinessError("Este Report Server todavía no deja que Sindri instale sus plantillas: actualízalo, o descarga las plantillas e impórtalas a mano", 422);
+    const b = (await r.json().catch(() => null)) as { estado?: string; error?: string } | null;
+    if (!r.ok) throw new BusinessError(`Report Server: ${b?.error ?? `error ${r.status}`}`, 502);
+    hechas.push({ tipo, plantilla: DOCUMENTOS[tipo].plantilla, estado: b?.estado ?? "instalada" });
+  }
+  return hechas;
 }
 
 export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: ReportServerConfig | undefined) {
@@ -158,12 +194,41 @@ export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: Report
     const [row] = await db.query<{ value: ReportServerConfig }>("select value from app_setting where key = $1", [AJUSTE]);
     return row?.value?.url && row.value.key ? { url: row.value.url, key: row.value.key, origen: "sindri" } : undefined;
   };
+  /** Qué plantilla usa cada documento: la elegida en Informes o, si no se ha elegido, la de Sindri. */
+  const elegidas = async (): Promise<Record<TipoDocumento, string>> => {
+    const [row] = await db.query<{ value: Partial<Record<TipoDocumento, string>> }>("select value from app_setting where key = $1", [AJUSTE_PLANTILLAS]);
+    return Object.fromEntries(TIPOS.map((t) => [t, row?.value?.[t] ?? DOCUMENTOS[t].plantilla])) as Record<TipoDocumento, string>;
+  };
+  const guardarAjuste = async (key: string, value: unknown, user: string) =>
+    db.query(
+      `insert into app_setting (key, value, updated_by) values ($1, $2, $3)
+       on conflict (key) do update set value = excluded.value, updated_by = excluded.updated_by, updated_at = now()`,
+      [key, JSON.stringify(value), user],
+    );
+  const conectado = async () => {
+    const rs = await actual();
+    if (!rs) throw new BusinessError("Sindri no está conectado al Report Server: conéctalo en Informes", 501);
+    return rs;
+  };
 
-  /** Qué hay: si el Report Server está conectado y qué plantillas de Sindri tiene. */
+  /**
+   * Qué hay: si el Report Server está conectado, sus plantillas y, por documento, la plantilla
+   * que se usa y si está en el Report Server («lista»).
+   */
   app.get("/api/v1/documentos", async () => {
     const rs = await actual();
-    if (!rs) return { report_server: false, plantillas: [] };
-    return { report_server: true, ...(await plantillasDe(rs)) };
+    const elegida = await elegidas();
+    const { error, plantillas } = rs ? await plantillasDe(rs) : { error: undefined, plantillas: [] as PlantillaRS[] };
+    const nombres = plantillas.map((p) => p.nombre);
+    return {
+      report_server: !!rs,
+      ...(error ? { error } : {}),
+      plantillas: nombres,
+      disponibles: plantillas,
+      documentos: Object.fromEntries(
+        TIPOS.map((t) => [t, { plantilla: elegida[t], de_sindri: DOCUMENTOS[t].plantilla, lista: !!elegida[t] && nombres.includes(elegida[t]) }]),
+      ),
+    };
   });
 
   // Conexión desde la pantalla (solo administración). La llave no se vuelve a enseñar: solo su final.
@@ -180,13 +245,18 @@ export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: Report
     if (!key) throw new BusinessError("Falta la llave: créala en Report Server → Llaves para la app sindri", 400);
     const prueba = await plantillasDe({ url: c.url, key });
     if (prueba.error) throw new BusinessError(prueba.error, 422);
-    await db.query(
-      `insert into app_setting (key, value, updated_by) values ($1, $2, $3)
-       on conflict (key) do update set value = excluded.value, updated_by = excluded.updated_by, updated_at = now()`,
-      [AJUSTE, JSON.stringify({ url: c.url, key }), req.sindri!.person.user],
-    );
+    await guardarAjuste(AJUSTE, { url: c.url, key }, req.sindri!.person.user);
     await log(db, { company: null as never, actor: req.sindri!.person.user }, "app_setting", null, "update", { ajuste: AJUSTE, url: c.url, llave_cambiada: !!c.llave });
-    return { origen: "sindri", url: c.url, llave_fin: key.slice(-4), plantillas: prueba.plantillas };
+    // Las plantillas de Sindri que falten se instalan solas; si este Report Server aún no sabe, se dice.
+    let instaladas: Awaited<ReturnType<typeof instalar>> = [];
+    let aviso: string | undefined;
+    try {
+      instaladas = await instalar({ url: c.url, key }, TIPOS, false);
+    } catch (e) {
+      aviso = e instanceof Error ? e.message : String(e);
+    }
+    const despues = await plantillasDe({ url: c.url, key });
+    return { origen: "sindri", url: c.url, llave_fin: key.slice(-4), plantillas: despues.plantillas.map((p) => p.nombre), instaladas, ...(aviso ? { aviso } : {}) };
   });
   app.delete("/api/v1/documentos/conexion", async (req) => {
     requireAdmin(req);
@@ -194,6 +264,38 @@ export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: Report
     await db.query("delete from app_setting where key = $1", [AJUSTE]);
     await log(db, { company: null as never, actor: req.sindri!.person.user }, "app_setting", null, "delete", { ajuste: AJUSTE });
     return { ok: true };
+  });
+
+  /** Instalar las plantillas de Sindri (las que falten) o dejarlas como las de partida («sustituir»). */
+  app.post("/api/v1/documentos/plantillas/instalar", async (req) => {
+    requireAdmin(req);
+    const b = z.object({ sustituir: z.boolean().default(false), tipos: z.array(z.enum(TIPOS)).optional() }).parse(req.body ?? {});
+    const instaladas = await instalar(await conectado(), b.tipos ?? TIPOS, b.sustituir);
+    await log(db, { company: null as never, actor: req.sindri!.person.user }, "app_setting", null, "update", { ajuste: "plantillas_instaladas", instaladas });
+    return { instaladas };
+  });
+
+  /** Qué plantilla usa cada documento ("" = imprimir con el navegador). */
+  app.put("/api/v1/documentos/plantillas", async (req) => {
+    requireAdmin(req);
+    const cambios = EleccionSchema.parse(req.body);
+    const rs = await conectado();
+    const { error, plantillas } = await plantillasDe(rs);
+    if (error) throw new BusinessError(error, 422);
+    for (const [t, nombre] of Object.entries(cambios))
+      if (nombre && !plantillas.some((p) => p.nombre === nombre)) throw new BusinessError(`El Report Server no tiene la plantilla «${nombre}» (${DOCUMENTOS[t as TipoDocumento].titulo})`, 422);
+    const nuevas = { ...(await elegidas()), ...Object.fromEntries(Object.entries(cambios).filter(([, v]) => v !== undefined)) };
+    await guardarAjuste(AJUSTE_PLANTILLAS, nuevas, req.sindri!.person.user);
+    await log(db, { company: null as never, actor: req.sindri!.person.user }, "app_setting", null, "update", { ajuste: AJUSTE_PLANTILLAS, ...nuevas });
+    return nuevas;
+  });
+
+  /** Las plantillas de partida en un fichero, para guardarlas o importarlas a mano (Importar .json). */
+  app.get("/api/v1/documentos/plantillas/partida.json", async (req, reply) => {
+    requireAdmin(req);
+    return reply
+      .header("content-disposition", 'attachment; filename="sindri-plantillas.json"')
+      .send({ plantillas: TIPOS.map(plantillaDePartida) });
   });
 
   app.get<{ Params: { tipo: string; id: string } }>("/api/v1/documentos/:tipo/:id/datos", async (req) => {
@@ -205,14 +307,15 @@ export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: Report
   app.get<{ Params: { tipo: string; id: string } }>("/api/v1/documentos/:tipo/:id/pdf", async (req, reply) => {
     const tipo = z.enum(Object.keys(DOCUMENTOS) as [TipoDocumento]).parse(req.params.tipo);
     permiso(req.sindri, tipo);
-    const rs = await actual();
-    if (!rs) throw new BusinessError("Sindri no está conectado al Report Server: conéctalo en Informes", 501);
+    const rs = await conectado();
+    const plantilla = (await elegidas())[tipo];
+    if (!plantilla) throw new BusinessError(`${DOCUMENTOS[tipo].titulo}: se imprime con el navegador (así está elegido en Informes)`, 501);
     const datos = await datosDocumento(db, ctxOf(req), tipo, req.params.id);
     const doc = DOCUMENTOS[tipo];
     const r = await fetch(`${rs.url}/api/generar`, {
       method: "POST",
       headers: { authorization: `Bearer ${rs.key}`, "content-type": "application/json" },
-      body: JSON.stringify({ plantilla: doc.plantilla, nombre: `${doc.titulo} ${datos.numero}`, datos }),
+      body: JSON.stringify({ plantilla, nombre: `${doc.titulo} ${datos.numero}`, datos }),
       signal: AbortSignal.timeout(30_000),
     }).catch(() => null);
     if (!r) throw new BusinessError("No se llega al Report Server", 502);

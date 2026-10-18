@@ -1,6 +1,7 @@
 {
-  "nombre": "sindri-factura",
-  "titulo": "Sindri · Factura",
+  "nombre": "sindri-albaran",
+  "titulo": "Sindri · Albarán",
+  "grupo": "albaran",
   "ejemplo": {
     "empresa": {
       "nombre": "Conservas Demo del Norte, S.L.",
@@ -11,54 +12,38 @@
       "poblacion": "Zarautz",
       "linea_direccion": "Polígono Industrial Ibaiondo, nave 4 · 20800 Zarautz"
     },
-    "numero": "F2026-00002",
+    "numero": "ALB2026-00003",
+    "pedido": "PV2026-00003",
     "fecha": "2026-10-18",
-    "pedido": "PV2026-00002",
-    "forma_pago": "Transferencia, 30 días",
+    "fecha_entrega": "2026-10-18",
+    "comercial": "Ana Comercial Demo",
     "cliente": {
-      "nombre": "Ultramarinos La Prueba, S.L.",
-      "nif": "B42350470",
-      "direccion": "Calle Mayor 12",
-      "cp": "42002",
-      "poblacion": "Soria",
-      "linea_direccion": "Calle Mayor 12 · 42002 Soria"
+      "nombre": "Distribuciones Muestra, S.L.",
+      "nif": "B34182691",
+      "telefono": "979 000 000",
+      "linea_direccion": "Avenida de Castilla 3 · 34004 Palencia"
+    },
+    "entrega": {
+      "nombre": "Almacén Palencia",
+      "linea_direccion": "Polígono San Antolín, parcela 7 · 34004 Palencia",
+      "horario": "L-V 8:00-13:00",
+      "telefono": "979 000 001"
     },
     "lineas": [
       {
-        "descripcion": "Mejillones en escabeche 120 g",
-        "cantidad": 96,
-        "precio": 2.75,
+        "referencia": "BON-250",
+        "descripcion": "Bonito del norte en aceite de oliva 250 g",
+        "cantidad": 120,
+        "unidad": "ud",
+        "precio": 4.95,
         "descuento": 0,
-        "iva": 10,
-        "base": 264
-      },
-      {
-        "descripcion": "Anchoas del Cantábrico 100 g",
-        "cantidad": 24,
-        "precio": 6.8,
-        "descuento": 0,
-        "iva": 10,
-        "base": 163.2
+        "base": 594
       }
     ],
-    "desglose": [
-      {
-        "iva": 10,
-        "base": 427.2,
-        "cuota": 42.72,
-        "recargo_pct": 1.4,
-        "recargo": 5.98
-      }
-    ],
-    "base": 427.2,
-    "iva": 42.72,
-    "recargo": 5.98,
-    "retencion": 0,
-    "total": 475.9,
-    "cobrado": 0,
-    "pendiente": 475.9,
-    "qr": "https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=B20128567&numserie=F2026-00002&fecha=18-10-2026&importe=475.90",
-    "verifactu": "Factura verificable en la sede electrónica de la AEAT · VERI*FACTU"
+    "base": 594,
+    "iva": 59.4,
+    "total": 653.4,
+    "notas": ""
   },
   "plantilla": {
     "basePdf": {
@@ -209,7 +194,7 @@
         {
           "name": "doc-titulo",
           "type": "text",
-          "content": "FACTURA",
+          "content": "ALBARÁN",
           "position": {
             "x": 125,
             "y": 12
@@ -248,7 +233,7 @@
         {
           "name": "doc-numero",
           "type": "text",
-          "content": "Nº {numero}\nFecha {comoFecha(fecha)}{pedido ? '\\nPedido ' + pedido : ''}",
+          "content": "Nº {numero}\nFecha {comoFecha(fecha)}\nPedido {pedido}",
           "position": {
             "x": 125,
             "y": 21
@@ -305,8 +290,8 @@
             "x": 15,
             "y": 42
           },
-          "width": 95,
-          "height": 28,
+          "width": 88,
+          "height": 26,
           "rotate": 0,
           "opacity": 1,
           "borderWidth": 0.3,
@@ -323,7 +308,7 @@
             "x": 18,
             "y": 44.5
           },
-          "width": 89,
+          "width": 82,
           "height": 4,
           "rotate": 0,
           "alignment": "left",
@@ -362,8 +347,8 @@
             "x": 18,
             "y": 49
           },
-          "width": 89,
-          "height": 19,
+          "width": 82,
+          "height": 17,
           "rotate": 0,
           "alignment": "left",
           "verticalAlignment": "top",
@@ -394,14 +379,14 @@
           "readOnly": true
         },
         {
-          "name": "bloque-pago-caja",
+          "name": "bloque-entrega-caja",
           "type": "rectangle",
           "position": {
-            "x": 113,
+            "x": 107,
             "y": 42
           },
-          "width": 50,
-          "height": 28,
+          "width": 88,
+          "height": 26,
           "rotate": 0,
           "opacity": 1,
           "borderWidth": 0.3,
@@ -411,14 +396,14 @@
           "radius": 1.5
         },
         {
-          "name": "bloque-pago-titulo",
+          "name": "bloque-entrega-titulo",
           "type": "text",
-          "content": "FORMA DE PAGO",
+          "content": "ENTREGAR EN",
           "position": {
-            "x": 116,
+            "x": 110,
             "y": 44.5
           },
-          "width": 44,
+          "width": 82,
           "height": 4,
           "rotate": 0,
           "alignment": "left",
@@ -450,15 +435,15 @@
           "readOnly": true
         },
         {
-          "name": "bloque-pago",
+          "name": "bloque-entrega",
           "type": "text",
-          "content": "{siVacio(forma_pago, '—')}",
+          "content": "{entrega.nombre}\n{entrega.linea_direccion}\n{entrega.horario ? 'Horario ' + entrega.horario : ''}{entrega.telefono ? '  Tel. ' + entrega.telefono : ''}",
           "position": {
-            "x": 116,
+            "x": 110,
             "y": 49
           },
-          "width": 44,
-          "height": 19,
+          "width": 82,
+          "height": 17,
           "rotate": 0,
           "alignment": "left",
           "verticalAlignment": "top",
@@ -489,87 +474,28 @@
           "readOnly": true
         },
         {
-          "name": "qr",
-          "type": "qrcode",
-          "content": "https://www2.agenciatributaria.gob.es/",
-          "position": {
-            "x": 168,
-            "y": 41
-          },
-          "width": 27,
-          "height": 27,
-          "rotate": 0,
-          "opacity": 1,
-          "backgroundColor": "#ffffff",
-          "barColor": "#000000",
-          "readOnly": false
-        },
-        {
-          "name": "verifactu-leyenda",
-          "type": "text",
-          "content": "{verifactu ? 'VERI*FACTU' : ''}",
-          "position": {
-            "x": 166,
-            "y": 68.5
-          },
-          "width": 31,
-          "height": 4,
-          "rotate": 0,
-          "alignment": "center",
-          "verticalAlignment": "top",
-          "fontSize": 7,
-          "textFormat": "plain",
-          "overflow": "visible",
-          "fontVariantFallback": "synthetic",
-          "lineHeight": 1.25,
-          "characterSpacing": 0,
-          "fontColor": "#15202b",
-          "backgroundColor": "",
-          "borderColor": "#000000",
-          "borderWidth": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
-          },
-          "padding": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
-          },
-          "opacity": 1,
-          "strikethrough": false,
-          "underline": false,
-          "readOnly": true
-        },
-        {
           "name": "lineas",
           "type": "table",
           "position": {
             "x": 15,
-            "y": 76
+            "y": 74
           },
           "width": 180,
           "height": 20,
-          "content": "[[\"{descripcion}\",\"{conDecimales(cantidad, 0)}\",\"{enEuros(precio)}\",\"{descuento ? conDecimales(descuento) + ' %' : ''}\",\"{conDecimales(iva, 0)} %\",\"{enEuros(base)}\"]]",
+          "content": "[[\"{referencia}\",\"{descripcion}\",\"{conDecimales(cantidad, 0)}\",\"{unidad}\"]]",
           "showHead": true,
           "repeatHead": true,
           "head": [
+            "Referencia",
             "Descripción",
             "Cantidad",
-            "Precio",
-            "Dto.",
-            "IVA",
-            "Base"
+            "Unidad"
           ],
           "headWidthPercentages": [
-            44,
-            11,
-            12,
-            9,
-            8,
-            16
+            18,
+            52,
+            15,
+            15
           ],
           "tableStyles": {
             "borderColor": "#dde3ea",
@@ -622,112 +548,25 @@
           },
           "columnStyles": {
             "alignment": {
-              "1": "right",
-              "2": "right",
-              "3": "right",
-              "4": "right",
-              "5": "right"
+              "2": "right"
             }
           },
           "readOnly": true
         },
         {
-          "name": "desglose",
-          "type": "table",
-          "position": {
-            "x": 85,
-            "y": 102
-          },
-          "width": 110,
-          "height": 20,
-          "content": "[[\"{conDecimales(iva, 0)} %\",\"{enEuros(base)}\",\"{enEuros(cuota)}\",\"{recargo ? conDecimales(recargo_pct, 1) + ' % · ' + enEuros(recargo) : ''}\"]]",
-          "showHead": true,
-          "repeatHead": true,
-          "head": [
-            "Tipo IVA",
-            "Base imponible",
-            "Cuota IVA",
-            "Recargo eq."
-          ],
-          "headWidthPercentages": [
-            18,
-            28,
-            24,
-            30
-          ],
-          "tableStyles": {
-            "borderColor": "#dde3ea",
-            "borderWidth": 0.2
-          },
-          "headStyles": {
-            "alignment": "left",
-            "verticalAlignment": "middle",
-            "fontSize": 8.5,
-            "lineHeight": 1,
-            "characterSpacing": 0,
-            "fontColor": "#ffffff",
-            "backgroundColor": "#1f3a68",
-            "borderColor": "#1f3a68",
-            "borderWidth": {
-              "top": 0,
-              "right": 0,
-              "bottom": 0,
-              "left": 0
-            },
-            "padding": {
-              "top": 2.2,
-              "right": 2.5,
-              "bottom": 2.2,
-              "left": 2.5
-            }
-          },
-          "bodyStyles": {
-            "alignment": "left",
-            "verticalAlignment": "middle",
-            "fontSize": 8.5,
-            "lineHeight": 1.15,
-            "characterSpacing": 0,
-            "fontColor": "#15202b",
-            "backgroundColor": "",
-            "borderColor": "#dde3ea",
-            "borderWidth": {
-              "top": 0.1,
-              "right": 0,
-              "bottom": 0.1,
-              "left": 0
-            },
-            "padding": {
-              "top": 2,
-              "right": 2.5,
-              "bottom": 2,
-              "left": 2.5
-            },
-            "alternateBackgroundColor": ""
-          },
-          "columnStyles": {
-            "alignment": {
-              "0": "right",
-              "1": "right",
-              "2": "right",
-              "3": "right"
-            }
-          },
-          "readOnly": true
-        },
-        {
-          "name": "totales-etiquetas",
+          "name": "linea-notas",
           "type": "text",
-          "content": "Base imponible\nIVA{recargo ? '\\nRecargo de equivalencia' : ''}{retencion ? '\\nRetención IRPF' : ''}",
+          "content": "{notas ? 'Notas: ' + notas : ''}",
           "position": {
-            "x": 110,
-            "y": 122
+            "x": 15,
+            "y": 100
           },
-          "width": 50,
-          "height": 18,
+          "width": 180,
+          "height": 8,
           "rotate": 0,
-          "alignment": "right",
+          "alignment": "left",
           "verticalAlignment": "top",
-          "fontSize": 9.5,
+          "fontSize": 8.5,
           "textFormat": "plain",
           "overflow": "visible",
           "fontVariantFallback": "synthetic",
@@ -754,159 +593,81 @@
           "readOnly": true
         },
         {
-          "name": "totales-importes",
-          "type": "text",
-          "content": "{enEuros(base)}\n{enEuros(iva)}{recargo ? '\\n' + enEuros(recargo) : ''}{retencion ? '\\n−' + enEuros(retencion) : ''}",
-          "position": {
-            "x": 160,
-            "y": 122
-          },
-          "width": 35,
-          "height": 18,
-          "rotate": 0,
-          "alignment": "right",
-          "verticalAlignment": "top",
-          "fontSize": 9.5,
-          "textFormat": "plain",
-          "overflow": "visible",
-          "fontVariantFallback": "synthetic",
-          "lineHeight": 1.25,
-          "characterSpacing": 0,
-          "fontColor": "#15202b",
-          "backgroundColor": "",
-          "borderColor": "#000000",
-          "borderWidth": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
-          },
-          "padding": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
-          },
-          "opacity": 1,
-          "strikethrough": false,
-          "underline": false,
-          "readOnly": true
-        },
-        {
-          "name": "total-caja",
+          "name": "bloque-firma-caja",
           "type": "rectangle",
           "position": {
-            "x": 110,
-            "y": 142
+            "x": 107,
+            "y": 110
           },
-          "width": 85,
-          "height": 10,
+          "width": 88,
+          "height": 36,
           "rotate": 0,
           "opacity": 1,
           "borderWidth": 0.3,
-          "borderColor": "#1f3a68",
-          "color": "#1f3a68",
+          "borderColor": "#dde3ea",
+          "color": "",
           "readOnly": true,
           "radius": 1.5
         },
         {
-          "name": "total-etiqueta",
+          "name": "bloque-firma-titulo",
           "type": "text",
-          "content": "TOTAL FACTURA",
+          "content": "RECIBÍ CONFORME",
           "position": {
-            "x": 113,
-            "y": 144.5
+            "x": 110,
+            "y": 112.5
           },
-          "width": 40,
-          "height": 6,
+          "width": 82,
+          "height": 4,
           "rotate": 0,
           "alignment": "left",
           "verticalAlignment": "top",
-          "fontSize": 10,
+          "fontSize": 7,
           "textFormat": "plain",
           "overflow": "visible",
           "fontVariantFallback": "synthetic",
           "lineHeight": 1.25,
-          "characterSpacing": 0,
-          "fontColor": "#ffffff",
-          "backgroundColor": "",
-          "borderColor": "#000000",
-          "borderWidth": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
-          },
-          "padding": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
-          },
-          "opacity": 1,
-          "strikethrough": false,
-          "underline": false,
-          "readOnly": true
-        },
-        {
-          "name": "total-importe",
-          "type": "text",
-          "content": "{enEuros(total)}",
-          "position": {
-            "x": 150,
-            "y": 144
-          },
-          "width": 42,
-          "height": 7,
-          "rotate": 0,
-          "alignment": "right",
-          "verticalAlignment": "top",
-          "fontSize": 12,
-          "textFormat": "plain",
-          "overflow": "visible",
-          "fontVariantFallback": "synthetic",
-          "lineHeight": 1.25,
-          "characterSpacing": 0,
-          "fontColor": "#ffffff",
-          "backgroundColor": "",
-          "borderColor": "#000000",
-          "borderWidth": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
-          },
-          "padding": {
-            "top": 0,
-            "right": 0,
-            "bottom": 0,
-            "left": 0
-          },
-          "opacity": 1,
-          "strikethrough": false,
-          "underline": false,
-          "readOnly": true
-        },
-        {
-          "name": "verifactu-texto",
-          "type": "text",
-          "content": "{verifactu}",
-          "position": {
-            "x": 15,
-            "y": 156
-          },
-          "width": 180,
-          "height": 5,
-          "rotate": 0,
-          "alignment": "left",
-          "verticalAlignment": "top",
-          "fontSize": 7.5,
-          "textFormat": "plain",
-          "overflow": "visible",
-          "fontVariantFallback": "synthetic",
-          "lineHeight": 1.25,
-          "characterSpacing": 0,
+          "characterSpacing": 0.5,
           "fontColor": "#5b6675",
+          "backgroundColor": "",
+          "borderColor": "#000000",
+          "borderWidth": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "padding": {
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "opacity": 1,
+          "strikethrough": false,
+          "underline": false,
+          "readOnly": true
+        },
+        {
+          "name": "bloque-firma",
+          "type": "text",
+          "content": "Nombre y DNI:\n\n\nFecha y firma:",
+          "position": {
+            "x": 110,
+            "y": 117
+          },
+          "width": 82,
+          "height": 27,
+          "rotate": 0,
+          "alignment": "left",
+          "verticalAlignment": "top",
+          "fontSize": 9.5,
+          "textFormat": "plain",
+          "overflow": "visible",
+          "fontVariantFallback": "synthetic",
+          "lineHeight": 1.25,
+          "characterSpacing": 0,
+          "fontColor": "#15202b",
           "backgroundColor": "",
           "borderColor": "#000000",
           "borderWidth": {

@@ -43,7 +43,7 @@ Pasos (todos en GitHub y en Ajustes; desde aquí no se toca el servidor):
 
 - **Quién entra** lo sigue decidiendo Keycloak (grupo `/DEV/Sindri`). Dentro de Sindri, cada persona tiene rol, departamento, empresas y su menú (Sindri → Usuarios). Quien entra por primera vez queda con el rol «Consulta» (ve y no cambia). Los de `/DEV/Sindri/Admin` o IT lo pueden todo.
 - **Varias empresas**: cada una con sus clientes, productos, pedidos, facturas, numeración y cadena VERI*FACTU. Quien trabaja en más de una elige al entrar. La base de DEV de la versión 0 se actualiza sola: lo que había pasa a la primera empresa y se añade una segunda empresa de demostración.
-- **Report Server**: importar las plantillas de [report-server/](report-server/), crear la llave y conectarlo en Sindri → Informes → Conectar (pasos en [report-server/README.md](report-server/README.md)). Sin eso, Sindri imprime con el navegador.
+- **Report Server**: crear la llave para `sindri` y conectarlo en Sindri → Informes → Conectar; Sindri instala él solo sus plantillas (pasos en [report-server/README.md](report-server/README.md)). Sin eso, Sindri imprime con el navegador.
 
 ## Qué hay en este repositorio para el servidor
 

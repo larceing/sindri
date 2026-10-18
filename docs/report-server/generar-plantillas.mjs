@@ -3,7 +3,7 @@
  * Genera las plantillas de Sindri para el Report Server (formato «Importar .json»):
  *   node docs/report-server/generar-plantillas.mjs
  * Escribe sindri-factura.json, sindri-pedido.json, sindri-albaran.json y sindri-hoja-ruta.json
- * en esta carpeta. Los datos de ejemplo son los que manda Sindri (ejemplos/*.json), así el
+ * en apps/server/plantillas/: Sindri las lleva dentro y las instala él solo en el Report Server. Los datos de ejemplo son los que manda Sindri (ejemplos/*.json), así el
  * diseñador del Report Server enseña el documento tal como saldrá.
  *
  * Después de retocar una plantilla en el diseñador, lo que vale es la del Report Server
@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DIR = dirname(fileURLToPath(import.meta.url));
+const SALIDA = join(DIR, "..", "..", "apps", "server", "plantillas");
 const ejemplo = (n) => JSON.parse(readFileSync(join(DIR, "ejemplos", `${n}.json`), "utf8"));
 
 const OSCURO = "#15202b";
@@ -203,14 +204,16 @@ const hojaRuta = doc([
   ], { size: 8, zebra: false, pad: 4 }),
 ]);
 
+// El grupo es el tipo de documento: en el Report Server, otras plantillas del mismo grupo
+// salen como alternativas al elegir en Sindri.
 const PLANTILLAS = [
-  ["sindri-factura", "Sindri · Factura", factura, "factura"],
-  ["sindri-pedido", "Sindri · Pedido", pedido, "pedido"],
-  ["sindri-albaran", "Sindri · Albarán", albaran, "albaran"],
-  ["sindri-hoja-ruta", "Sindri · Hoja de ruta", hojaRuta, "hoja_ruta"],
+  ["sindri-factura", "Sindri · Factura", factura, "factura", "factura"],
+  ["sindri-pedido", "Sindri · Pedido", pedido, "pedido", "pedido"],
+  ["sindri-albaran", "Sindri · Albarán", albaran, "albaran", "albaran"],
+  ["sindri-hoja-ruta", "Sindri · Hoja de ruta", hojaRuta, "hoja_ruta", "hoja-ruta"],
 ];
 
-for (const [nombre, titulo, plantilla, ej] of PLANTILLAS) {
-  writeFileSync(join(DIR, `${nombre}.json`), JSON.stringify({ nombre, titulo, ejemplo: ejemplo(ej), plantilla }, null, 2) + "\n");
+for (const [nombre, titulo, plantilla, ej, grupo] of PLANTILLAS) {
+  writeFileSync(join(SALIDA, `${nombre}.json`), JSON.stringify({ nombre, titulo, grupo, ejemplo: ejemplo(ej), plantilla }, null, 2) + "\n");
   console.log(`${nombre}.json`);
 }

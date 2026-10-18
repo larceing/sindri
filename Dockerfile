@@ -16,6 +16,7 @@ RUN --mount=type=secret,id=ca,required=false \
  && pnpm --filter "@sindri/web" build \
  && pnpm --filter "@sindri/server" deploy --prod --legacy /app \
  && cp -r apps/server/migrations /app/migrations \
+ && cp -r apps/server/plantillas /app/plantillas \
  && cp -r apps/web/dist /app/web
 
 FROM node:22-bookworm-slim

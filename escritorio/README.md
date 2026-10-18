@@ -6,6 +6,7 @@ Una ventana sobre la web de Sindri, como dice la parte B de [docs/INSTRUCCIONES.
 - **Login:** la página de Keycloak dentro de la ventana, igual que en el navegador. No hace falta nada nuevo en Keycloak.
 - **Solo navega por Sindri y Keycloak.** Keycloak lo saca de a dónde manda `/login`. Cualquier otro enlace se abre en el navegador del sistema.
 - **Versiones:** al arrancar lee `escritorio_minima` en `/version/`. Si esta versión es más vieja, pide actualizar y abre las descargas.
+- **PDF y descargas:** lo que Sindri abre aparte (facturas, pedidos, albaranes, hojas de ruta en PDF) se descarga con la sesión de la ventana a la carpeta de Descargas y se abre con el visor del sistema. El navegador del sistema no tiene la sesión de Sindri, por eso no se manda allí.
 - **Sin red no funciona.** Enseña un aviso y reintenta cada 15 segundos.
 
 ## DEV y PRO
