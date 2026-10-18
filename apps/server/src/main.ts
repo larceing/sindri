@@ -15,11 +15,10 @@ import { startServer } from "./start.js";
 import { ssoFromEnv } from "./sso.js";
 import { reportServerFromEnv } from "./documentos.js";
 
-// En PRO los datos son de verdad: sin PostgreSQL no arranca (la base integrada vale para
-// el PC, para local y para la versión 0 en DEV mientras el servidor no dé PostgreSQL).
+// En PRO lo bueno es PostgreSQL. Mientras el servidor no lo dé, PRO arranca con la base integrada
+// en /datos para ir probando, y lo avisa; cuando llegue DATABASE_URL empezará con una base nueva.
 if (process.env.SERVIDOR_ENTORNO === "pro" && !process.env.DATABASE_URL) {
-  console.error("Sindri no arranca en PRO sin DATABASE_URL: en PRO los datos tienen que estar en PostgreSQL.");
-  process.exit(1);
+  console.warn("Aviso: Sindri en PRO sin DATABASE_URL usa la base integrada en /datos. Vale para probar; los datos de verdad tienen que ir a PostgreSQL.");
 }
 
 const webDir =process.env.SINDRI_WEB_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url));
