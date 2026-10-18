@@ -33,6 +33,10 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 **Empresas**
 - Cada empresa lleva un código (001, 002…) que se ve al elegirla y sirve para buscarla. Las de demostración llevan la marca DEMO, una franja en todas las pantallas y están abiertas a cualquiera que entre en Sindri; las reales, solo a quien se le asignen.
 
+**Integraciones y correo**
+- Otras apps (incidencias, tareas…) se conectan a una empresa con su llave: leen clientes y productos y mandan horas o servicios a **Pedidos → Por facturar** ([docs/INTEGRACIONES.md](docs/INTEGRACIONES.md)).
+- Confirmación de pedidos por correo con el PDF, con el Mail del servidor: automática al confirmar (si la empresa lo activa) o a mano desde el pedido.
+
 **Informes**
 - Facturas, pedidos, albaranes y hojas de ruta en PDF con el Report Server ([docs/report-server](docs/report-server/README.md)); sin él, se imprimen con el navegador.
 - Datos en CSV, XML o JSON para Excel o cualquier herramienta de informes, con lectores de solo lectura que se pueden revocar.

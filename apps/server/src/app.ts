@@ -14,6 +14,8 @@ import * as crm from "./crm.js";
 import { ctxOf, maybeCtx, registerUsuarios } from "./usuarios.js";
 import { registerInformes } from "./informes.js";
 import { registerDocumentos, type ReportServerConfig } from "./documentos.js";
+import { registerIntegracion, releaseOrderItems } from "./integracion.js";
+import { confirmacionAutomatica, registerCorreo, type MailConfig } from "./correo.js";
 
 const dec = z.union([z.string(), z.number()]).transform(String).refine((v) => /^-?\d+([.,]\d+)?$/.test(v.trim()), "Número no válido");
 const optText = z.string().trim().min(1).nullish();
@@ -210,6 +212,8 @@ export interface AppOptions {
   entorno?: string;
   /** Report Server (REPORT_URL y REPORT_LLAVE) para sacar facturas, pedidos y hojas de ruta en PDF. */
   reportServer?: ReportServerConfig;
+  /** Mail del servidor (MAIL_URL y MAIL_LLAVE) para mandar la confirmación de los pedidos. */
+  mail?: MailConfig;
 }
 
 const sameText = (a: string, b: string) => {
@@ -218,7 +222,7 @@ const sameText = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-export async function buildApp({ db, webDir, logger = false, auth, sso, version = "dev", trustProxy = false, entorno = "local", reportServer }: AppOptions): Promise<FastifyInstance> {
+export async function buildApp({ db, webDir, logger = false, auth, sso, version = "dev", trustProxy = false, entorno = "local", reportServer, mail }: AppOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger, trustProxy });
 
   // Página de versión que lee el servidor DEV/PRO (punto verde, «Pasar a PRO»).
@@ -233,7 +237,7 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   if (auth && !sso) {
     app.addHook("onRequest", async (req, reply) => {
       const path = req.url.split("?")[0]!;
-      if (["/api/health", "/api/v1/health", "/version", "/version/"].includes(path) || path.startsWith("/api/planta/") || path.startsWith("/api/informes/")) return;
+      if (["/api/health", "/api/v1/health", "/version", "/version/"].includes(path) || path.startsWith("/api/planta/") || path.startsWith("/api/informes/") || path.startsWith("/api/integracion/")) return;
       const header = req.headers.authorization ?? "";
       const [user = "", password = ""] = header.startsWith("Basic ")
         ? Buffer.from(header.slice(6), "base64").toString("utf8").split(/:(.*)/s)
@@ -300,10 +304,19 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   app.post("/api/v1/sales-orders", async (req, reply) => reply.status(201).send(await s.createSalesOrder(db, ctxOf(req), OrderSchema.parse(req.body))));
   app.get<IdParams>("/api/v1/sales-orders/:id", async (req) => s.getSalesOrder(db, ctxOf(req), req.params.id));
   app.patch<IdParams>("/api/v1/sales-orders/:id", async (req) => s.updateSalesOrderHeader(db, ctxOf(req), req.params.id, OrderHeaderSchema.parse(req.body)));
-  app.post<IdParams>("/api/v1/sales-orders/:id/confirm", async (req) => s.confirmSalesOrder(db, ctxOf(req), req.params.id));
+  app.post<IdParams>("/api/v1/sales-orders/:id/confirm", async (req) => {
+    const o = await s.confirmSalesOrder(db, ctxOf(req), req.params.id);
+    confirmacionAutomatica(db, { mail, reportServer }, ctxOf(req), req.params.id);
+    return o;
+  });
   app.post<IdParams>("/api/v1/sales-orders/:id/deliver", async (req) => s.deliverSalesOrder(db, ctxOf(req), req.params.id));
   app.post<IdParams>("/api/v1/sales-orders/:id/invoice", async (req) => s.invoiceSalesOrder(db, ctxOf(req), req.params.id));
-  app.post<IdParams>("/api/v1/sales-orders/:id/cancel", async (req) => s.cancelSalesOrder(db, ctxOf(req), req.params.id));
+  app.post<IdParams>("/api/v1/sales-orders/:id/cancel", async (req) => {
+    const o = await s.cancelSalesOrder(db, ctxOf(req), req.params.id);
+    // Lo que venía de Por facturar vuelve a quedar pendiente.
+    await releaseOrderItems(db, req.params.id);
+    return o;
+  });
   app.post<IdParams>("/api/v1/sales-orders/:id/split", async (req, reply) => reply.status(201).send(await s.splitSalesOrder(db, ctxOf(req), req.params.id, SplitSchema.parse(req.body))));
 
   // CRM: oportunidades con su embudo y actividades de seguimiento.
@@ -333,7 +346,12 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   app.get<IdParams>("/api/v1/quotations/:id", async (req) => crm.getQuotation(db, ctxOf(req), req.params.id));
   app.put<IdParams>("/api/v1/quotations/:id", async (req) => crm.updateQuotation(db, ctxOf(req), req.params.id, QuotationSchema.parse(req.body)));
   for (const action of ["send", "edit", "accept", "reject", "cancel"] as const)
-    app.post<IdParams>(`/api/v1/quotations/:id/${action}`, async (req) => crm.quotationAction(db, ctxOf(req), req.params.id, action, ReasonSchema.parse(req.body ?? {})));
+    app.post<IdParams>(`/api/v1/quotations/:id/${action}`, async (req) => {
+      const q = await crm.quotationAction(db, ctxOf(req), req.params.id, action, ReasonSchema.parse(req.body ?? {}));
+      // Aceptar crea el pedido confirmado: misma confirmación por correo que al confirmar a mano.
+      if (action === "accept" && q.order_id) confirmacionAutomatica(db, { mail, reportServer }, ctxOf(req), q.order_id);
+      return q;
+    });
   app.post<IdParams>("/api/v1/quotations/:id/duplicate", async (req, reply) => reply.status(201).send(await crm.duplicateQuotation(db, ctxOf(req), req.params.id)));
 
   app.get("/api/v1/routes", async (req) => c.listRoutes(db, ctxOf(req)));
@@ -363,6 +381,8 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
 
   registerInformes(app, db);
   registerDocumentos(app, db, reportServer);
+  registerIntegracion(app, db);
+  registerCorreo(app, db, { mail, reportServer });
 
   registerPlanta(app, db, {
     entorno,

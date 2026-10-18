@@ -12,6 +12,7 @@ import { PartnerPage, PartnersPage } from "./pages/Partners";
 import { ProductsPage } from "./pages/Products";
 import { StockPage } from "./pages/Stock";
 import { NewOrderPage, OrderPage, OrdersPage } from "./pages/Orders";
+import { ToInvoicePage } from "./pages/ToInvoice";
 import { InvoicePage, InvoicesPage } from "./pages/Invoices";
 import { VerifactuPage } from "./pages/Verifactu";
 import { PlantPage } from "./pages/Plant";
@@ -45,7 +46,7 @@ function Screen({ route, me }: { route: string; me: Me }) {
     case "presupuestos":
       return id === "nuevo" ? <NewQuotationPage /> : id === "modelos" ? <TemplatesPage /> : id ? <QuotationPage id={id} /> : <QuotationsPage />;
     case "pedidos":
-      return id === "nuevo" ? <NewOrderPage /> : id ? <OrderPage id={id} /> : <OrdersPage />;
+      return id === "nuevo" ? <NewOrderPage /> : id === "por-facturar" ? <ToInvoicePage /> : id ? <OrderPage id={id} /> : <OrdersPage />;
     case "rutas":
       return id ? <RoutePage id={id} /> : <RoutesPage />;
     case "facturas":

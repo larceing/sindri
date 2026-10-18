@@ -139,7 +139,7 @@ export function registerSso(app: FastifyInstance, cfg: SsoConfig) {
   app.addHook("onRequest", async (req, reply) => {
     const path = req.url.split("?")[0]!;
     // El agente de planta entra con su propio token (planta.ts), no con sesión.
-    if (OPEN.has(path) || path.startsWith("/api/planta/") || path.startsWith("/api/informes/")) return;
+    if (OPEN.has(path) || path.startsWith("/api/planta/") || path.startsWith("/api/informes/") || path.startsWith("/api/integracion/")) return;
     if (currentPerson(req, cfg)) return;
     if (path.startsWith("/api/")) return reply.status(401).send({ error: "La sesión ha caducado. Vuelve a entrar." });
     return reply.redirect(`${publicBase(req)}/login`);

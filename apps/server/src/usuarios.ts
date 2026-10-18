@@ -45,6 +45,7 @@ const ROUTE_MODULE: [string, ModuleId][] = [
   ["/api/v1/quotations", "presupuestos"],
   ["/api/v1/quotation-templates", "presupuestos"],
   ["/api/v1/sales-orders", "pedidos"],
+  ["/api/v1/por-facturar", "pedidos"],
   ["/api/v1/routes", "rutas"],
   ["/api/v1/invoices", "facturas"],
   ["/api/v1/products", "productos"],
