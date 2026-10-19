@@ -17,7 +17,7 @@ body {
 .shell { display: grid; grid-template-columns: 216px 1fr; min-height: 100vh; }
 .side { background: var(--lateral); color: var(--lateral-texto); display: flex; flex-direction: column; padding: var(--s-4) var(--s-2); gap: var(--s-0_5); position: sticky; top: 0; height: 100vh; }
 .brand { display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-lg); line-height: var(--lh-lg); font-weight: 600; color: #fff; padding: var(--s-1) var(--s-3) var(--s-5); letter-spacing: -0.01em; }
-.brand-mark { width: 22px; height: 22px; }
+.brand-mark { width: 26px; height: 26px; }
 .side a { display: flex; align-items: center; gap: var(--s-3); color: var(--lateral-texto); text-decoration: none; padding: 0 var(--s-3); min-height: max(36px, var(--target)); border-radius: var(--r-2); transition: background var(--dur-2) var(--curva); }
 .side a:hover { background: var(--lateral-activo); color: #fff; }
 .side a.active { background: var(--lateral-activo); color: #fff; box-shadow: inset 3px 0 0 var(--marca-7); }
