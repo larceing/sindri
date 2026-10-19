@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { del, eur, fecha, patch, post, sinVacios, vaciosANull } from "../api";
+import { del, eur, fecha, patch, post, put, sinVacios, vaciosANull } from "../api";
 import { navigate } from "../router";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
@@ -153,6 +153,72 @@ export function PartnersPage() {
 const C_BLANK = { name: "", position: "", email: "", phone: "", notes: "" };
 const A_BLANK = { label: "", address: "", postal_code: "", city: "", province: "", phone: "", schedule: "", is_default: false };
 
+/** Precio propio del cliente para algunos productos o servicios (p. ej. su tarifa por hora). */
+function TarifasCliente({ p, editar, reload }: { p: any; editar: boolean; reload: () => Promise<unknown> }) {
+  const { data: productos } = useData<any[]>(editar ? "/products" : null);
+  const [nueva, setNueva] = useState<{ product_id: string; unit_price: string } | null>(null);
+  const { run, error, busy } = useAction();
+  const guardar = (productId: string, precio: string) =>
+    run(async () => {
+      await put(`/partners/${p.id}/prices/${productId}`, { unit_price: precio });
+      setNueva(null);
+      await reload();
+    });
+  const quitar = (productId: string) =>
+    run(async () => {
+      await del(`/partners/${p.id}/prices/${productId}`);
+      await reload();
+    });
+  return (
+    <div className="card">
+      <div className="card-head">
+        <h2>Tarifas propias</h2>
+        {editar && !nueva && <button onClick={() => setNueva({ product_id: "", unit_price: "" })}>Añadir tarifa</button>}
+      </div>
+      <p className="hint">
+        El precio de este cliente para un producto o servicio: sale solo en sus presupuestos, pedidos y en lo que llega por facturar sin precio.
+        {p.discount_pct ? ` Encima se aplica su descuento habitual (${Number(p.discount_pct)} %).` : " Su descuento habitual, si le pones uno en la ficha, se aplica encima."}
+      </p>
+      <ErrorBox error={error} />
+      {nueva && (
+        <div className="subform">
+          <div className="form">
+            <Field label="Producto o servicio *">
+              <select value={nueva.product_id} onChange={(e) => setNueva({ ...nueva, product_id: e.target.value })}>
+                <option value="">Elige…</option>
+                {(productos ?? []).map((x) => <option key={x.id} value={x.id}>{x.sku} · {x.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Precio para este cliente *"><input value={nueva.unit_price} onChange={(e) => setNueva({ ...nueva, unit_price: e.target.value })} inputMode="decimal" /></Field>
+          </div>
+          <div className="row">
+            <button className="primary" onClick={() => guardar(nueva.product_id, nueva.unit_price)} disabled={busy || !nueva.product_id || !nueva.unit_price}>Guardar tarifa</button>
+            <button onClick={() => setNueva(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+      {p.prices.length === 0 ? <Empty>Usa la tarifa general de cada producto.</Empty> : (
+        <Table>
+          <thead><tr><th>Producto o servicio</th><th className="num">Tarifa general</th><th className="num">Para este cliente</th>{editar && <th />}</tr></thead>
+          <tbody>
+            {p.prices.map((t: any) => (
+              <tr key={t.product_id}>
+                <td><Code>{t.sku}</Code> {t.name}</td>
+                <td className="num">{eur(t.sale_price)}{t.uom && t.uom !== "ud" ? ` / ${t.uom}` : ""}</td>
+                <td className="num"><b>{eur(t.unit_price)}</b>{t.uom && t.uom !== "ud" ? ` / ${t.uom}` : ""}</td>
+                {editar && <td className="acts">
+                  <button className="link" onClick={() => setNueva({ product_id: t.product_id, unit_price: String(Number(t.unit_price)) })}>Cambiar</button>
+                  <button className="link" onClick={() => quitar(t.product_id)}>Quitar</button>
+                </td>}
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </div>
+  );
+}
+
 export function PartnerPage({ id }: { id: string }) {
   const { data: p, reload, error: loadError } = useData(`/partners/${id}`);
   const { puede } = useSession();
@@ -238,6 +304,8 @@ export function PartnerPage({ id }: { id: string }) {
           </div>
         )}
       </div>
+
+      {p.kind !== "supplier" && <TarifasCliente p={p} editar={editar} reload={reload} />}
 
       <div className="card">
         <div className="card-head">

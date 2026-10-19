@@ -65,6 +65,65 @@ describe("Exportar e importar los datos de una empresa", () => {
     expect(r.json().avisos.join(" ")).toContain("B12345674");
   });
 
+  it("trae servicios, tarifas por cliente y horas por facturar, y la tarifa sale en los pedidos", async () => {
+    const app = await nueva({ name: "Empresa Prueba SL", tax_id: "B12345674" });
+    const gestor = {
+      formato: "sindri-datos", version: 1, origen: "Gestor de incidencias", origen_app: "incidencias",
+      clientes: [{ name: "Cliente Uno SL", tax_id: "B91234567", discount_pct: "10", tarifas: [{ sku: "SOP-INC", precio: "30" }, { sku: "NO-HAY", precio: "1" }] }],
+      productos: [
+        { sku: "SOP-INC", name: "Soporte: incidencias", kind: "service", uom: "h", sale_price: "40", vat_rate: "21" },
+        { sku: "SOP-PET", name: "Soporte: peticiones", kind: "service", uom: "h", sale_price: "40", vat_rate: "21" },
+      ],
+      por_facturar: [
+        { ref: "SES-1", cliente: { tax_id: "B91234567", name: "Cliente Uno SL" }, sku: "SOP-INC", fecha: "2026-10-01", cantidad: "2", precio: "30", descripcion: "INC 1 · Impresora" },
+        { ref: "SES-2", cliente: { tax_id: "B91234567", name: "Cliente Uno SL" }, sku: "SOP-INC", fecha: "2026-10-02", cantidad: "1.5", precio: "30", descripcion: "INC 2 · Red" },
+        { ref: "SES-3", cliente: { tax_id: null, name: "Cliente Uno SL" }, sku: "SOP-PET", fecha: "2026-10-03", cantidad: "1", descripcion: "PET 3 · Informe" },
+        { ref: "SES-4", cliente: { tax_id: null, name: "Nadie" }, sku: "SOP-PET", fecha: "2026-10-03", cantidad: "1", descripcion: "Sin cliente" },
+      ],
+    };
+    const prueba = await app.inject({ method: "POST", url: "/api/v1/datos/importar?probar=1", payload: gestor });
+    expect(prueba.statusCode, prueba.body).toBe(200);
+    const pr = prueba.json();
+    expect(pr).toMatchObject({ tarifas: 1, por_facturar: { creados: 3, actualizados: 0, sin_tocar: 0 } });
+    expect(pr.tabla).toEqual([
+      { cliente: "Cliente Uno SL", sku: "SOP-INC", servicio: "Soporte: incidencias", uom: "h", cantidad: "3.5", precio: "30", importe: "105.00", elementos: 2 },
+      { cliente: "Cliente Uno SL", sku: "SOP-PET", servicio: "Soporte: peticiones", uom: "h", cantidad: "1", precio: "40", importe: "40.00", elementos: 1 },
+    ]);
+    expect(pr.avisos.join(" ")).toContain("NO-HAY");
+    expect(pr.avisos.join(" ")).toContain("Nadie");
+    expect((await app.inject({ url: "/api/v1/por-facturar" })).json()).toHaveLength(0);
+
+    expect((await app.inject({ method: "POST", url: "/api/v1/datos/importar", payload: gestor })).statusCode).toBe(200);
+    const otra = (await app.inject({ method: "POST", url: "/api/v1/datos/importar", payload: gestor })).json();
+    expect(otra.por_facturar).toEqual({ creados: 0, actualizados: 3, sin_tocar: 0 });
+    const pend = (await app.inject({ url: "/api/v1/por-facturar" })).json() as { id: string; external_ref: string; source: string; price: string }[];
+    expect(pend.map((p) => [p.external_ref, p.source, Number(p.price)]).sort()).toEqual([["SES-1", "incidencias", 30], ["SES-2", "incidencias", 30], ["SES-3", "incidencias", 40]]);
+
+    // La ficha enseña la tarifa propia; un pedido sin precio la usa y aplica el descuento habitual.
+    const cli = ((await app.inject({ url: "/api/v1/partners" })).json() as { id: string }[])[0]!;
+    const ficha = (await app.inject({ url: `/api/v1/partners/${cli.id}` })).json();
+    expect(ficha.prices.map((x: { sku: string; unit_price: string }) => [x.sku, Number(x.unit_price)])).toEqual([["SOP-INC", 30]]);
+    const prods = (await app.inject({ url: "/api/v1/products" })).json() as { id: string; sku: string }[];
+    const inc = prods.find((x) => x.sku === "SOP-INC")!;
+    const ped = await app.inject({ method: "POST", url: "/api/v1/sales-orders", payload: { partner_id: cli.id, lines: [{ product_id: inc.id, quantity: "1" }] } });
+    expect(ped.statusCode, ped.body).toBe(201);
+    const linea = (await app.inject({ url: `/api/v1/sales-orders/${ped.json().id}` })).json().lines[0];
+    expect([Number(linea.unit_price), Number(linea.discount_pct)]).toEqual([30, 10]);
+
+    // Lo pasado a un pedido ya no se toca al volver a importar.
+    const deUno = pend.filter((p) => p.external_ref !== "SES-3").map((p) => p.id);
+    expect((await app.inject({ method: "POST", url: "/api/v1/por-facturar/pedido", payload: { ids: deUno } })).statusCode).toBe(201);
+    const tercera = (await app.inject({ method: "POST", url: "/api/v1/datos/importar", payload: gestor })).json();
+    expect(tercera.por_facturar).toEqual({ creados: 0, actualizados: 1, sin_tocar: 2 });
+
+    // Cambiar y quitar la tarifa desde la ficha; la exportación la lleva.
+    expect((await app.inject({ method: "PUT", url: `/api/v1/partners/${cli.id}/prices/${inc.id}`, payload: { unit_price: "32,5" } })).statusCode).toBe(200);
+    const exp = (await app.inject({ url: "/api/v1/datos/exportar" })).json();
+    expect(exp.clientes[0].tarifas).toEqual([{ sku: "SOP-INC", precio: "32.5" }]);
+    expect((await app.inject({ method: "DELETE", url: `/api/v1/partners/${cli.id}/prices/${inc.id}` })).statusCode).toBe(200);
+    expect((await app.inject({ url: `/api/v1/partners/${cli.id}` })).json().prices).toHaveLength(0);
+  });
+
   it("rechaza un fichero que no es de Sindri", async () => {
     const app = await nueva({ name: "Empresa Prueba SL", tax_id: "B12345674" });
     const r = await app.inject({ method: "POST", url: "/api/v1/datos/importar", payload: { clientes: [] } });

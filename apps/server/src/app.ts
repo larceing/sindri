@@ -285,6 +285,9 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   app.post<IdParams>("/api/v1/partners/:id/contacts", async (req, reply) => reply.status(201).send(await s.saveContact(db, ctxOf(req), req.params.id, ContactSchema.parse(req.body))));
   app.patch<{ Params: { id: string; sub: string } }>("/api/v1/partners/:id/contacts/:sub", async (req) => s.saveContact(db, ctxOf(req), req.params.id, ContactSchema.parse(req.body), req.params.sub));
   app.delete<{ Params: { id: string; sub: string } }>("/api/v1/partners/:id/contacts/:sub", async (req) => s.deleteContact(db, ctxOf(req), req.params.id, req.params.sub));
+  app.put<{ Params: { id: string; sub: string } }>("/api/v1/partners/:id/prices/:sub", async (req) =>
+    s.savePartnerPrice(db, ctxOf(req), req.params.id, req.params.sub, z.object({ unit_price: dec }).parse(req.body).unit_price));
+  app.delete<{ Params: { id: string; sub: string } }>("/api/v1/partners/:id/prices/:sub", async (req) => s.savePartnerPrice(db, ctxOf(req), req.params.id, req.params.sub, null));
   app.post<IdParams>("/api/v1/partners/:id/addresses", async (req, reply) => reply.status(201).send(await s.saveAddress(db, ctxOf(req), req.params.id, AddressSchema.parse(req.body))));
   app.patch<{ Params: { id: string; sub: string } }>("/api/v1/partners/:id/addresses/:sub", async (req) => s.saveAddress(db, ctxOf(req), req.params.id, AddressSchema.parse(req.body), req.params.sub));
   app.delete<{ Params: { id: string; sub: string } }>("/api/v1/partners/:id/addresses/:sub", async (req) => s.deleteAddress(db, ctxOf(req), req.params.id, req.params.sub));

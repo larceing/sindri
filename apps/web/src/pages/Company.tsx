@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, post, sinVacios } from "../api";
+import { api, eur, post, sinVacios } from "../api";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { Code, ErrorBox, Field, Page, Table } from "../ui";
@@ -109,8 +109,46 @@ type Resultado = {
   clientes: { creados: number; actualizados: number };
   productos: { creados: number; actualizados: number };
   modelos: { creados: number; actualizados: number };
+  tarifas?: number;
+  por_facturar?: { creados: number; actualizados: number; sin_tocar: number };
+  tabla?: { cliente: string; sku: string; servicio: string; uom: string; cantidad: string; precio: string | null; importe: string; elementos: number }[];
   avisos: string[];
 };
+
+const num = (v: string) => Number(v).toLocaleString("es-ES", { maximumFractionDigits: 2 });
+
+/** Lo que entra en Pedidos → Por facturar, por cliente y servicio. */
+function TablaPorFacturar({ r }: { r: Resultado }) {
+  const pf = r.por_facturar;
+  if (!pf || pf.creados + pf.actualizados + pf.sin_tocar === 0) return null;
+  const filas = r.tabla ?? [];
+  const total = filas.reduce((t, f) => t + Number(f.importe), 0);
+  return (
+    <>
+      <p>
+        Por facturar: {pf.creados} {pf.creados === 1 ? "nuevo" : "nuevos"}, {pf.actualizados} ya {pf.actualizados === 1 ? "estaba" : "estaban"} (se actualizan)
+        {pf.sin_tocar ? `, ${pf.sin_tocar} ya en un pedido (no se tocan)` : ""}.
+      </p>
+      {filas.length > 0 && (
+        <Table>
+          <thead><tr><th>Cliente</th><th>Servicio</th><th className="num">Cantidad</th><th className="num">Tarifa</th><th className="num">Importe</th></tr></thead>
+          <tbody>
+            {filas.map((f) => (
+              <tr key={f.cliente + f.sku}>
+                <td>{f.cliente}</td>
+                <td><Code>{f.sku}</Code> {f.servicio}</td>
+                <td className="num">{num(f.cantidad)} {f.uom}</td>
+                <td className="num">{f.precio === null ? "varias" : eur(f.precio)}</td>
+                <td className="num">{eur(f.importe)}</td>
+              </tr>
+            ))}
+            <tr><td colSpan={4}><b>Total sin impuestos ni descuentos</b></td><td className="num"><b>{eur(total)}</b></td></tr>
+          </tbody>
+        </Table>
+      )}
+    </>
+  );
+}
 
 const cuenta = (n: { creados: number; actualizados: number }, que: string) =>
   `${que}: ${n.creados} ${n.creados === 1 ? "nuevo" : "nuevos"}, ${n.actualizados} ${n.actualizados === 1 ? "ya estaba" : "ya estaban"} (se actualiza${n.actualizados === 1 ? "" : "n"})`;
@@ -148,8 +186,8 @@ function DatosEmpresa({ empresa }: { empresa: { code?: string; name: string } })
     <div className="card">
       <h2>Llevar y traer datos</h2>
       <p className="hint">
-        Clientes (con contactos y direcciones), productos y modelos de presupuesto de la empresa en uso, en un fichero .json.
-        Sirve para pasar a PRO lo que has preparado en DEV o para traer los clientes del Gestor de incidencias.
+        Clientes (con contactos, direcciones y tarifas propias), productos y modelos de presupuesto de la empresa en uso, en un fichero .json.
+        Sirve para pasar a PRO lo que has preparado en DEV o para traer del Gestor de incidencias los clientes, los servicios y las horas pendientes de cobrar.
         Importar nunca borra: añade lo que falta y actualiza lo que ya hay (clientes por NIF, productos por referencia).
         Pedidos y facturas no viajan: la numeración y la cadena VERI*FACTU son de cada instalación.
       </p>
@@ -168,8 +206,10 @@ function DatosEmpresa({ empresa }: { empresa: { code?: string; name: string } })
             <li>{cuenta(prueba.clientes, "Clientes")}</li>
             <li>{cuenta(prueba.productos, "Productos")}</li>
             <li>{cuenta(prueba.modelos, "Modelos de presupuesto")}</li>
+            {!!prueba.tarifas && <li>Tarifas propias de clientes: {prueba.tarifas}</li>}
             {prueba.avisos.map((a) => <li key={a}>{a}</li>)}
           </ul>
+          <TablaPorFacturar r={prueba} />
           <div className="row">
             <button className="primary" onClick={importar} disabled={busy}>Importar</button>
             <button onClick={() => { setPrueba(null); setFichero(null); }} disabled={busy}>Cancelar</button>
@@ -179,6 +219,7 @@ function DatosEmpresa({ empresa }: { empresa: { code?: string; name: string } })
       {hecho && (
         <p className="ok">
           Importado. {cuenta(hecho.clientes, "Clientes")}. {cuenta(hecho.productos, "Productos")}. {cuenta(hecho.modelos, "Modelos")}.
+          {hecho.por_facturar && hecho.por_facturar.creados + hecho.por_facturar.actualizados > 0 && <> Lo pendiente está en <a href="#/pedidos/por-facturar">Pedidos → Por facturar</a>.</>}
           {hecho.avisos.length ? ` Avisos: ${hecho.avisos.join(" ")}` : ""}
         </p>
       )}
