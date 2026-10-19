@@ -100,11 +100,21 @@ export async function upsertItems(db: Db, llave: Llave, items: ItemInput[]) {
         out.push({ ref: it.ref, estado: "error", error: "Cantidad no válida" });
         continue;
       }
-      const [cur] = await q.query<{ id: string; state: string; order_number: string | null }>(
-        `select b.id, b.state, o.number as order_number from billable_item b left join sales_order o on o.id = b.order_id
-         where b.company_id = $1 and b.source = $2 and b.external_ref = $3 for update of b`,
+      // La misma referencia ya llegada desde otro origen (otra llave o el fichero) no se mete otra
+      // vez: se cobraría dos veces. Tampoco se toca lo de otro origen.
+      const [cur] = await q.query<{ id: string; state: string; source: string; order_number: string | null }>(
+        `select b.id, b.state, b.source, o.number as order_number from billable_item b left join sales_order o on o.id = b.order_id
+         where b.company_id = $1 and b.external_ref = $3 order by (b.source = $2) desc limit 1 for update of b`,
         [ctx.company, llave.name, it.ref],
       );
+      if (cur && cur.source !== llave.name) {
+        out.push(
+          cur.state === "pending"
+            ? { ref: it.ref, estado: "error", error: `Ya está pendiente en Sindri desde «${cur.source}»` }
+            : { ref: it.ref, estado: cur.state === "ordered" ? "en_pedido" : "descartado", id: cur.id, pedido: cur.order_number },
+        );
+        continue;
+      }
       const vals = [cli.id, prod.id, it.descripcion, it.fecha, it.cantidad, it.precio ?? null];
       if (!cur) {
         const [row] = await q.query<{ id: string }>(

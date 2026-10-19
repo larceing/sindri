@@ -240,10 +240,15 @@ export async function importar(db: Db, ctx: Ctx, datos: Datos, probar = false): 
         r.avisos.push(`${it.ref}: cantidad ${it.cantidad} no válida; no se mete.`);
         continue;
       }
-      const [cur] = await q.query<{ id: string; state: string }>(
-        "select id, state from billable_item where company_id = $1 and source = $2 and external_ref = $3 for update",
+      const [cur] = await q.query<{ id: string; state: string; source: string }>(
+        "select id, state, source from billable_item where company_id = $1 and external_ref = $3 order by (source = $2) desc limit 1 for update",
         [ctx.company, origen, it.ref],
       );
+      if (cur && cur.source !== origen) {
+        r.avisos.push(`${it.ref}: ya llegó a Sindri desde «${cur.source}»; no se mete otra vez.`);
+        r.por_facturar.sin_tocar++;
+        continue;
+      }
       const vals = [cli.id, pr.id, it.descripcion, it.fecha, it.cantidad, it.precio ?? null];
       if (!cur) {
         await q.query(
