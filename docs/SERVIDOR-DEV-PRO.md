@@ -63,9 +63,12 @@ En **Empresa → Llevar y traer datos** (solo administración):
 2. En PRO, crea la empresa (la primera vez Sindri la pide) y entra en Empresa.
 3. «Importar un fichero…»: Sindri enseña qué haría y no guarda nada hasta pulsar «Importar».
 
-Viajan clientes (con contactos y direcciones), productos y modelos de presupuesto. No se borra
-nada: lo que ya existe se actualiza (clientes por NIF o por nombre, productos por referencia,
-modelos por nombre). Pedidos, facturas y VERI*FACTU no viajan: su numeración es de cada
+Viajan clientes (con contactos, direcciones y tarifas propias), productos y modelos de
+presupuesto. Desde el Gestor de incidencias llegan además los servicios como artículos (por horas)
+y las horas pendientes de cobrar, que quedan en **Pedidos → Por facturar** con las horas como
+cantidad; antes de importar se ve la tabla por cliente y servicio. No se borra nada: lo que ya
+existe se actualiza (clientes por NIF o por nombre, productos por referencia, modelos por nombre,
+lo por facturar por su referencia mientras siga pendiente). Pedidos, facturas y VERI*FACTU no viajan: su numeración es de cada
 instalación. API: `GET /api/v1/datos/exportar` y `POST /api/v1/datos/importar[?probar=1]`,
 formato `sindri-datos` versión 1.
 

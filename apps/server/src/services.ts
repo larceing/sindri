@@ -234,7 +234,33 @@ export async function getPartner(q: Queryable, ctx: Ctx, id: string) {
           from invoice i where i.partner_id = $1 and i.state = 'issued')::text as pending`,
     [id],
   );
-  return { ...p, contacts, addresses, orders, invoices, stats } as Record<string, any>;
+  const prices = await q.query(
+    `select pp.product_id, pr.sku, pr.name, pr.uom, pr.sale_price::text, pp.unit_price::text
+     from partner_price pp join product pr on pr.id = pp.product_id where pp.partner_id = $1 order by pr.sku`,
+    [id],
+  );
+  return { ...p, contacts, addresses, orders, invoices, stats, prices } as Record<string, any>;
+}
+
+/** Tarifa propia del cliente para un producto: alta o cambio (null la quita). */
+export async function savePartnerPrice(db: Db, ctx: Ctx, partnerId: string, productId: string, unitPrice: string | null) {
+  return db.tx(async (q) => {
+    await ownPartner(q, ctx, partnerId);
+    const [pr] = await q.query("select 1 from product where id = $1 and company_id = $2", [productId, ctx.company]);
+    if (!pr) throw notFound("Producto");
+    if (unitPrice !== null) unitPrice = unitPrice.trim().replace(",", ".");
+    if (unitPrice === null) await q.query("delete from partner_price where partner_id = $1 and product_id = $2", [partnerId, productId]);
+    else {
+      if (D(unitPrice).cmp(0) < 0) throw new BusinessError("El precio no puede ser negativo");
+      await q.query(
+        `insert into partner_price (partner_id, product_id, unit_price) values ($1,$2,$3)
+         on conflict (partner_id, product_id) do update set unit_price = excluded.unit_price, updated_at = now()`,
+        [partnerId, productId, unitPrice],
+      );
+    }
+    await log(q, ctx, "partner", partnerId, "price", { product: productId, unit_price: unitPrice });
+    return { ok: true };
+  });
 }
 
 export async function createPartner(db: Db, ctx: Ctx, p: PartnerInput) {
@@ -571,8 +597,15 @@ export async function getSalesOrder(q: Queryable, ctx: Ctx, id: string) {
   return { ...o, lines, totals, actions, delivery_address: address, splits } as Record<string, any>;
 }
 
+/** El precio de un producto para un cliente: su tarifa propia si la tiene, si no la general. */
+export async function priceFor(q: Queryable, partnerId: string, productId: string, salePrice: string) {
+  const [pp] = await q.query<{ unit_price: string }>("select unit_price from partner_price where partner_id = $1 and product_id = $2", [partnerId, productId]);
+  return pp?.unit_price ?? salePrice;
+}
+
 async function insertLines(q: Queryable, ctx: Ctx, orderId: string, lines: SalesLineInput[], discountDefault: string | null) {
   let pos = 1;
+  const [o] = await q.query<{ partner_id: string }>("select partner_id from sales_order where id = $1", [orderId]);
   for (const l of lines) {
     const [p] = await q.query<{ name: string; sale_price: string; vat_rate: string }>("select * from product where id = $1 and company_id = $2", [l.product_id, ctx.company]);
     if (!p) throw notFound("Producto");
@@ -580,7 +613,7 @@ async function insertLines(q: Queryable, ctx: Ctx, orderId: string, lines: Sales
     await q.query(
       `insert into sales_order_line (order_id, position, product_id, description, quantity, unit_price, discount_pct, vat_rate)
        values ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [orderId, pos++, l.product_id, l.description ?? p.name, l.quantity, l.unit_price ?? p.sale_price, l.discount_pct ?? discountDefault ?? "0", p.vat_rate],
+      [orderId, pos++, l.product_id, l.description ?? p.name, l.quantity, l.unit_price ?? (await priceFor(q, o!.partner_id, l.product_id, p.sale_price)), l.discount_pct ?? discountDefault ?? "0", p.vat_rate],
     );
   }
 }

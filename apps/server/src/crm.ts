@@ -10,7 +10,7 @@
 import { D, computeTotals, QuotationMachine, SURCHARGE_FOR_VAT } from "@sindri/core";
 import type { QuotationAction, QuotationState } from "@sindri/core";
 import type { Db, Queryable } from "./db.js";
-import { BusinessError, createPartner, log, nextNumber, notFound, type Ctx } from "./services.js";
+import { BusinessError, createPartner, log, nextNumber, notFound, priceFor, type Ctx } from "./services.js";
 
 // Oportunidades ----------------------------------------------------------------------
 
@@ -408,6 +408,7 @@ export async function getQuotation(q: Queryable, ctx: Ctx, id: string) {
 async function writeLines(q: Queryable, ctx: Ctx, quotationId: string, lines: QuotationLineInput[], discountDefault: string | null) {
   await q.query("delete from quotation_line where quotation_id = $1", [quotationId]);
   let pos = 1;
+  const [qt] = await q.query<{ partner_id: string }>("select partner_id from quotation where id = $1", [quotationId]);
   for (const l of lines) {
     const [p] = await q.query<{ name: string; sale_price: string; vat_rate: string }>("select * from product where id = $1 and company_id = $2", [l.product_id, ctx.company]);
     if (!p) throw notFound("Producto");
@@ -415,7 +416,7 @@ async function writeLines(q: Queryable, ctx: Ctx, quotationId: string, lines: Qu
     await q.query(
       `insert into quotation_line (quotation_id, position, product_id, description, quantity, unit_price, discount_pct, vat_rate)
        values ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [quotationId, pos++, l.product_id, l.description?.trim() || p.name, l.quantity, l.unit_price ?? p.sale_price, l.discount_pct ?? discountDefault ?? "0", p.vat_rate],
+      [quotationId, pos++, l.product_id, l.description?.trim() || p.name, l.quantity, l.unit_price ?? (await priceFor(q, qt!.partner_id, l.product_id, p.sale_price)), l.discount_pct ?? discountDefault ?? "0", p.vat_rate],
     );
   }
 }

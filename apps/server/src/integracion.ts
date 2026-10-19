@@ -157,9 +157,10 @@ export async function itemStates(q: Queryable, llave: Llave, refs?: string[]) {
 export async function listPending(q: Queryable, ctx: Ctx, f: { state?: string } = {}) {
   return q.query(
     `select b.*, coalesce(p.trade_name, p.name) as partner_name, pr.sku, pr.name as product_name, pr.uom,
-       coalesce(b.unit_price, pr.sale_price)::text as price, o.number as order_number,
-       round(b.quantity * coalesce(b.unit_price, pr.sale_price), 2)::text as amount
+       coalesce(b.unit_price, pp.unit_price, pr.sale_price)::text as price, o.number as order_number,
+       round(b.quantity * coalesce(b.unit_price, pp.unit_price, pr.sale_price), 2)::text as amount
      from billable_item b join partner p on p.id = b.partner_id join product pr on pr.id = b.product_id
+     left join partner_price pp on pp.partner_id = b.partner_id and pp.product_id = b.product_id
      left join sales_order o on o.id = b.order_id
      where b.company_id = $1 and b.state = $2
      order by partner_name, b.item_date, b.created_at limit 2000`,
