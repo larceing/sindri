@@ -801,7 +801,9 @@ export async function deliverSalesOrder(db: Db, ctx: Ctx, id: string) {
 
 export async function listInvoices(q: Queryable, ctx: Ctx) {
   return q.query(
-    "select i.*, p.name as partner_name from invoice i join partner p on p.id = i.partner_id where i.company_id = $1 order by i.created_at desc limit 500",
+    `select i.*, p.name as partner_name,
+            (i.amount_due - coalesce((select sum(amount) from payment where invoice_id = i.id), 0))::text as pending
+       from invoice i join partner p on p.id = i.partner_id where i.company_id = $1 order by i.created_at desc limit 500`,
     [ctx.company],
   );
 }

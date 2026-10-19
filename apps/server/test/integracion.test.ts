@@ -84,6 +84,11 @@ describe("Integraciones: llaves, por facturar y confirmación de pedidos por cor
     expect(again.body.elementos[0].estado).toBe("actualizado");
     const pend = (await call("GET", "/api/v1/por-facturar")).body;
     expect(pend.map((p: { amount: string }) => p.amount)).toEqual(["80.00", "90.00"]);
+    // La misma referencia con otra llave no se mete otra vez (se cobraría dos veces).
+    const otra = (await call("POST", "/api/v1/integraciones/llaves", { name: "soporte" })).body.key;
+    const dup = await call("POST", "/api/integracion/v1/por-facturar", { elementos: [{ ref: "T-1", cliente, producto: "HORA", fecha: "2026-10-01", cantidad: "2", descripcion: "x" }] }, otra);
+    expect(dup.body.elementos[0]).toMatchObject({ estado: "error", error: expect.stringContaining("incidencias") });
+    expect((await call("GET", "/api/v1/por-facturar")).body).toHaveLength(2);
   });
 
   it("se pasa a un pedido; anular el pedido lo devuelve a pendiente", async () => {

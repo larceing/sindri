@@ -104,6 +104,8 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
   it("cobra en dos pagos y marca la factura como pagada", async () => {
     expect((await call("POST", `/api/v1/invoices/${invoice}/payments`, { amount: "500" })).status).toBe(422);
     expect((await call("POST", `/api/v1/invoices/${invoice}/payments`, { amount: "100" })).body.pending).toBe("134.73");
+    const listed = (await call("GET", "/api/v1/invoices")).body.find((i: { id: string }) => i.id === invoice);
+    expect(listed.pending).toBe("134.73");
     const paid = (await call("POST", `/api/v1/invoices/${invoice}/payments`, { amount: "134.73" })).body;
     expect(paid.state).toBe("paid");
   });
