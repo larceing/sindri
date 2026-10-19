@@ -79,12 +79,14 @@ function Screen({ route, me }: { route: string; me: Me }) {
   }
 }
 
-/** Marca: un yunque estilizado. Monocromo, legible a 16 px y en impresión térmica. */
+/** Marca: el símbolo de Sindri. Las piezas claras siguen el color del texto (blanco en el menú oscuro). */
 export const BrandMark = () => (
-  <svg className="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
-    {/* Yunque: Sindri, el herrero que forjó el martillo de Thor */}
-    <path d="M3 6h14a4 4 0 0 1-4 4h-1v3l3 4H7l3-4v-3H6.5A3.5 3.5 0 0 1 3 6.5z" />
-    <path d="M6 20h12" strokeLinecap="round" />
+  <svg className="brand-mark" viewBox="0 -1 100 104" aria-hidden>
+    <path fill="currentColor" d="M22 18 48 4v24L36 36l32 19v23L42 94V70l12-8L22 43Z" />
+    <path fill="#16C7E8" d="M52 10 77 25v18L64 35 52 28Z" />
+    <path fill="#16C7E8" d="M22 56 36 64v18L22 74Z" />
+    <path fill="#1264A3" d="M64 67 77 75v8L54 96V78Z" />
+    <path fill="currentColor" d="M49 0h2.5v25H49zM40 76h2.5v26H40z" />
   </svg>
 );
 
