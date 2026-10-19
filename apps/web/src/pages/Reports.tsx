@@ -153,6 +153,25 @@ function ReportServer() {
       setAviso(null);
       await recargar();
     });
+  const probar = (tipo: string) =>
+    run(async () => {
+      // Se abre la pestaña ya (si no, el navegador la bloquea) y se le pone el PDF cuando se sabe cuál.
+      const w = window.open("about:blank", "_blank");
+      try {
+        const u = await api<{ id: string }>(`/documentos/${tipo}/ultimo`);
+        if (w) w.location.href = `./api/v1/documentos/${tipo}/${u.id}/pdf`;
+      } catch (e) {
+        w?.close();
+        throw e;
+      }
+    });
+  const [dirEditar, setDirEditar] = useState<string | null>(null);
+  const guardarEditar = () =>
+    run(async () => {
+      await api("/documentos/editar", { method: "PUT", body: { url: dirEditar ?? "" } });
+      setDirEditar(null);
+      await recargar();
+    });
   const editable = me?.admin && con && con.origen !== "variables";
   const disponibles: PlantillaRS[] = docs?.disponibles ?? [];
   const faltan = docs ? DOCUMENTOS.some(([t]) => !docs.plantillas.includes(docs.documentos?.[t]?.de_sindri)) : false;
@@ -198,7 +217,7 @@ function ReportServer() {
             </p>
           )}
           <Table>
-            <thead><tr><th>Documento</th><th>Plantilla</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Documento</th><th>Plantilla</th><th>Estado</th><th></th></tr></thead>
             <tbody>
               {DOCUMENTOS.map(([t, label, grupo]) => {
                 const d = docs.documentos?.[t] ?? { plantilla: "", lista: false };
@@ -221,11 +240,35 @@ function ReportServer() {
                         : d.lista ? <span className="ok">Lista</span>
                         : <span className="muted">No está en el Report Server: mientras, se imprime con el navegador</span>}
                     </td>
+                    <td className="acciones">
+                      {d.lista && <button className="link" onClick={() => probar(t)} disabled={busy} title="El PDF del último documento de este tipo, con la plantilla de ahora">Probar con el último</button>}
+                      {d.lista && me?.admin && docs.editar && (
+                        <a className="link" href={`${docs.editar}/#editar=${encodeURIComponent(d.plantilla)}`} target="_blank" rel="noopener">Editar</a>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </Table>
+          {me?.admin && (
+            dirEditar !== null ? (
+              <div className="form">
+                <Field label="Dirección del Report Server en el navegador (para «Editar»)">
+                  <input value={dirEditar} placeholder="https://…/report-server" onChange={(e) => setDirEditar(e.target.value)} />
+                </Field>
+                <div className="row">
+                  <button className="primary" onClick={guardarEditar} disabled={busy}>Guardar</button>
+                  <button onClick={() => setDirEditar(null)}>Cancelar</button>
+                </div>
+              </div>
+            ) : (
+              <p className="hint">
+                Para retocar una plantilla, pulsa «Editar»: se abre en el diseñador del Report Server. Al guardar allí, «Probar con el último» ya sale con el cambio.{" "}
+                <button className="link" onClick={() => setDirEditar(docs.editar ?? "")}>{docs.editar ? "Cambiar dónde se edita" : "Indica dónde se abre el Report Server"}</button>
+              </p>
+            )
+          )}
           {me?.admin && (
             <div className="row">
               {faltan && <button className="primary" onClick={() => instalar(false)} disabled={busy}>Instalar las plantillas de Sindri</button>}

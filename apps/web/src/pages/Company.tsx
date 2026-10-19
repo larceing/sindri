@@ -78,6 +78,7 @@ export function CompanyPage() {
               ))}
             </tbody>
           </Table>
+          {data && <DatosEmpresa empresa={data} />}
           {nueva ? (
             <div className="card">
               <h2>Nueva empresa</h2>
@@ -93,5 +94,87 @@ export function CompanyPage() {
         </>
       )}
     </Page>
+  );
+}
+
+type Resultado = {
+  probar: boolean;
+  clientes: { creados: number; actualizados: number };
+  productos: { creados: number; actualizados: number };
+  modelos: { creados: number; actualizados: number };
+  avisos: string[];
+};
+
+const cuenta = (n: { creados: number; actualizados: number }, que: string) =>
+  `${que}: ${n.creados} ${n.creados === 1 ? "nuevo" : "nuevos"}, ${n.actualizados} ${n.actualizados === 1 ? "ya estaba" : "ya estaban"} (se actualiza${n.actualizados === 1 ? "" : "n"})`;
+
+/** Llevar los datos de la empresa en uso a otra instalación (DEV → PRO) o traerlos de otra app. */
+function DatosEmpresa({ empresa }: { empresa: { code?: string; name: string } }) {
+  const [fichero, setFichero] = useState<{ nombre: string; datos: unknown } | null>(null);
+  const [prueba, setPrueba] = useState<Resultado | null>(null);
+  const [hecho, setHecho] = useState<Resultado | null>(null);
+  const { run, error, busy } = useAction();
+  const elegir = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setPrueba(null);
+    setHecho(null);
+    run(async () => {
+      let datos: unknown;
+      try {
+        datos = JSON.parse(await f.text());
+      } catch {
+        throw new Error("Ese fichero no es un .json válido");
+      }
+      setFichero({ nombre: f.name, datos });
+      setPrueba(await post<Resultado>("/datos/importar?probar=1", datos));
+    });
+  };
+  const importar = () =>
+    run(async () => {
+      setHecho(await post<Resultado>("/datos/importar", fichero!.datos));
+      setPrueba(null);
+      setFichero(null);
+    });
+  return (
+    <div className="card">
+      <h2>Llevar y traer datos</h2>
+      <p className="hint">
+        Clientes (con contactos y direcciones), productos y modelos de presupuesto de la empresa en uso, en un fichero .json.
+        Sirve para pasar a PRO lo que has preparado en DEV o para traer los clientes del Gestor de incidencias.
+        Importar nunca borra: añade lo que falta y actualiza lo que ya hay (clientes por NIF, productos por referencia).
+        Pedidos y facturas no viajan: la numeración y la cadena VERI*FACTU son de cada instalación.
+      </p>
+      <div className="row">
+        <a className="button" href="./api/v1/datos/exportar" download>Descargar los datos de {empresa.code ? `${empresa.code} · ` : ""}{empresa.name}</a>
+        <label className="button">
+          Importar un fichero…
+          <input type="file" accept=".json,application/json" onChange={elegir} hidden disabled={busy} />
+        </label>
+      </div>
+      <ErrorBox error={error} />
+      {prueba && fichero && (
+        <div className="alert"><div>
+          <p><b>{fichero.nombre}</b>: esto es lo que haría en {empresa.name} (todavía no se ha guardado nada).</p>
+          <ul>
+            <li>{cuenta(prueba.clientes, "Clientes")}</li>
+            <li>{cuenta(prueba.productos, "Productos")}</li>
+            <li>{cuenta(prueba.modelos, "Modelos de presupuesto")}</li>
+            {prueba.avisos.map((a) => <li key={a}>{a}</li>)}
+          </ul>
+          <div className="row">
+            <button className="primary" onClick={importar} disabled={busy}>Importar</button>
+            <button onClick={() => { setPrueba(null); setFichero(null); }} disabled={busy}>Cancelar</button>
+          </div>
+        </div></div>
+      )}
+      {hecho && (
+        <p className="ok">
+          Importado. {cuenta(hecho.clientes, "Clientes")}. {cuenta(hecho.productos, "Productos")}. {cuenta(hecho.modelos, "Modelos")}.
+          {hecho.avisos.length ? ` Avisos: ${hecho.avisos.join(" ")}` : ""}
+        </p>
+      )}
+    </div>
   );
 }

@@ -117,7 +117,7 @@ button.primary:hover { background: var(--accion-hover); }
 button.danger { color: var(--error-11); border-color: var(--error-9); }
 button.link { border: 0; background: none; color: var(--enlace); padding: 0 var(--s-1); min-height: 0; text-decoration: underline; text-underline-offset: 2px; }
 
-a.button { display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2); min-height: max(var(--control), var(--target)); padding: 0 calc(var(--s-4) * var(--d)); border-radius: var(--r-2); border: 1px solid var(--borde-control); background: var(--superficie); color: var(--texto); text-decoration: none; font-weight: 500; }
+a.button, label.button { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2); min-height: max(var(--control), var(--target)); padding: 0 calc(var(--s-4) * var(--d)); border-radius: var(--r-2); border: 1px solid var(--borde-control); background: var(--superficie); color: var(--texto); text-decoration: none; font-weight: 500; }
 a.button.primary { background: var(--accion); border-color: var(--accion); color: var(--accion-texto); }
 textarea { font: inherit; padding: var(--s-2) calc(var(--s-3) * var(--d)); border: 1px solid var(--borde-control); border-radius: var(--r-2); background: var(--superficie); color: var(--texto); width: 100%; resize: vertical; }
 fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -314,3 +314,5 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
 .rel-fila-inicio td { background: var(--seleccion); }
 .rel-acciones { white-space: nowrap; }
 @media print { .rel-buscar, .rel-zoom, .tabs-inline { display: none; } .rel-marco { max-height: none; overflow: visible; } }
+td.acciones { white-space: nowrap; }
+td.acciones > * + * { margin-left: var(--s-2); }

@@ -155,6 +155,8 @@ export async function datosDocumento(q: Queryable, ctx: Ctx, tipo: TipoDocumento
 const D2 = (l: Record<string, string>) => (Number(l.quantity) * Number(l.unit_price) * (1 - Number(l.discount_pct) / 100)).toFixed(2);
 
 const AJUSTE = "report_server";
+/** Dirección del Report Server tal como se abre en el navegador, para enlazar al diseñador. */
+const AJUSTE_EDITAR = "documentos_editar";
 const AJUSTE_PLANTILLAS = "documentos_plantillas";
 const ConfigSchema = z.object({
   url: z
@@ -245,8 +247,10 @@ export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: Report
     const elegida = await elegidas();
     const { error, plantillas } = rs ? await plantillasDe(rs) : { error: undefined, plantillas: [] as PlantillaRS[] };
     const nombres = plantillas.map((p) => p.nombre);
+    const [ed] = await db.query<{ value: string }>("select value from app_setting where key = $1", [AJUSTE_EDITAR]);
     return {
       report_server: !!rs,
+      editar: ed?.value ?? null,
       ...(error ? { error } : {}),
       plantillas: nombres,
       disponibles: plantillas,
@@ -321,6 +325,33 @@ export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: Report
     return reply
       .header("content-disposition", 'attachment; filename="sindri-plantillas.json"')
       .send({ plantillas: TIPOS.map(plantillaDePartida) });
+  });
+
+  /** Dónde se editan las plantillas (la dirección pública del Report Server). */
+  app.put("/api/v1/documentos/editar", async (req) => {
+    requireAdmin(req);
+    const { url } = z.object({ url: z.union([z.literal(""), z.url({ protocol: /^https?$/ })]) }).parse(req.body ?? {});
+    const limpia = url.replace(/[#?].*$/, "").replace(/\/+$/, "");
+    if (limpia) await guardarAjuste(AJUSTE_EDITAR, limpia, req.sindri!.person.user);
+    else await db.query("delete from app_setting where key = $1", [AJUSTE_EDITAR]);
+    return { editar: limpia || null };
+  });
+
+  /** El último documento de ese tipo en la empresa en uso, para probar una plantilla con datos de verdad. */
+  app.get<{ Params: { tipo: string } }>("/api/v1/documentos/:tipo/ultimo", async (req) => {
+    const tipo = z.enum(Object.keys(DOCUMENTOS) as [TipoDocumento]).parse(req.params.tipo);
+    permiso(req.sindri, tipo);
+    const ctx = ctxOf(req);
+    const sql: Record<TipoDocumento, string> = {
+      factura: "select id, number from invoice where company_id = $1 order by created_at desc limit 1",
+      pedido: "select id, number from sales_order where company_id = $1 order by created_at desc limit 1",
+      albaran: "select id, number from delivery where company_id = $1 order by done_at desc limit 1",
+      hoja_ruta: "select id, number from delivery_route where company_id = $1 order by created_at desc limit 1",
+      presupuesto: "select id, number from quotation where company_id = $1 order by created_at desc limit 1",
+    };
+    const [row] = await db.query<{ id: string; number: string | null }>(sql[tipo], [ctx.company]);
+    if (!row) throw new BusinessError(`Todavía no hay ningún documento de tipo ${DOCUMENTOS[tipo].titulo.toLowerCase()} en esta empresa para probar`, 404);
+    return { id: row.id, numero: row.number };
   });
 
   app.get<{ Params: { tipo: string; id: string } }>("/api/v1/documentos/:tipo/:id/datos", async (req) => {

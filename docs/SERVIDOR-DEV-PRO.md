@@ -6,7 +6,7 @@ Sindri se registra como cualquier app del servidor común ([larceing/servidor](h
 
 - **Local:** listo (ver «Desarrollo en local» en el README).
 - **DEV:** versión 0 lista para ponerla ya, con la base integrada en `/datos` (ver «Versión 0 en DEV»). Cuando el servidor sepa dar PostgreSQL a una app (punto 1 de la Parte D), pasa a PostgreSQL sin tocar nada aquí.
-- **PRO:** nada hasta que Luis lo diga.
+- **PRO:** en marcha con la base integrada para ir probando (sin datos de demostración). Los datos se llevan con «Llevar y traer datos» (abajo).
 
 | | DEV | PRO |
 |---|---|---|
@@ -54,6 +54,20 @@ Pasos (todos en GitHub y en Ajustes; desde aquí no se toca el servidor):
 - Entrada con Keycloak cuando `app.env` trae `AUTH_MODO=sso` (Authorization Code, cliente `sindri-<entorno>`, sesión en cookie firmada).
 - Las direcciones salen de `X-Forwarded-Prefix` y del `Host`.
 - Las migraciones se aplican solas al arrancar.
+
+## Llevar datos a PRO
+
+En **Empresa → Llevar y traer datos** (solo administración):
+
+1. En DEV (o en el Gestor de incidencias, Ajustes → «Descargar para Sindri»), descarga el `.json`.
+2. En PRO, crea la empresa (la primera vez Sindri la pide) y entra en Empresa.
+3. «Importar un fichero…»: Sindri enseña qué haría y no guarda nada hasta pulsar «Importar».
+
+Viajan clientes (con contactos y direcciones), productos y modelos de presupuesto. No se borra
+nada: lo que ya existe se actualiza (clientes por NIF o por nombre, productos por referencia,
+modelos por nombre). Pedidos, facturas y VERI*FACTU no viajan: su numeración es de cada
+instalación. API: `GET /api/v1/datos/exportar` y `POST /api/v1/datos/importar[?probar=1]`,
+formato `sindri-datos` versión 1.
 
 ## API
 

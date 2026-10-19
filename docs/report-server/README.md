@@ -30,6 +30,13 @@ en un `.json` que acepta «Importar .json» del Report Server, por si se quieren
 a mano). Instalar desde Sindri necesita un Report Server que lo permita (`POST /api/plantillas`);
 con uno anterior, Sindri conecta igual y avisa de que hay que importarlas a mano.
 
+**Retocar una plantilla.** Cada documento listo tiene **Editar** (abre el diseñador del Report Server
+con esa plantilla; la primera vez se indica dónde se abre el Report Server en el navegador, con
+«Indica dónde se abre el Report Server») y **Probar con el último** (el PDF del último documento de ese
+tipo de la empresa en uso, con la plantilla tal como está ahora). Se guarda en el diseñador y se
+vuelve a pulsar «Probar con el último». El enlace directo necesita un Report Server con
+`#editar=<nombre>`; con uno anterior abre la lista de plantillas.
+
 Para PRO se repite lo mismo con el Sindri y el Report Server de PRO. Si se han retocado en DEV, en el
 Report Server de DEV **Descargar** cada plantilla y en el de PRO **Importar .json**.
 

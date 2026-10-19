@@ -103,6 +103,22 @@ describe("Documentos en PDF con el Report Server", () => {
     expect(d.cliente.linea_direccion).toBe("Calle 2 · 42002 Soria");
   });
 
+  it("da el último documento de un tipo para probar la plantilla, y dice si no hay", async () => {
+    expect((await app.inject("/api/v1/documentos/pedido/ultimo")).json()).toMatchObject({ id: pedido });
+    const r = await app.inject("/api/v1/documentos/hoja_ruta/ultimo");
+    expect(r.statusCode).toBe(404);
+    expect(r.json().error).toContain("hoja de ruta");
+  });
+
+  it("guarda dónde se editan las plantillas (solo la dirección, sin #…)", async () => {
+    const r = await app.inject({ method: "PUT", url: "/api/v1/documentos/editar", payload: { url: "https://rs.example.com/report-server/#x" } });
+    expect(r.statusCode, r.body).toBe(200);
+    expect((await app.inject("/api/v1/documentos")).json().editar).toBe("https://rs.example.com/report-server");
+    expect((await app.inject({ method: "PUT", url: "/api/v1/documentos/editar", payload: { url: "javascript:alert(1)" } })).statusCode).toBe(400);
+    await app.inject({ method: "PUT", url: "/api/v1/documentos/editar", payload: { url: "" } });
+    expect((await app.inject("/api/v1/documentos")).json().editar).toBeNull();
+  });
+
   it("si al Report Server le falta la plantilla, lo dice con su mensaje", async () => {
     for (const a of ["confirm", "deliver"]) expect((await app.inject({ method: "POST", url: `/api/v1/sales-orders/${pedido}/${a}` })).statusCode).toBe(200);
     const inv = (await app.inject({ method: "POST", url: `/api/v1/sales-orders/${pedido}/invoice` })).json();
