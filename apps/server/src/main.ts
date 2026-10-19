@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { startServer } from "./start.js";
 import { ssoFromEnv } from "./sso.js";
 import { reportServerFromEnv } from "./documentos.js";
+import { mailFromEnv } from "./correo.js";
 
 // En PRO lo bueno es PostgreSQL. Mientras el servidor no lo dé, PRO arranca con la base integrada
 // en /datos para ir probando, y lo avisa; cuando llegue DATABASE_URL empezará con una base nueva.
@@ -37,6 +38,7 @@ const server = await startServer({
     ? { user: process.env.SINDRI_USUARIO, password: process.env.SINDRI_CLAVE }
     : undefined,
   reportServer: reportServerFromEnv(),
+  mail: mailFromEnv(),
   demo: process.env.SINDRI_DEMO === "1" || (process.env.SERVIDOR_ENTORNO === "dev" && process.env.SINDRI_DEMO !== "0"),
 });
 if (!process.env.SINDRI_USUARIO && process.env.AUTH_MODO !== "sso" && process.env.SINDRI_HOST === "0.0.0.0")

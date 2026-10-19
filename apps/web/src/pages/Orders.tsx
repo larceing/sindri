@@ -4,7 +4,7 @@ import { navigate, queryParam } from "../router";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { DocButton } from "../docs";
-import { Badge, Empty, ErrorBox, Field, Page, Table, Code } from "../ui";
+import { Alert, Badge, Empty, ErrorBox, Field, Page, Table, Code } from "../ui";
 import { RelacionesBoton } from "./Relaciones";
 
 const ESTADOS = [["", "Todos"], ["draft", "Borrador"], ["confirmed", "Confirmado"], ["delivered", "Entregado"], ["invoiced", "Facturado"], ["cancelled", "Cancelado"]];
@@ -17,7 +17,10 @@ export function OrdersPage() {
   const { data: reps } = useData<any[]>("/sales-reps");
   const { puede } = useSession();
   return (
-    <Page title="Pedidos de venta" actions={puede("pedidos") && <button className="primary" onClick={() => navigate("/pedidos/nuevo")}>Nuevo pedido</button>}>
+    <Page title="Pedidos de venta" actions={<>
+      <button onClick={() => navigate("/pedidos/por-facturar")}>Por facturar</button>
+      {puede("pedidos") && <button className="primary" onClick={() => navigate("/pedidos/nuevo")}>Nuevo pedido</button>}
+    </>}>
       <div className="row filters">
         <Field label="Estado">
           <select value={state} onChange={(e) => setState(e.target.value)}>
@@ -243,6 +246,15 @@ export function OrderPage({ id }: { id: string }) {
   const { puede } = useSession();
   const { run, error, busy } = useAction();
   const [splitting, setSplitting] = useState(false);
+  const [correo, setCorreo] = useState<string | null>(null);
+  const [enviado, setEnviado] = useState<string | null>(null);
+  const enviar = () =>
+    run(async () => {
+      const r = await post(`/sales-orders/${id}/correo`, correo?.trim() ? { para: correo.split(/[;,]/).map((x) => x.trim()).filter(Boolean) } : {});
+      setCorreo(null);
+      setEnviado(`Confirmación enviada a ${r.para.join(", ")}${r.pdf ? " con el pedido en PDF" : ""}.${r.aviso ? ` ${r.aviso}.` : ""}`);
+      await reload();
+    });
   const act = (a: string) =>
     a === "split"
       ? setSplitting(true)
@@ -261,6 +273,7 @@ export function OrderPage({ id }: { id: string }) {
         {editar && !splitting && o.actions.map((a: string) => (
           <button key={a} className={a === "cancel" ? "danger" : a === "split" ? undefined : "primary"} disabled={busy} onClick={() => act(a)}>{ACTION_LABEL[a]}</button>
         ))}
+        {editar && ["confirmed", "delivered", "invoiced"].includes(o.state) && !splitting && <button disabled={busy} onClick={() => setCorreo(correo === null ? "" : null)}>Enviar por correo</button>}
         <DocButton tipo="pedido" id={id} label="Pedido" />
         {["delivered", "invoiced"].includes(o.state) && <DocButton tipo="albaran" id={id} label="Albarán" />}
       </>}
@@ -271,6 +284,18 @@ export function OrderPage({ id }: { id: string }) {
         {o.splits.length > 0 && <> · Separados: {o.splits.map((s: any, i: number) => <span key={s.id}>{i > 0 && ", "}<a href={`#/pedidos/${s.id}`}><Code>{s.number}</Code></a></span>)}</>}
       </p>
       <ErrorBox error={error} />
+      {enviado && <Alert tone="ok">{enviado}</Alert>}
+      {o.mailed_at && !enviado && <p className="hint">Confirmación enviada por correo el {fecha(o.mailed_at)}.</p>}
+      {correo !== null && (
+        <div className="card">
+          <p className="hint">Se manda la confirmación del pedido, con el PDF si el Report Server está conectado.</p>
+          <div className="row">
+            <Field label="Para (vacío = el correo del cliente)"><input autoFocus value={correo} placeholder="cliente@empresa.com" onChange={(e) => setCorreo(e.target.value)} /></Field>
+            <button className="primary" disabled={busy} onClick={enviar}>{busy ? "Enviando…" : "Enviar"}</button>
+            <button onClick={() => setCorreo(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
       {splitting ? (
         <SplitPanel o={o} onCancel={() => setSplitting(false)} onDone={(nid) => { setSplitting(false); navigate(`/pedidos/${nid}`); }} />
       ) : (

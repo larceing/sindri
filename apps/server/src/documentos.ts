@@ -363,27 +363,45 @@ export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: Report
   app.get<{ Params: { tipo: string; id: string } }>("/api/v1/documentos/:tipo/:id/pdf", async (req, reply) => {
     const tipo = z.enum(Object.keys(DOCUMENTOS) as [TipoDocumento]).parse(req.params.tipo);
     permiso(req.sindri, tipo);
-    const rs = await conectado();
-    const plantilla = (await elegidas())[tipo];
-    if (!plantilla) throw new BusinessError(`${DOCUMENTOS[tipo].titulo}: se imprime con el navegador (así está elegido en Informes)`, 501);
-    const datos = await datosDocumento(db, ctxOf(req), tipo, req.params.id);
-    const doc = DOCUMENTOS[tipo];
-    const r = await fetch(`${rs.url}/api/generar`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${rs.key}`, "content-type": "application/json" },
-      body: JSON.stringify({ plantilla, nombre: `${doc.titulo} ${datos.numero}`, datos }),
-      signal: AbortSignal.timeout(30_000),
-    }).catch(() => null);
-    if (!r) throw new BusinessError("No se llega al Report Server", 502);
-    if (!r.ok) {
-      const e = (await r.json().catch(() => null)) as { error?: string } | null;
-      throw new BusinessError(`Report Server: ${e?.error ?? `error ${r.status}`}`, r.status === 404 ? 404 : 502);
-    }
-    return reply
-      .type("application/pdf")
-      .header("content-disposition", r.headers.get("content-disposition") ?? `inline; filename="${doc.titulo} ${datos.numero}.pdf"`)
-      .send(Buffer.from(await r.arrayBuffer()));
+    const pdf = await generarPdf(db, fromEnv, ctxOf(req), tipo, req.params.id);
+    return reply.type("application/pdf").header("content-disposition", pdf.disposicion).send(pdf.contenido);
   });
+}
+
+/**
+ * El PDF de un documento con el Report Server, para descargarlo o adjuntarlo a un correo
+ * (confirmación de pedido). Sin Report Server, o si el documento se imprime con el navegador, falla.
+ */
+export async function generarPdf(db: Db, fromEnv: ReportServerConfig | undefined, ctx: Ctx, tipo: TipoDocumento, id: string) {
+  const rs = fromEnv ?? (await guardada(db));
+  if (!rs) throw new BusinessError("Sindri no está conectado al Report Server: conéctalo en Informes", 501);
+  const [row] = await db.query<{ value: Partial<Record<TipoDocumento, string>> }>("select value from app_setting where key = $1", [AJUSTE_PLANTILLAS]);
+  const plantilla = row?.value?.[tipo] ?? DOCUMENTOS[tipo].plantilla;
+  if (!plantilla) throw new BusinessError(`${DOCUMENTOS[tipo].titulo}: se imprime con el navegador (así está elegido en Informes)`, 501);
+  const datos = await datosDocumento(db, ctx, tipo, id);
+  const doc = DOCUMENTOS[tipo];
+  const r = await fetch(`${rs.url}/api/generar`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${rs.key}`, "content-type": "application/json" },
+    body: JSON.stringify({ plantilla, nombre: `${doc.titulo} ${datos.numero}`, datos }),
+    signal: AbortSignal.timeout(30_000),
+  }).catch(() => null);
+  if (!r) throw new BusinessError("No se llega al Report Server", 502);
+  if (!r.ok) {
+    const e = (await r.json().catch(() => null)) as { error?: string } | null;
+    throw new BusinessError(`Report Server: ${e?.error ?? `error ${r.status}`}`, r.status === 404 ? 404 : 502);
+  }
+  return {
+    nombre: `${doc.titulo} ${datos.numero}.pdf`,
+    disposicion: r.headers.get("content-disposition") ?? `inline; filename="${doc.titulo} ${datos.numero}.pdf"`,
+    contenido: Buffer.from(await r.arrayBuffer()),
+  };
+}
+
+/** La conexión guardada desde la pantalla (Informes), si la hay. */
+async function guardada(db: Db): Promise<ReportServerConfig | undefined> {
+  const [row] = await db.query<{ value: ReportServerConfig }>("select value from app_setting where key = $1", [AJUSTE]);
+  return row?.value?.url && row.value.key ? { url: row.value.url, key: row.value.key } : undefined;
 }
 
 /** El documento se rige por el permiso de su módulo (factura → facturas…). */

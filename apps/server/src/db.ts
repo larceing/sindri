@@ -74,7 +74,7 @@ export async function openEmbedded(dataDir?: string): Promise<Db> {
   };
   return {
     kind: "embedded",
-    query: (sql, params) => serial(async () => (await db.query(sql, params as unknown[])).rows as never),
+    query: (sql, params) => serial(async () => (await db.query(sql, params as unknown[], { parsers })).rows as never),
     exec: (sql) => serial(async () => void (await db.exec(sql))),
     tx: (fn) =>
       serial(() =>

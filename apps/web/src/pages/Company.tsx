@@ -3,6 +3,7 @@ import { api, post, sinVacios } from "../api";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { Code, ErrorBox, Field, Page, Table } from "../ui";
+import { IntegrationKeys, MailSettings } from "./Integrations";
 
 const BLANK = { code: "", name: "", trade_name: "", tax_id: "", address: "", city: "", postal_code: "", gs1_prefix: "", demo: "" };
 type F = typeof BLANK;
@@ -91,6 +92,12 @@ export function CompanyPage() {
           ) : (
             <div className="row"><button onClick={() => setNueva(BLANK)}>Añadir empresa</button></div>
           )}
+        </>
+      )}
+      {me?.admin && data && (
+        <>
+          <MailSettings />
+          <IntegrationKeys />
         </>
       )}
     </Page>
