@@ -256,6 +256,8 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
     if (err instanceof ZodError) return reply.status(400).send({ error: "Datos no válidos", details: err.issues });
     if (err instanceof s.BusinessError) return reply.status(err.status).send({ error: err.message, code: (err as { code?: string }).code });
     if (err instanceof TransitionError) return reply.status(409).send({ error: err.message });
+    // Un número fuera de rango en las reglas de negocio (p. ej. un descuento de más del 100 %) es un dato no válido, no un fallo.
+    if (err instanceof RangeError) return reply.status(422).send({ error: err.message });
     const pgCode = (err as { code?: string }).code;
     if (pgCode === "23505") return reply.status(409).send({ error: "Ya existe un registro con ese código" });
     if (pgCode === "P0001") return reply.status(409).send({ error: (err as Error).message });

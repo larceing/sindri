@@ -106,7 +106,9 @@ export function toCsv(rows: Record<string, unknown>[]) {
   if (!rows.length) return "";
   const cols = Object.keys(rows[0]!);
   const cell = (v: unknown) => {
-    const s = str(v);
+    // Lo que empieza por = + - @ Excel lo tomaría como fórmula: se protege con un apóstrofo.
+    const s0 = str(v);
+    const s = typeof v === "string" && /^[=+\-@\t\r]/.test(s0) ? `'${s0}` : s0;
     return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [cols.join(";"), ...rows.map((r) => cols.map((c) => cell(r[c])).join(";"))].join("\r\n") + "\r\n";

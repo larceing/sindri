@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 import sqlite3
 import time
@@ -94,6 +95,14 @@ class Acumulado:
     ultimo: float = 0.0
 
 
+def es_numero(valor) -> bool:
+    """Si el valor se puede mandar como número: NaN e infinito no son JSON válido."""
+    try:
+        return math.isfinite(float(valor))
+    except (TypeError, ValueError):
+        return False
+
+
 @dataclass
 class Resumidor:
     """Convierte muestras de cada segundo en lo que se manda al ERP."""
@@ -105,6 +114,9 @@ class Resumidor:
         clave = (maquina, tag)
         salida: list[dict] = []
         if tipo in ("state", "text"):
+            if tipo == "state" and not es_numero(valor):
+                # Un estado sin número (None, NaN, infinito) no se manda: el ERP rechazaría el lote entero.
+                return salida
             if clave not in self.previo or self.previo[clave] != valor:
                 self.previo[clave] = valor
                 ts = ahora_iso(t)
@@ -116,10 +128,9 @@ class Resumidor:
                 salida.append(l)
             return salida
         # counter y value: un resumen por minuto (con la hora de inicio del minuto).
-        try:
-            v = float(valor)
-        except (TypeError, ValueError):
+        if not es_numero(valor):
             return salida
+        v = float(valor)
         minuto = int(t // 60)
         a = self.acum.get(clave)
         if a and a.minuto != minuto:

@@ -21,7 +21,13 @@ export async function api<T = any>(path: string, init?: { method?: string; body?
     return new Promise<T>(() => {});
   }
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  // Si la entrada devuelve una página de error (502, 504) en vez de JSON, se dice el código, no «Unexpected token <».
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    if (res.ok) throw new ApiError("La respuesta del servidor no se entiende", res.status);
+  }
   if (!res.ok) {
     // La empresa elegida caducó (sesión nueva del navegador): la web vuelve a preguntar.
     if (res.status === 409 && (data?.code === "elegir_empresa" || data?.code === "sin_empresa"))

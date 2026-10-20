@@ -362,14 +362,14 @@ export const TIPOS: Record<string, Tipo> = {
 
 const METODO: Record<string, string> = { transfer: "Transferencia", cash: "Efectivo", card: "Tarjeta", direct_debit: "Domiciliación" };
 
-const visible = (tipo: string, perms: Record<string, unknown>) => !!TIPOS[tipo] && !!perms[TIPOS[tipo]!.modulo];
+const visible = (tipo: string, perms: Record<string, unknown>) => Object.hasOwn(TIPOS, tipo) && !!perms[TIPOS[tipo]!.modulo];
 
 /**
  * Recorre el grafo desde un registro. Los centros (cliente, lote, ruta) solo se abren si son el
  * punto de partida; los demás se abren hasta `profundidad` saltos.
  */
 export async function grafoDesde(q: Queryable, ctx: Ctx, perms: Record<string, unknown>, tipo: string, id: string, profundidad = MAX_PROFUNDIDAD) {
-  if (!TIPOS[tipo]) throw new BusinessError(`No hay registros de tipo «${tipo}»`, 404);
+  if (!Object.hasOwn(TIPOS, tipo)) throw new BusinessError(`No hay registros de tipo «${tipo}»`, 404);
   if (!visible(tipo, perms)) throw new BusinessError("Tu rol no da acceso a esta parte de Sindri", 403);
   const inicio = `${tipo}:${id}`;
   const nodos = new Map<string, Nodo>();
