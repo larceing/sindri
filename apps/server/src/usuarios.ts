@@ -74,6 +74,8 @@ export interface Person {
   name?: string;
   email?: string;
   admin: boolean;
+  /** Subgrupos de Keycloak bajo el de la app («Empresa/002», «Rol/Comercial»). Ver keycloakAccess. */
+  groups?: string[];
 }
 
 export interface Session {
@@ -82,9 +84,20 @@ export interface Session {
   /** Administra: grupo de administración de Keycloak o rol con «usuarios: editar». */
   admin: boolean;
   perms: Record<string, Level>;
-  companies: { id: string; name: string; trade_name: string | null; tax_id: string; code: string | null; demo: boolean }[];
+  companies: {
+    id: string;
+    name: string;
+    trade_name: string | null;
+    tax_id: string;
+    code: string | null;
+    demo: boolean;
+    restricted: boolean;
+    master_company_id: string | null;
+  }[];
   company: string | null;
   needsCompany: boolean;
+  /** Su rol: el de Keycloak («Rol/<nombre>») si lo tiene; si no, el de Usuarios. */
+  roleId: string | null;
 }
 
 declare module "fastify" {
@@ -115,10 +128,31 @@ export async function ensureUser(db: Db, p: Person) {
   return created!;
 }
 
+/**
+ * Lo que dicen los grupos de Keycloak dentro de Sindri (debajo del grupo de la app):
+ *  - «Empresa/<código>»: trabaja en esa empresa. Las empresas reservadas solo las ve quien
+ *    tenga su grupo, también los administradores.
+ *  - «Rol/<nombre>»: su rol en Sindri es ese (manda sobre el que tenga puesto en Usuarios).
+ */
+export function keycloakAccess(groups: string[] | undefined) {
+  const companies = new Set<string>();
+  let role: string | null = null;
+  for (const g of groups ?? []) {
+    const [kind, value, ...rest] = g.split("/");
+    if (!value || rest.length) continue;
+    if (kind === "Empresa") companies.add(value.toUpperCase());
+    else if (kind === "Rol" && !role) role = value;
+  }
+  return { companies, role };
+}
+
 export async function loadSession(db: Db, req: FastifyRequest, person: Person): Promise<Session> {
   const u = await ensureUser(db, person);
   if (!u.active && !person.admin) throw new BusinessError("Tu usuario está desactivado en Sindri. Habla con administración.", 403);
-  const [role] = u.role_id ? await db.query<{ permissions: Record<string, Level> }>("select permissions from role where id = $1", [u.role_id]) : [];
+  const kc = keycloakAccess(person.groups);
+  const [kcRole] = kc.role ? await db.query<{ id: string }>("select id from role where lower(name) = lower($1)", [kc.role]) : [];
+  const roleId = kcRole?.id ?? u.role_id;
+  const [role] = roleId ? await db.query<{ permissions: Record<string, Level> }>("select permissions from role where id = $1", [roleId]) : [];
   const rolePerms = role?.permissions ?? {};
   const admin = person.admin || rolePerms.usuarios === "editar";
   // Inicio y Relaciones los tiene todo el mundo (Relaciones solo enseña lo de los módulos que ve).
@@ -126,12 +160,16 @@ export async function loadSession(db: Db, req: FastifyRequest, person: Person): 
 
   const all = (await listCompanies(db)) as Session["companies"];
   const assigned = new Set((await db.query<{ company_id: string }>("select company_id from user_company where user_id = $1", [u.id])).map((r) => r.company_id));
-  // Sin empresas asignadas, trabaja en todas; en cuanto se le asigna alguna, solo en esas.
-  // Las empresas de demostración están abiertas a todos; las reales, a quien se le asignen.
-  const companies = admin || assigned.size === 0 ? all : all.filter((c) => assigned.has(c.id) || c.demo);
+  const inKc = (c: Session["companies"][number]) => !!c.code && kc.companies.has(c.code.toUpperCase());
+  // Sin empresas asignadas (ni en Sindri ni en Keycloak), trabaja en todas; en cuanto se le asigna
+  // alguna, solo en esas. Las de demostración están abiertas a todos; las reales, a quien se le asignen.
+  // Las reservadas, solo a quien tenga su grupo en Keycloak, aunque administre.
+  const open = all.filter((c) => !c.restricted || inKc(c));
+  const free = admin || (assigned.size === 0 && kc.companies.size === 0);
+  const companies = free ? open : open.filter((c) => assigned.has(c.id) || inKc(c) || c.demo);
   const chosen = readCookie(req, COOKIE);
   const company = companies.find((c) => c.id === chosen)?.id ?? (companies.length === 1 ? companies[0]!.id : null);
-  return { person, userId: u.id, admin, perms, companies, company, needsCompany: !company && companies.length > 1 };
+  return { person, userId: u.id, admin, perms, companies, company, needsCompany: !company && companies.length > 1, roleId: roleId ?? null };
 }
 
 export const ctxOf = (req: FastifyRequest): Ctx => {
@@ -278,8 +316,8 @@ export function registerUsuarios(app: FastifyInstance, db: Db, person: (req: Fas
     const s = req.sindri!;
     const [u] = await db.query(
       `select u.*, r.name as role_name, d.name as department_name from app_user u
-       left join role r on r.id = u.role_id left join department d on d.id = u.department_id where u.id = $1`,
-      [s.userId],
+       left join role r on r.id = $2 left join department d on d.id = u.department_id where u.id = $1`,
+      [s.userId, s.roleId],
     );
     await db.query("update app_user set last_login_at = now(), name = coalesce($2, name), email = coalesce($3, email) where id = $1", [
       s.userId,
@@ -320,7 +358,13 @@ export function registerUsuarios(app: FastifyInstance, db: Db, person: (req: Fas
     return { company: c };
   });
 
-  app.get("/api/v1/companies", async (req) => (req.sindri!.admin ? listCompanies(db) : req.sindri!.companies));
+  // Las reservadas que no son suyas no salen ni a quien administra.
+  app.get("/api/v1/companies", async (req) => {
+    const s = req.sindri!;
+    if (!s.admin) return s.companies;
+    const kc = keycloakAccess(s.person.groups);
+    return ((await listCompanies(db)) as Session["companies"]).filter((c) => !c.restricted || (!!c.code && kc.companies.has(c.code.toUpperCase())));
+  });
   app.post("/api/v1/companies", async (req, reply) => reply.status(201).send(await createCompany(db, CompanySchema.parse(req.body), req.sindri!.person.user)));
 
   app.get("/api/v1/users", async () => listUsers(db));
