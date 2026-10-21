@@ -138,6 +138,56 @@ export async function updateCompany(db: Db, ctx: Ctx, input: CompanyInput) {
   });
 }
 
+/**
+ * Con quién comparte la empresa en uso los maestros (clientes, productos, tarifas, modelos de
+ * presupuesto) y si es reservada. Solo con la empresa vacía: los documentos apuntan a clientes y
+ * productos, y cambiar de dónde salen a mitad dejaría pedidos y facturas con clientes que no se ven.
+ * `canSee`: si la persona seguiría viendo la empresa al hacerla reservada (su grupo de Keycloak).
+ * Quien la reserva sin estar en el grupo deja de verla (`aun_sin_verla` lo confirma).
+ */
+export async function setCompanySharing(
+  db: Db,
+  ctx: Ctx,
+  input: { master_company_id?: string | null; restricted?: boolean; aun_sin_verla?: boolean },
+  canSee: (code: string | null) => boolean,
+) {
+  return db.tx(async (q) => {
+    const c = (await getCompany(q, ctx.company)) as { id: string; code: string | null; master_company_id: string | null } | null;
+    if (!c) throw notFound("Empresa");
+    if (input.master_company_id !== undefined && input.master_company_id !== c.master_company_id) {
+      const [usado] = await q.query(
+        `select 1 where exists (select 1 from partner where company_id = $1) or exists (select 1 from product where company_id = $1)
+           or exists (select 1 from quotation_template where company_id = $1) or exists (select 1 from sales_order where company_id = $1)
+           or exists (select 1 from quotation where company_id = $1) or exists (select 1 from invoice where company_id = $1)
+           or exists (select 1 from billable_item where company_id = $1)`,
+        [c.id],
+      );
+      if (usado) throw new BusinessError("Solo se elige con quién comparte clientes y productos con la empresa vacía (sin clientes, productos ni documentos propios)", 409);
+      const [hijas] = await q.query("select 1 from company where master_company_id = $1 limit 1", [c.id]);
+      if (input.master_company_id) {
+        if (input.master_company_id === c.id) throw new BusinessError("Una empresa no comparte consigo misma");
+        if (hijas) throw new BusinessError("Otras empresas usan los clientes y productos de esta: no puede usar los de otra", 409);
+        const [m] = await q.query<{ master_company_id: string | null }>("select master_company_id from company where id = $1 and not archived", [input.master_company_id]);
+        if (!m) throw notFound("Empresa con la que compartir");
+        if (m.master_company_id) throw new BusinessError("Esa empresa ya usa los clientes y productos de otra: elige esa otra", 409);
+      }
+    }
+    // Reservar una empresa en la que no se está por Keycloak es dejar de verla: solo si se pide así.
+    if (input.restricted && !canSee(c.code) && !input.aun_sin_verla)
+      throw Object.assign(
+        new BusinessError(`No estás en su grupo de Keycloak (Empresa/${c.code ?? "<código>"}): si la reservas, dejarás de verla. Para volver a verla, entra en ese grupo.`, 409),
+        { code: "dejarias_de_verla" },
+      );
+    const [row] = await q.query(
+      `update company set master_company_id = case when $2 then $3::uuid else master_company_id end, restricted = coalesce($4, restricted)
+       where id = $1 returning *`,
+      [c.id, input.master_company_id !== undefined, input.master_company_id ?? null, input.restricted ?? null],
+    );
+    await log(q, ctx, "company", c.id, "sharing", { master_company_id: input.master_company_id, restricted: input.restricted });
+    return row;
+  });
+}
+
 /** PUT /company: crea la primera empresa o actualiza la que está en uso. */
 export async function setupCompany(db: Db, ctx: Ctx | null, input: CompanyInput) {
   if (ctx) return updateCompany(db, ctx, input);
@@ -196,10 +246,27 @@ async function checkRep(q: Queryable, ctx: Ctx, repId: string | null | undefined
   if (!r) throw notFound("Comercial");
 }
 
+/**
+ * Comercial en la ficha de un cliente compartido: vale el de cualquier empresa que comparta
+ * los maestros (cada una pone en sus pedidos el suyo; ver repFor).
+ */
+async function checkPartnerRep(q: Queryable, ctx: Ctx, repId: string | null | undefined) {
+  if (!repId) return;
+  const [r] = await q.query("select 1 from sales_rep where id = $1 and maestro(company_id) = maestro($2)", [repId, ctx.company]);
+  if (!r) throw notFound("Comercial");
+}
+
+/** El comercial del cliente solo pasa al documento si es de la empresa en uso. */
+export async function repFor(q: Queryable, ctx: Ctx, repId: string | null | undefined): Promise<string | null> {
+  if (!repId) return null;
+  const [r] = await q.query("select 1 from sales_rep where id = $1 and company_id = $2", [repId, ctx.company]);
+  return r ? repId : null;
+}
+
 export async function listPartners(q: Queryable, ctx: Ctx, search?: string) {
   return q.query(
-    `select p.*, r.name as sales_rep_name from partner p left join sales_rep r on r.id = p.sales_rep_id
-     where p.company_id = $2 and not p.archived
+    `select p.*, r.name as sales_rep_name from partner p left join sales_rep r on r.id = p.sales_rep_id and r.company_id = $2
+     where p.company_id = maestro($2) and not p.archived
        and ($1::text is null or lower(p.name) like '%' || lower($1) || '%' or lower(coalesce(p.trade_name, '')) like '%' || lower($1) || '%'
             or p.tax_id ilike $1 or p.code ilike $1)
      order by p.name limit 500`,
@@ -210,7 +277,7 @@ export async function listPartners(q: Queryable, ctx: Ctx, search?: string) {
 /** Ficha completa: datos, contactos, direcciones de entrega y resumen de pedidos y facturas. */
 export async function getPartner(q: Queryable, ctx: Ctx, id: string) {
   const [p] = await q.query(
-    "select p.*, r.name as sales_rep_name from partner p left join sales_rep r on r.id = p.sales_rep_id where p.id = $1 and p.company_id = $2",
+    "select p.*, r.name as sales_rep_name from partner p left join sales_rep r on r.id = p.sales_rep_id and r.company_id = $2 where p.id = $1 and p.company_id = maestro($2)",
     [id, ctx.company],
   );
   if (!p) throw notFound("Cliente");
@@ -219,20 +286,20 @@ export async function getPartner(q: Queryable, ctx: Ctx, id: string) {
   const orders = await q.query(
     `select o.id, o.number, o.state, o.order_date,
        (select coalesce(sum(round(l.quantity * l.unit_price * (1 - l.discount_pct/100), 2)), 0) from sales_order_line l where l.order_id = o.id)::text as untaxed
-     from sales_order o where o.partner_id = $1 order by o.created_at desc limit 20`,
-    [id],
+     from sales_order o where o.partner_id = $1 and o.company_id = $2 order by o.created_at desc limit 20`,
+    [id, ctx.company],
   );
   const invoices = await q.query(
-    "select id, number, state, issue_date, total, amount_due from invoice where partner_id = $1 order by created_at desc limit 20",
-    [id],
+    "select id, number, state, issue_date, total, amount_due from invoice where partner_id = $1 and company_id = $2 order by created_at desc limit 20",
+    [id, ctx.company],
   );
   const [stats] = await q.query<Record<string, string>>(
     `select
-       (select count(*) from sales_order where partner_id = $1 and state <> 'cancelled')::text as orders,
-       (select coalesce(sum(untaxed), 0) from invoice where partner_id = $1 and state in ('issued', 'paid') and issue_date >= date_trunc('year', current_date))::text as billed_year,
+       (select count(*) from sales_order where partner_id = $1 and company_id = $2 and state <> 'cancelled')::text as orders,
+       (select coalesce(sum(untaxed), 0) from invoice where partner_id = $1 and company_id = $2 and state in ('issued', 'paid') and issue_date >= date_trunc('year', current_date))::text as billed_year,
        (select coalesce(sum(i.amount_due - coalesce((select sum(amount) from payment where invoice_id = i.id), 0)), 0)
-          from invoice i where i.partner_id = $1 and i.state = 'issued')::text as pending`,
-    [id],
+          from invoice i where i.partner_id = $1 and i.company_id = $2 and i.state = 'issued')::text as pending`,
+    [id, ctx.company],
   );
   const prices = await q.query(
     `select pp.product_id, pr.sku, pr.name, pr.uom, pr.sale_price::text, pp.unit_price::text
@@ -246,7 +313,7 @@ export async function getPartner(q: Queryable, ctx: Ctx, id: string) {
 export async function savePartnerPrice(db: Db, ctx: Ctx, partnerId: string, productId: string, unitPrice: string | null) {
   return db.tx(async (q) => {
     await ownPartner(q, ctx, partnerId);
-    const [pr] = await q.query("select 1 from product where id = $1 and company_id = $2", [productId, ctx.company]);
+    const [pr] = await q.query("select 1 from product where id = $1 and company_id = maestro($2)", [productId, ctx.company]);
     if (!pr) throw notFound("Producto");
     if (unitPrice !== null) unitPrice = unitPrice.trim().replace(",", ".");
     if (unitPrice === null) await q.query("delete from partner_price where partner_id = $1 and product_id = $2", [partnerId, productId]);
@@ -266,11 +333,11 @@ export async function savePartnerPrice(db: Db, ctx: Ctx, partnerId: string, prod
 export async function createPartner(db: Db, ctx: Ctx, p: PartnerInput) {
   checkPartner(p);
   return db.tx(async (q) => {
-    await checkRep(q, ctx, p.sales_rep_id);
+    await checkPartnerRep(q, ctx, p.sales_rep_id);
     const cols = PARTNER_FIELDS.filter((f) => p[f] !== undefined);
     const vals = cols.map((f) => cleanPartner(p, f));
     const [row] = await q.query(
-      `insert into partner (company_id, ${cols.join(",")}) values ($1, ${cols.map((_, i) => `$${i + 2}`).join(",")}) returning *`,
+      `insert into partner (company_id, ${cols.join(",")}) values (maestro($1), ${cols.map((_, i) => `$${i + 2}`).join(",")}) returning *`,
       [ctx.company, ...vals],
     );
     await log(q, ctx, "partner", row!.id as string, "create", p);
@@ -281,11 +348,11 @@ export async function createPartner(db: Db, ctx: Ctx, p: PartnerInput) {
 export async function updatePartner(db: Db, ctx: Ctx, id: string, p: Partial<PartnerInput>) {
   checkPartner(p);
   return db.tx(async (q) => {
-    await checkRep(q, ctx, p.sales_rep_id);
+    await checkPartnerRep(q, ctx, p.sales_rep_id);
     const cols = PARTNER_FIELDS.filter((f) => p[f] !== undefined);
     if (!cols.length) throw new BusinessError("Nada que actualizar", 400);
     const [row] = await q.query(
-      `update partner set ${cols.map((c, i) => `${c} = $${i + 3}`).join(", ")} where id = $1 and company_id = $2 returning *`,
+      `update partner set ${cols.map((c, i) => `${c} = $${i + 3}`).join(", ")} where id = $1 and company_id = maestro($2) returning *`,
       [id, ctx.company, ...cols.map((f) => cleanPartner(p, f))],
     );
     if (!row) throw notFound("Cliente");
@@ -296,7 +363,7 @@ export async function updatePartner(db: Db, ctx: Ctx, id: string, p: Partial<Par
 
 export async function archivePartner(db: Db, ctx: Ctx, id: string) {
   return db.tx(async (q) => {
-    const [row] = await q.query("update partner set archived = true where id = $1 and company_id = $2 returning id", [id, ctx.company]);
+    const [row] = await q.query("update partner set archived = true where id = $1 and company_id = maestro($2) returning id", [id, ctx.company]);
     if (!row) throw notFound("Cliente");
     await log(q, ctx, "partner", id, "archive");
     return { ok: true };
@@ -304,7 +371,7 @@ export async function archivePartner(db: Db, ctx: Ctx, id: string) {
 }
 
 async function ownPartner(q: Queryable, ctx: Ctx, partnerId: string) {
-  const [p] = await q.query("select id from partner where id = $1 and company_id = $2", [partnerId, ctx.company]);
+  const [p] = await q.query("select id from partner where id = $1 and company_id = maestro($2)", [partnerId, ctx.company]);
   if (!p) throw notFound("Cliente");
 }
 
@@ -398,8 +465,9 @@ const PRODUCT_FIELDS = ["sku", "name", "kind", "uom", "gtin", "sale_price", "cos
 
 export async function listProducts(q: Queryable, ctx: Ctx, search?: string) {
   return q.query(
-    `select p.*, coalesce((select sum(b.quantity) from stock_balance b where b.product_id = p.id), 0)::text as on_hand
-     from product p where p.company_id = $2 and not archived and ($1::text is null or p.sku ilike '%'||$1||'%' or lower(p.name) like '%'||lower($1)||'%')
+    `select p.*, coalesce((select sum(b.quantity) from stock_balance b join location l on l.id = b.location_id
+                            where b.product_id = p.id and ${OWN_LOCATION("l", "$2")}), 0)::text as on_hand
+     from product p where p.company_id = maestro($2) and not archived and ($1::text is null or p.sku ilike '%'||$1||'%' or lower(p.name) like '%'||lower($1)||'%')
      order by p.sku limit 500`,
     [search ?? null, ctx.company],
   );
@@ -409,7 +477,7 @@ export async function createProduct(db: Db, ctx: Ctx, p: ProductInput) {
   return db.tx(async (q) => {
     const cols = PRODUCT_FIELDS.filter((f) => p[f] !== undefined);
     const [row] = await q.query(
-      `insert into product (company_id, ${cols.join(",")}) values ($1, ${cols.map((_, i) => `$${i + 2}`).join(",")}) returning *`,
+      `insert into product (company_id, ${cols.join(",")}) values (maestro($1), ${cols.map((_, i) => `$${i + 2}`).join(",")}) returning *`,
       [ctx.company, ...cols.map((f) => p[f])],
     );
     await log(q, ctx, "product", row!.id as string, "create", p);
@@ -422,7 +490,7 @@ export async function updateProduct(db: Db, ctx: Ctx, id: string, p: Partial<Pro
     const cols = PRODUCT_FIELDS.filter((f) => p[f] !== undefined);
     if (!cols.length) throw new BusinessError("Nada que actualizar", 400);
     const [row] = await q.query(
-      `update product set ${cols.map((c, i) => `${c} = $${i + 3}`).join(", ")} where id = $1 and company_id = $2 returning *`,
+      `update product set ${cols.map((c, i) => `${c} = $${i + 3}`).join(", ")} where id = $1 and company_id = maestro($2) returning *`,
       [id, ctx.company, ...cols.map((f) => p[f])],
     );
     if (!row) throw notFound("Producto");
@@ -432,6 +500,14 @@ export async function updateProduct(db: Db, ctx: Ctx, id: string, p: Partial<Pro
 }
 
 // Stock ------------------------------------------------------------------------
+
+/**
+ * SQL: la ubicación `alias` es un almacén de la empresa `param`. Los productos se pueden compartir
+ * entre empresas; el stock no: cada una cuenta el de sus almacenes. La primera empresa conserva
+ * los almacenes sin empresa de antes de 0004.
+ */
+export const OWN_LOCATION = (alias: string, param: string) =>
+  `(${alias}.kind = 'internal' and (${alias}.company_id = ${param} or (${alias}.company_id is null and ${param} = (select id from company order by created_at, id limit 1))))`;
 
 /**
  * Ubicación por código. Las internas (WH/STOCK...) son de cada empresa; la primera usa las de
@@ -474,7 +550,7 @@ export async function stockBalances(q: Queryable, ctx: Ctx) {
     `select b.product_id, p.sku, p.name as product_name, p.uom, b.lot_id, lot.code as lot_code, lot.expiry_date,
             l.code as location_code, b.quantity
      from stock_balance b join product p on p.id = b.product_id join location l on l.id = b.location_id
-     left join lot on lot.id = b.lot_id where p.company_id = $1 order by p.sku, lot.code`,
+     left join lot on lot.id = b.lot_id where ${OWN_LOCATION("l", "$1")} order by p.sku, lot.code`,
     [ctx.company],
   );
 }
@@ -484,7 +560,8 @@ export async function listMoves(q: Queryable, ctx: Ctx, productId?: string) {
     `select m.*, p.sku, f.code as from_code, t.code as to_code, lot.code as lot_code
      from stock_move m join product p on p.id = m.product_id join location f on f.id = m.from_location_id
      join location t on t.id = m.to_location_id left join lot on lot.id = m.lot_id
-     where p.company_id = $2 and ($1::uuid is null or m.product_id = $1) order by m.done_at desc limit 500`,
+     where (${OWN_LOCATION("f", "$2")} or ${OWN_LOCATION("t", "$2")}) and ($1::uuid is null or m.product_id = $1)
+     order by m.done_at desc limit 500`,
     [productId ?? null, ctx.company],
   );
 }
@@ -505,7 +582,7 @@ export interface ReceiptInput {
 export async function receiveStock(db: Db, ctx: Ctx, r: ReceiptInput) {
   if (D(r.quantity).cmp(0) <= 0) throw new BusinessError("La cantidad debe ser mayor que cero");
   return db.tx(async (q) => {
-    const [p] = await q.query<{ id: string; track_lots: boolean; kind: string }>("select * from product where id = $1 and company_id = $2", [r.product_id, ctx.company]);
+    const [p] = await q.query<{ id: string; track_lots: boolean; kind: string }>("select * from product where id = $1 and company_id = maestro($2)", [r.product_id, ctx.company]);
     if (!p) throw notFound("Producto");
     if (p.kind === "service") throw new BusinessError("Los servicios no tienen stock");
     let lotId: string | null = null;
@@ -607,7 +684,7 @@ async function insertLines(q: Queryable, ctx: Ctx, orderId: string, lines: Sales
   let pos = 1;
   const [o] = await q.query<{ partner_id: string }>("select partner_id from sales_order where id = $1", [orderId]);
   for (const l of lines) {
-    const [p] = await q.query<{ name: string; sale_price: string; vat_rate: string }>("select * from product where id = $1 and company_id = $2", [l.product_id, ctx.company]);
+    const [p] = await q.query<{ name: string; sale_price: string; vat_rate: string }>("select * from product where id = $1 and company_id = maestro($2)", [l.product_id, ctx.company]);
     if (!p) throw notFound("Producto");
     if (D(l.quantity).cmp(0) <= 0) throw new BusinessError("Cantidad no válida");
     await q.query(
@@ -622,11 +699,11 @@ export async function createSalesOrder(db: Db, ctx: Ctx, input: SalesOrderInput)
   if (!input.lines.length) throw new BusinessError("El pedido necesita al menos una línea");
   return db.tx(async (q) => {
     const [partner] = await q.query<{ sales_rep_id: string | null; discount_pct: string | null }>(
-      "select * from partner where id = $1 and company_id = $2",
+      "select * from partner where id = $1 and company_id = maestro($2)",
       [input.partner_id, ctx.company],
     );
     if (!partner) throw notFound("Cliente");
-    const rep = input.sales_rep_id === undefined ? partner.sales_rep_id : input.sales_rep_id;
+    const rep = input.sales_rep_id === undefined ? await repFor(q, ctx, partner.sales_rep_id) : input.sales_rep_id;
     await checkRep(q, ctx, rep);
     let addressId = input.delivery_address_id;
     if (addressId) {

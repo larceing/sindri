@@ -124,11 +124,11 @@ async function guardar(q: Queryable, tabla: string, ctx: Ctx, id: string | null,
   const cols = campos(obj, lista);
   if (id) {
     if (!cols.length) return id;
-    await q.query(`update ${tabla} set ${cols.map((c, i) => `${c} = $${i + 3}`).join(", ")} where id = $1 and company_id = $2`, [id, ctx.company, ...cols.map((c) => obj[c])]);
+    await q.query(`update ${tabla} set ${cols.map((c, i) => `${c} = $${i + 3}`).join(", ")} where id = $1 and company_id = maestro($2)`, [id, ctx.company, ...cols.map((c) => obj[c])]);
     return id;
   }
   const [row] = await q.query<{ id: string }>(
-    `insert into ${tabla} (company_id, ${cols.join(",")}) values ($1, ${cols.map((_, i) => `$${i + 2}`).join(",")}) returning id`,
+    `insert into ${tabla} (company_id, ${cols.join(",")}) values (maestro($1), ${cols.map((_, i) => `$${i + 2}`).join(",")}) returning id`,
     [ctx.company, ...cols.map((c) => obj[c])],
   );
   return row!.id;
@@ -173,8 +173,8 @@ export async function importar(db: Db, ctx: Ctx, datos: Datos, probar = false): 
       } else c.tax_id = nif;
       if (c.iban) c.iban = c.iban.replace(/\s/g, "").toUpperCase();
       const [hay] = c.tax_id
-        ? await q.query<{ id: string }>("select id from partner where company_id = $1 and upper(tax_id) = $2 order by archived, created_at limit 1", [ctx.company, c.tax_id])
-        : await q.query<{ id: string }>("select id from partner where company_id = $1 and lower(name) = lower($2) order by archived, created_at limit 1", [ctx.company, c.name]);
+        ? await q.query<{ id: string }>("select id from partner where company_id = maestro($1) and upper(tax_id) = $2 order by archived, created_at limit 1", [ctx.company, c.tax_id])
+        : await q.query<{ id: string }>("select id from partner where company_id = maestro($1) and lower(name) = lower($2) order by archived, created_at limit 1", [ctx.company, c.name]);
       const { contactos = [], direcciones = [], tarifas = [], ...ficha } = c;
       const id = await guardar(q, "partner", ctx, hay?.id ?? null, ficha, CLIENTE_CAMPOS);
       hay ? r.clientes.actualizados++ : r.clientes.creados++;
@@ -193,18 +193,18 @@ export async function importar(db: Db, ctx: Ctx, datos: Datos, probar = false): 
       if (tarifas.length) tarifasPendientes.push({ id, name: c.name, tarifas });
     }
     for (const p of datos.productos) {
-      const [hay] = await q.query<{ id: string }>("select id from product where company_id = $1 and sku = $2", [ctx.company, p.sku]);
+      const [hay] = await q.query<{ id: string }>("select id from product where company_id = maestro($1) and sku = $2", [ctx.company, p.sku]);
       await guardar(q, "product", ctx, hay?.id ?? null, p, PRODUCTO_CAMPOS);
       hay ? r.productos.actualizados++ : r.productos.creados++;
     }
     for (const m of datos.modelos) {
-      const [hay] = await q.query<{ id: string }>("select id from quotation_template where company_id = $1 and lower(name) = lower($2)", [ctx.company, m.name]);
+      const [hay] = await q.query<{ id: string }>("select id from quotation_template where company_id = maestro($1) and lower(name) = lower($2)", [ctx.company, m.name]);
       await guardar(q, "quotation_template", ctx, hay?.id ?? null, m, MODELO_CAMPOS);
       hay ? r.modelos.actualizados++ : r.modelos.creados++;
     }
     // Las tarifas, cuando ya están los productos del fichero.
     const productoPorSku = async (sku: string) =>
-      (await q.query<{ id: string; name: string; uom: string; sale_price: string }>("select id, name, uom, sale_price::text from product where company_id = $1 and sku = $2", [ctx.company, sku]))[0];
+      (await q.query<{ id: string; name: string; uom: string; sale_price: string }>("select id, name, uom, sale_price::text from product where company_id = maestro($1) and sku = $2", [ctx.company, sku]))[0];
     for (const t of tarifasPendientes) {
       for (const tf of t.tarifas) {
         const pr = await productoPorSku(tf.sku);
@@ -225,8 +225,8 @@ export async function importar(db: Db, ctx: Ctx, datos: Datos, probar = false): 
     const grupos = new Map<string, Resultado["tabla"][number]>();
     for (const it of datos.por_facturar) {
       const nif = it.cliente.tax_id?.toUpperCase() ?? null;
-      const [cli] = (nif ? await q.query<{ id: string; name: string }>("select id, coalesce(trade_name, name) as name from partner where company_id = $1 and upper(tax_id) = $2 and not archived limit 1", [ctx.company, nif]) : [])
-        .concat(await q.query<{ id: string; name: string }>("select id, coalesce(trade_name, name) as name from partner where company_id = $1 and lower(name) = lower($2) and not archived limit 1", [ctx.company, it.cliente.name]));
+      const [cli] = (nif ? await q.query<{ id: string; name: string }>("select id, coalesce(trade_name, name) as name from partner where company_id = maestro($1) and upper(tax_id) = $2 and not archived limit 1", [ctx.company, nif]) : [])
+        .concat(await q.query<{ id: string; name: string }>("select id, coalesce(trade_name, name) as name from partner where company_id = maestro($1) and lower(name) = lower($2) and not archived limit 1", [ctx.company, it.cliente.name]));
       if (!cli) {
         r.avisos.push(`${it.ref}: no hay cliente ${it.cliente.name}; no se mete.`);
         continue;
@@ -299,15 +299,15 @@ export async function exportar(q: Queryable, ctx: Ctx): Promise<Datos> {
   if (!e) throw new BusinessError("Configura primero los datos de tu empresa", 409);
   const limpio = (o: Record<string, unknown>, lista: readonly string[]) =>
     Object.fromEntries(lista.filter((c) => o[c] !== null && o[c] !== undefined).map((c) => [c, o[c]]));
-  const clientes = await q.query<Record<string, unknown> & { id: string }>("select * from partner where company_id = $1 order by name", [ctx.company]);
+  const clientes = await q.query<Record<string, unknown> & { id: string }>("select * from partner where company_id = maestro($1) order by name", [ctx.company]);
   const contactos = await q.query<Record<string, unknown> & { partner_id: string }>(
-    "select c.* from partner_contact c join partner p on p.id = c.partner_id where p.company_id = $1 order by c.created_at", [ctx.company]);
+    "select c.* from partner_contact c join partner p on p.id = c.partner_id where p.company_id = maestro($1) order by c.created_at", [ctx.company]);
   const direcciones = await q.query<Record<string, unknown> & { partner_id: string }>(
-    "select d.* from partner_address d join partner p on p.id = d.partner_id where p.company_id = $1 order by d.created_at", [ctx.company]);
-  const productos = await q.query<Record<string, unknown>>("select * from product where company_id = $1 order by sku", [ctx.company]);
-  const modelos = await q.query<Record<string, unknown>>("select * from quotation_template where company_id = $1 order by name", [ctx.company]);
+    "select d.* from partner_address d join partner p on p.id = d.partner_id where p.company_id = maestro($1) order by d.created_at", [ctx.company]);
+  const productos = await q.query<Record<string, unknown>>("select * from product where company_id = maestro($1) order by sku", [ctx.company]);
+  const modelos = await q.query<Record<string, unknown>>("select * from quotation_template where company_id = maestro($1) order by name", [ctx.company]);
   const tarifas = await q.query<{ partner_id: string; sku: string; precio: string }>(
-    "select pp.partner_id, pr.sku, trim_scale(pp.unit_price)::text as precio from partner_price pp join product pr on pr.id = pp.product_id where pr.company_id = $1 order by pr.sku", [ctx.company]);
+    "select pp.partner_id, pr.sku, trim_scale(pp.unit_price)::text as precio from partner_price pp join product pr on pr.id = pp.product_id where pr.company_id = maestro($1) order by pr.sku", [ctx.company]);
   return {
     formato: FORMATO,
     version: 1,

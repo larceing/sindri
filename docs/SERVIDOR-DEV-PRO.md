@@ -45,6 +45,33 @@ Pasos (todos en GitHub y en Ajustes; desde aquí no se toca el servidor):
 - **Varias empresas**: cada una con sus clientes, productos, pedidos, facturas, numeración y cadena VERI*FACTU. Quien trabaja en más de una elige al entrar. La base de DEV de la versión 0 se actualiza sola: lo que había pasa a la primera empresa y se añade una segunda empresa de demostración.
 - **Report Server**: crear la llave para `sindri` y conectarlo en Sindri → Informes → Conectar; Sindri instala él solo sus plantillas (pasos en [report-server/README.md](report-server/README.md)). Sin eso, Sindri imprime con el navegador.
 
+## Varias personas, cada una con lo suyo y los maestros en común
+
+Para que dos personas (o dos negocios) usen el mismo Sindri sin ver lo del otro, pero con los
+mismos clientes y servicios:
+
+1. **Una empresa para cada una** (Empresa → Añadir empresa), cada una con su NIF, su numeración y
+   su cadena VERI*FACTU. Las facturas de cada uno salen con su NIF.
+2. **Maestros comunes**: en la empresa nueva (vacía), Empresa → Compartir y reservar →
+   «Clientes, productos y tarifas: los de 001». Desde entonces clientes (con contactos, direcciones
+   y tarifas), productos y servicios y modelos de presupuesto son los mismos en las dos: lo que da
+   de alta una lo ve la otra. El precio de cada línea se sigue pudiendo cambiar en el documento
+   (la tarifa solo se propone). Presupuestos, oportunidades, pedidos, albaranes, hojas de ruta,
+   facturas, cobros, stock, comerciales, informes y llaves de integración siguen siendo de cada empresa.
+3. **Keycloak manda quién ve qué** (subgrupos del grupo de la app, que se crean a mano en Keycloak):
+   - `/<ENT>/Sindri/Empresa/<código>`: trabaja en esa empresa (p. ej. `/PRO/Sindri/Empresa/002`).
+   - `/<ENT>/Sindri/Rol/<nombre>`: su rol en Sindri es ese (`Comercial`, `Consulta`… o uno propio
+     creado en Usuarios); manda sobre el que tenga puesto en Usuarios.
+   - El grupo de la app (`/<ENT>/Sindri`) sigue haciendo falta para entrar.
+4. **Empresa reservada** (Compartir y reservar → Acceso: Reservada): solo la ve quien esté en su
+   grupo `Empresa/<código>`, **también quien administra** (IT o `/Sindri/Admin`). Así ninguno ve las
+   proformas, pedidos ni facturas del otro. Si la reservas sin estar en su grupo, dejas de verla
+   (Sindri lo avisa); para volver a verla, entra en el grupo.
+
+Los grupos se leen al entrar: un cambio en Keycloak se nota al volver a entrar en Sindri.
+Quien administra el servidor (root, la base de datos) sigue pudiendo llegar a todo: la separación
+es dentro de la aplicación.
+
 ## Qué hay en este repositorio para el servidor
 
 - `servidor.json`: ruta `sindri`, grupo `Sindri`, puerto 8000, prefijo `quitar`, versión en `version/`, despliegue tipo `servidor` con la imagen `ghcr.io/larceing/sindri` y 1024 MB.
