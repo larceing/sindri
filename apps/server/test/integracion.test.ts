@@ -66,6 +66,26 @@ describe("Integraciones: llaves, por facturar y confirmación de pedidos por cor
     expect((await call("GET", "/api/integracion/v1/productos", undefined, key)).body[0]).toMatchObject({ sku: "HORA" });
   });
 
+  it("da de alta el cliente y el servicio que falten, sin tocar los que ya hay", async () => {
+    const mismo = await call("POST", "/api/integracion/v1/clientes", { name: "Otro nombre", tax_id: "a-58818501" }, key);
+    expect(mismo).toMatchObject({ status: 200, body: { id: cliente, creado: false } });
+    expect((await call("POST", "/api/integracion/v1/clientes", { name: "taller sur sl" }, key)).body).toEqual({ id: cliente, creado: false });
+    const nuevo = await call("POST", "/api/integracion/v1/clientes", { name: "Bodegas Norte SL", tax_id: "B12345674", email: "admin@example.test" }, key);
+    expect(nuevo.status).toBe(201);
+    expect(nuevo.body.creado).toBe(true);
+    expect((await call("POST", "/api/integracion/v1/clientes", { name: "Mal NIF", tax_id: "X1" }, key)).status).toBe(422);
+    const clientes = (await call("GET", "/api/integracion/v1/clientes", undefined, key)).body;
+    expect(clientes.map((c: { name: string }) => c.name)).toEqual(["Bodegas Norte SL", "Taller Sur SL"]);
+    expect(clientes[1].name).toBe("Taller Sur SL");
+
+    expect((await call("POST", "/api/integracion/v1/productos", { sku: "HORA", name: "Otro" }, key)).body).toEqual({ id: horas, creado: false });
+    const serv = await call("POST", "/api/integracion/v1/productos", { sku: "SOP-INC", name: "Soporte de incidencias", sale_price: "35", vat_rate: "21" }, key);
+    expect(serv.status).toBe(201);
+    const prods = (await call("GET", "/api/integracion/v1/productos", undefined, key)).body;
+    expect(prods.find((p: { sku: string }) => p.sku === "SOP-INC")).toMatchObject({ kind: "service", uom: "h", name: "Soporte de incidencias" });
+    expect(prods.find((p: { sku: string }) => p.sku === "HORA").name).toBe("Hora de soporte");
+  });
+
   it("manda horas: se crean, se actualizan con la misma referencia y lo que no cuadra se dice", async () => {
     const r = await call(
       "POST",
