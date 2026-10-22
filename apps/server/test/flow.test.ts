@@ -123,6 +123,30 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
     expect(pending.every((r: { send_state: string }) => r.send_state === "pending")).toBe(true);
   });
 
+  it("anula entera una factura emitida sin cobrar con una rectificativa", async () => {
+    const list = (await call("GET", "/api/v1/invoices")).body as { id: string; state: string; number: string }[];
+    const inv2 = list.find((i) => i.state === "issued")!;
+    expect((await call("POST", `/api/v1/invoices/${invoice}/rectify`, { reason: "Duplicada" })).status).toBe(422); // ya cobrada
+    expect((await call("POST", `/api/v1/invoices/${inv2.id}/rectify`, { reason: "" })).status).toBe(400);
+    const r = await call("POST", `/api/v1/invoices/${inv2.id}/rectify`, { reason: "Factura duplicada" });
+    expect(r.status).toBe(200);
+    expect(r.body.number).toMatch(/^R\d{4}-00001$/);
+    expect(r.body.invoice_type).toBe("R1");
+    expect(r.body.state).toBe("rectified");
+    expect(r.body.rectifies.number).toBe(inv2.number);
+    const orig = (await call("GET", `/api/v1/invoices/${inv2.id}`)).body;
+    expect(orig.state).toBe("rectified");
+    expect(orig.pending).toBe("0.00");
+    expect(orig.rectified_by.number).toBe(r.body.number);
+    expect(Number(r.body.total)).toBe(-Number(orig.total));
+    expect(r.body.verifactu.previous_hash).toBe(orig.verifactu.hash);
+    expect((await call("GET", "/api/v1/verifactu/verify")).body).toMatchObject({ records: 3, ok: true });
+    const again = (await call("GET", "/api/v1/invoices")).body as { state: string; pending: string }[];
+    expect(again.filter((i) => i.state === "issued")).toHaveLength(0);
+    expect((await call("POST", `/api/v1/invoices/${inv2.id}/rectify`, { reason: "Otra vez" })).status).toBe(422);
+    expect((await call("POST", `/api/v1/invoices/${r.body.id}/rectify`, { reason: "Otra vez" })).status).toBe(422);
+  });
+
   it("rechaza vender más stock del que hay", async () => {
     const o3 = (await call("POST", "/api/v1/sales-orders", { partner_id: customer, lines: [{ product_id: steel, quantity: "50" }] })).body.id;
     await call("POST", `/api/v1/sales-orders/${o3}/confirm`);

@@ -229,7 +229,7 @@ export async function getPartner(q: Queryable, ctx: Ctx, id: string) {
   const [stats] = await q.query<Record<string, string>>(
     `select
        (select count(*) from sales_order where partner_id = $1 and state <> 'cancelled')::text as orders,
-       (select coalesce(sum(untaxed), 0) from invoice where partner_id = $1 and state in ('issued', 'paid') and issue_date >= date_trunc('year', current_date))::text as billed_year,
+       (select coalesce(sum(untaxed), 0) from invoice where partner_id = $1 and state in ('issued', 'paid', 'rectified') and issue_date >= date_trunc('year', current_date))::text as billed_year,
        (select coalesce(sum(i.amount_due - coalesce((select sum(amount) from payment where invoice_id = i.id), 0)), 0)
           from invoice i where i.partner_id = $1 and i.state = 'issued')::text as pending`,
     [id],
@@ -802,14 +802,22 @@ export async function deliverSalesOrder(db: Db, ctx: Ctx, id: string) {
 export async function listInvoices(q: Queryable, ctx: Ctx) {
   return q.query(
     `select i.*, p.name as partner_name,
-            (i.amount_due - coalesce((select sum(amount) from payment where invoice_id = i.id), 0))::text as pending
+            (case when i.state = 'rectified' then 0 else i.amount_due - coalesce((select sum(amount) from payment where invoice_id = i.id), 0) end)::text as pending,
+            (select number from invoice r where r.id = i.rectifies_id) as rectifies_number,
+            (select number from invoice r where r.rectifies_id = i.id and r.state <> 'discarded') as rectified_by_number
        from invoice i join partner p on p.id = i.partner_id where i.company_id = $1 order by i.created_at desc limit 500`,
     [ctx.company],
   );
 }
 
 export async function getInvoice(q: Queryable, ctx: Ctx, id: string) {
-  const [inv] = await q.query("select i.*, p.name as partner_name from invoice i join partner p on p.id = i.partner_id where i.id = $1 and i.company_id = $2", [id, ctx.company]);
+  const [inv] = await q.query(
+    `select i.*, p.name as partner_name,
+       (select json_build_object('id', r.id, 'number', r.number) from invoice r where r.id = i.rectifies_id) as rectifies,
+       (select json_build_object('id', r.id, 'number', r.number) from invoice r where r.rectifies_id = i.id and r.state <> 'discarded') as rectified_by
+     from invoice i join partner p on p.id = i.partner_id where i.id = $1 and i.company_id = $2`,
+    [id, ctx.company],
+  );
   if (!inv) throw notFound("Factura");
   const lines = await q.query("select * from invoice_line where invoice_id = $1 order by position", [id]);
   const payments = await q.query("select * from payment where invoice_id = $1 order by paid_on", [id]);
@@ -820,7 +828,7 @@ export async function getInvoice(q: Queryable, ctx: Ctx, id: string) {
     lines,
     payments,
     paid: paid.toFixed(2),
-    pending: D(inv.amount_due as string).sub(paid).toFixed(2),
+    pending: inv.state === "rectified" ? "0.00" : D(inv.amount_due as string).sub(paid).toFixed(2),
     verifactu: record ?? null,
     actions: InvoiceMachine.actions(inv.state as InvoiceState),
   } as Record<string, any>;
@@ -874,7 +882,11 @@ export async function invoiceSalesOrder(db: Db, ctx: Ctx, orderId: string) {
  * Cada empresa tiene su propia cadena.
  */
 export async function issueInvoice(db: Db, ctx: Ctx, id: string, opts: { now?: Date; aeatEnv?: "test" | "production" } = {}) {
-  return db.tx(async (q) => {
+  return db.tx((q) => issueInvoiceIn(q, ctx, id, opts));
+}
+
+async function issueInvoiceIn(q: Queryable, ctx: Ctx, id: string, opts: { now?: Date; aeatEnv?: "test" | "production" } = {}) {
+  {
     const company = await getCompany(q, ctx.company);
     if (!company) throw new BusinessError("Configure primero los datos de la empresa");
     const [inv] = await q.query<Record<string, string>>("select * from invoice where id = $1 and company_id = $2 for update", [id, ctx.company]);
@@ -912,6 +924,11 @@ export async function issueInvoice(db: Db, ctx: Ctx, id: string, opts: { now?: D
       previousHash: last?.hash ?? "",
       generatedAt: isoWithOffset(now),
     };
+    // Rectificativa: a qué factura corrige (para el envío a la AEAT; no entra en la huella).
+    if (inv.rectifies_id) {
+      const [orig] = await q.query<{ number: string; issue_date: string }>("select number, issue_date::text from invoice where id = $1", [inv.rectifies_id]);
+      Object.assign(fields, { rectificationType: "I", rectified: [{ seriesNumber: orig!.number, issueDate: orig!.issue_date.slice(0, 10) }] });
+    }
     const hash = altaHash(fields);
     const qr = qrUrl({ issuerTaxId: fields.issuerTaxId, seriesNumber: number, issueDate, amountTotal: fields.amountTotal }, opts.aeatEnv ?? "test");
     const seq = last ? BigInt(last.seq) + 1n : 1n;
@@ -926,6 +943,39 @@ export async function issueInvoice(db: Db, ctx: Ctx, id: string, opts: { now?: D
     ]);
     await log(q, ctx, "invoice", id, "issue", { number, hash });
     return getInvoice(q, ctx, id);
+  }
+}
+
+/**
+ * Anula entera una factura emitida y sin cobrar con una rectificativa (serie R, tipo R1, por
+ * diferencias): las mismas líneas en negativo, emitida con su registro VERI*FACTU. La original
+ * y la rectificativa quedan «rectificada»: ya no salen como pendientes y suman cero.
+ */
+export async function rectifyInvoice(db: Db, ctx: Ctx, id: string, reason: string, opts: { now?: Date; aeatEnv?: "test" | "production" } = {}) {
+  return db.tx(async (q) => {
+    const [inv] = await q.query<Record<string, string>>("select * from invoice where id = $1 and company_id = $2 for update", [id, ctx.company]);
+    if (!inv) throw notFound("Factura");
+    if (inv.invoice_type!.startsWith("R")) throw new BusinessError("Una rectificativa no se rectifica");
+    if (inv.state !== "issued") throw new BusinessError("Solo se anula una factura emitida y sin cobrar");
+    const [pagos] = await q.query<{ n: number }>("select count(*)::int as n from payment where invoice_id = $1", [id]);
+    if (pagos!.n > 0) throw new BusinessError("La factura tiene cobros: no se puede anular entera");
+    const [rect] = await q.query<{ id: string }>(
+      `insert into invoice (company_id, partner_id, order_id, series, invoice_type, rectifies_id, rectification_reason)
+       values ($1,$2,$3,'R','R1',$4,$5) returning id`,
+      [ctx.company, inv.partner_id, inv.order_id ?? null, id, reason],
+    );
+    await q.query(
+      `insert into invoice_line (invoice_id, position, product_id, description, quantity, unit_price, discount_pct, vat_rate, surcharge_rate, base)
+       select $2, position, product_id, description, -quantity, unit_price, discount_pct, vat_rate, surcharge_rate, 0 from invoice_line where invoice_id = $1`,
+      [id, rect!.id],
+    );
+    await recomputeInvoice(q, rect!.id);
+    await log(q, ctx, "invoice", rect!.id, "create", { rectifies: inv.number, reason });
+    await issueInvoiceIn(q, ctx, rect!.id, opts);
+    const to = InvoiceMachine.next("issued", "rectify");
+    await q.query("update invoice set state = $2 where id = any($1::uuid[])", [[id, rect!.id], to]);
+    await log(q, ctx, "invoice", id, "rectify", { by: rect!.id, reason });
+    return getInvoice(q, ctx, rect!.id);
   });
 }
 

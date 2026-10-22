@@ -45,12 +45,19 @@ export function InvoicePage({ id }: { id: string }) {
   if (!inv) return <Page title="Factura"><ErrorBox error={loadError} /></Page>;
   const issue = () => run(async () => { await post(`/invoices/${id}/issue`); await reload(); });
   const pay = () => run(async () => { await post(`/invoices/${id}/payments`, { amount: amount || inv.pending }); setAmount(""); await reload(); });
+  const rectify = () => run(async () => {
+    const reason = window.prompt(`Se emitirá una rectificativa que anula entera la factura ${inv.number}. No se puede deshacer.\n\nMotivo:`, "Factura duplicada");
+    if (!reason?.trim()) return;
+    const r = await post<{ id: string }>(`/invoices/${id}/rectify`, { reason: reason.trim() });
+    navigate(`/facturas/${r.id}`);
+  });
   return (
     <Page
-      title={inv.number ? `Factura ${inv.number}` : "Factura (borrador)"}
+      title={inv.number ? `${inv.invoice_type?.startsWith("R") ? "Rectificativa" : "Factura"} ${inv.number}` : "Factura (borrador)"}
       actions={<>
         <RelacionesBoton tipo="factura" id={id} />
         {inv.actions.includes("issue") && <button className="primary" disabled={busy} onClick={issue}>Emitir factura</button>}
+        {inv.state === "issued" && !inv.invoice_type?.startsWith("R") && inv.payments.length === 0 && <button disabled={busy} onClick={rectify}>Anular con rectificativa</button>}
         {inv.state === "draft" ? <button onClick={() => window.print()}>Imprimir borrador</button> : <DocButton tipo="factura" id={id} label="Imprimir" />}
       </>}
     >
@@ -65,6 +72,8 @@ export function InvoicePage({ id }: { id: string }) {
               </p>
             )}
             <p><Badge state={inv.state} /> {inv.issue_date && `· Fecha de expedición ${fecha(inv.issue_date)}`}</p>
+            {inv.rectifies && <p>Rectifica la factura <a href={`#/facturas/${inv.rectifies.id}`}><Code>{inv.rectifies.number}</Code></a> (tipo R1, por diferencias){inv.rectification_reason && <>: {inv.rectification_reason}</>}</p>}
+            {inv.rectified_by && <p>Anulada por la rectificativa <a href={`#/facturas/${inv.rectified_by.id}`}><Code>{inv.rectified_by.number}</Code></a></p>}
             <p>Cliente:<br /><b>{inv.partner_snapshot?.name ?? inv.partner_name}</b><br />{inv.partner_snapshot?.tax_id && `NIF ${inv.partner_snapshot.tax_id}`}
               {inv.partner_snapshot?.address && <><br />{inv.partner_snapshot.address}</>}
               {(inv.partner_snapshot?.postal_code || inv.partner_snapshot?.city) && <><br />{[inv.partner_snapshot?.postal_code, inv.partner_snapshot?.city].filter(Boolean).join(" ")}</>}

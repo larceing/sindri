@@ -60,6 +60,7 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 - IVA desglosado por tipos.
 - Una vez emitida es inmutable: la base de datos rechaza modificarla o borrarla.
 - Cobros parciales.
+- Una emitida y sin cobrar se anula entera con **Anular con rectificativa**: serie R, tipo R1, las mismas líneas en negativo y su registro VERI\*FACTU. Las dos quedan «Rectificada» y ya no salen como pendientes.
 
 **VERI\*FACTU**
 - Huella SHA-256 encadenada y URL del QR.

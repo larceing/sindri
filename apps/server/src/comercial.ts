@@ -29,9 +29,9 @@ export async function listSalesReps(q: Queryable, ctx: Ctx, opts: { all?: boolea
        (select count(*) from partner p where p.sales_rep_id = r.id and not p.archived)::text as customers,
        (select count(*) from sales_order o where o.sales_rep_id = r.id and o.state in ('draft', 'confirmed'))::text as open_orders,
        (select coalesce(sum(i.untaxed), 0) from invoice i join sales_order o on o.id = i.order_id
-          where o.sales_rep_id = r.id and i.state in ('issued', 'paid') and i.issue_date >= date_trunc('month', current_date))::text as billed_month,
+          where o.sales_rep_id = r.id and i.state in ('issued', 'paid', 'rectified') and i.issue_date >= date_trunc('month', current_date))::text as billed_month,
        (select coalesce(sum(i.untaxed), 0) from invoice i join sales_order o on o.id = i.order_id
-          where o.sales_rep_id = r.id and i.state in ('issued', 'paid') and i.issue_date >= date_trunc('year', current_date))::text as billed_year
+          where o.sales_rep_id = r.id and i.state in ('issued', 'paid', 'rectified') and i.issue_date >= date_trunc('year', current_date))::text as billed_year
      from sales_rep r left join app_user u on u.id = r.user_id
      where r.company_id = $1 and ($2 or r.active) order by r.name`,
     [ctx.company, !!opts.all],
