@@ -148,7 +148,7 @@ export async function withdrawItem(db: Db, llave: Llave, ref: string) {
   );
   if (!row) throw notFound("Elemento");
   if (row.state !== "pending") throw new BusinessError("Ya está en un pedido o descartado: se quita desde Sindri", 409);
-  await db.query("delete from billable_item where company_id = $1 and source = $2 and external_ref = $3", [llave.company_id, llave.name, ref]);
+  await db.query("delete from billable_item where company_id = $1 and source = $2 and external_ref = $3 and state = 'pending'", [llave.company_id, llave.name, ref]);
   return { ok: true };
 }
 

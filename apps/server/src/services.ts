@@ -48,7 +48,8 @@ export async function firstCompanyId(q: Queryable): Promise<string | null> {
  */
 export async function nextNumber(q: Queryable, ctx: Ctx, baseCode: string, prefix: string, date = new Date()): Promise<string> {
   const code = (await firstCompanyId(q)) === ctx.company ? baseCode : `${baseCode}@${ctx.company}`;
-  const year = date.getFullYear();
+  // El año de la serie es el de España, como la fecha de la factura (el contenedor va en UTC).
+  const year = Number(isoWithOffset(date).slice(0, 4));
   await q.query(
     "insert into sequence (code, year, prefix) values ($1, $2, $3) on conflict (code, year) do nothing",
     [code, year, prefix],
@@ -960,6 +961,9 @@ export async function issueInvoice(db: Db, ctx: Ctx, id: string, opts: { now?: D
     const [partner] = await q.query<Record<string, string>>("select * from partner where id = $1", [inv.partner_id]);
     if (!partner!.tax_id) throw new BusinessError("El cliente necesita NIF para emitir factura completa (F1)");
     if (D(inv.total!).isZero()) throw new BusinessError("La factura no tiene importe");
+    // Una factura ordinaria no puede ser negativa: el abono va en una rectificativa (R1-R5), y lo emitido no se deshace.
+    if (!String(inv.invoice_type ?? "").startsWith("R") && D(inv.total!).cmp(0) < 0)
+      throw new BusinessError("Una factura ordinaria tiene que tener importe positivo: para abonar, haz una rectificativa");
 
     const now = opts.now ?? new Date();
     const issueDate = isoWithOffset(now).slice(0, 10);
@@ -1008,6 +1012,8 @@ export async function issueInvoice(db: Db, ctx: Ctx, id: string, opts: { now?: D
 
 export async function registerPayment(db: Db, ctx: Ctx, id: string, input: { amount: string; paid_on?: string; method?: string }) {
   return db.tx(async (q) => {
+    // Bloquea la factura: dos cobros a la vez no pueden pasar los dos la comprobación de lo pendiente.
+    await q.query("select 1 from invoice where id = $1 and company_id = $2 for update", [id, ctx.company]);
     const inv = await getInvoice(q, ctx, id);
     if (inv.state !== "issued") throw new BusinessError("Solo se cobran facturas emitidas pendientes");
     const amount = D(input.amount);

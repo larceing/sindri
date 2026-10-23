@@ -115,9 +115,9 @@ export function readCookie(req: FastifyRequest, name: string): string | undefine
 
 // Direcciones como las ve el navegador ------------------------------------------------
 
-/** Prefijo de la app: X-Forwarded-Prefix (lo manda la entrada del servidor) o nada. */
+/** Prefijo de la app: X-Forwarded-Prefix (lo manda la entrada del servidor), si no APP_RUTA_BASE, o nada. */
 export function prefix(req: FastifyRequest): string {
-  const p = String(req.headers["x-forwarded-prefix"] ?? "").trim();
+  const p = String(req.headers["x-forwarded-prefix"] ?? process.env.APP_RUTA_BASE ?? "").trim();
   return /^\/[A-Za-z0-9/_.-]*$/.test(p) ? noTrailing(p) : "";
 }
 

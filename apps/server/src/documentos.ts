@@ -343,9 +343,10 @@ export function registerDocumentos(app: FastifyInstance, db: Db, fromEnv: Report
     permiso(req.sindri, tipo);
     const ctx = ctxOf(req);
     const sql: Record<TipoDocumento, string> = {
-      factura: "select id, number from invoice where company_id = $1 order by created_at desc limit 1",
+      factura: "select id, number from invoice where company_id = $1 and state <> 'draft' order by created_at desc limit 1",
       pedido: "select id, number from sales_order where company_id = $1 order by created_at desc limit 1",
-      albaran: "select id, number from delivery where company_id = $1 order by done_at desc limit 1",
+      // El albarán se imprime desde su pedido: se devuelve el id del pedido.
+      albaran: "select order_id as id, number from delivery where company_id = $1 order by done_at desc limit 1",
       hoja_ruta: "select id, number from delivery_route where company_id = $1 order by created_at desc limit 1",
       presupuesto: "select id, number from quotation where company_id = $1 order by created_at desc limit 1",
     };
