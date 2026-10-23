@@ -274,10 +274,21 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   // Quién es la persona: Keycloak, usuario y clave, o el puesto local (administra).
   const person = (req: import("fastify").FastifyRequest) =>
     sso ? currentPerson(req, sso) : { user: auth?.user ?? "local", name: auth?.user ?? "Puesto local", admin: true };
-  registerUsuarios(app, db, person, sso ? "logout" : null);
+  registerUsuarios(app, db, person, sso ? "logout" : null, sso?.sessionKey);
 
-  app.get("/api/v1/company", async (req) => s.getCompany(db, req.sindri?.company ?? null));
-  app.put("/api/v1/company", async (req) => s.setupCompany(db, maybeCtx(req), CompanySchema.parse(req.body)));
+  // Sin empresa elegida no se enseña ninguna: antes salía la primera de la base, aunque fuese de otro.
+  app.get("/api/v1/company", async (req) => {
+    const id = req.sindri?.company ?? req.sindri?.companies[0]?.id ?? null;
+    if (!id) return null;
+    const c = await s.getCompany(db, id);
+    return c && { ...c, has_password: !!req.sindri?.companies.find((x) => x.id === id)?.has_password };
+  });
+  app.put("/api/v1/company", async (req) => {
+    const ctx = maybeCtx(req);
+    // Sin empresa elegida, guardar es crear una nueva: solo administración.
+    if (!ctx) requireAdmin(req);
+    return s.setupCompany(db, ctx, CompanySchema.parse(req.body));
+  });
   // Maestros compartidos y empresa reservada: solo administración.
   app.put("/api/v1/company/sharing", async (req) => {
     requireAdmin(req);

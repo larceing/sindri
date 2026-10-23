@@ -112,16 +112,51 @@ function CompanyChooser({ me, onChosen, onCancel }: { me: Me; onChosen: () => vo
   const ordenadas = [...me.companies]
     .filter((c) => !f || [c.code, c.name, c.trade_name, c.tax_id].some((v) => v?.toLowerCase().includes(f)))
     .sort((a, b) => (a.id === preferida ? -1 : b.id === preferida ? 1 : Number(a.demo) - Number(b.demo) || (a.code ?? "").localeCompare(b.code ?? "") || a.name.localeCompare(b.name)));
-  const elegir = async (id: string) => {
+  // Empresa con contraseña: se pide aquí mismo antes de entrar.
+  const [conClave, setConClave] = useState<string | null>(me.companies.length === 1 && me.companies[0]!.has_password ? me.companies[0]!.id : null);
+  const [clave, setClave] = useState("");
+  const elegir = async (id: string, password?: string) => {
+    const c = me.companies.find((x) => x.id === id);
+    if (c?.has_password && password === undefined && id !== me.company) {
+      setConClave(id);
+      setClave("");
+      setError(null);
+      return;
+    }
     setBusy(true);
     try {
-      await post("/session/company", { company_id: id });
+      await post("/session/company", password === undefined ? { company_id: id } : { company_id: id, password });
       onChosen();
     } catch (e) {
-      setError((e as Error).message);
+      // Ya no la tenía abierta (o la cambiaron): pide la contraseña.
+      if ((e as { code?: string }).code === "clave_empresa" && password === undefined) setConClave(id);
+      setError(password === undefined && (e as { code?: string }).code === "clave_empresa" ? null : (e as Error).message);
       setBusy(false);
     }
   };
+  const empresaClave = me.companies.find((c) => c.id === conClave);
+  if (empresaClave)
+    return (
+      <div className="chooser">
+        <form
+          className="chooser-box"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (clave) elegir(empresaClave.id, clave);
+          }}
+        >
+          <div className="brand brand-dark"><BrandMark /> Sindri</div>
+          <h1>{nombreEmpresa(empresaClave)}</h1>
+          <p className="hint">Esta empresa pide su contraseña para entrar.</p>
+          <input type="password" className="chooser-filter" autoFocus autoComplete="current-password" aria-label="Contraseña de la empresa" placeholder="Contraseña de la empresa" value={clave} onChange={(e) => setClave(e.target.value)} />
+          {error && <Alert tone="error">{error}</Alert>}
+          <div className="row">
+            <button className="primary" type="submit" disabled={busy || !clave}>Entrar</button>
+            {me.companies.length > 1 && <button type="button" className="link" onClick={() => { setConClave(null); setError(null); }}>Elegir otra empresa</button>}
+          </div>
+        </form>
+      </div>
+    );
   return (
     <div className="chooser">
       <div className="chooser-box">

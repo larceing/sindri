@@ -67,6 +67,16 @@ mismos clientes y servicios:
    grupo `Empresa/<código>`, **también quien administra** (IT o `/Sindri/Admin`). Así ninguno ve las
    proformas, pedidos ni facturas del otro. Si la reservas sin estar en su grupo, dejas de verla
    (Sindri lo avisa); para volver a verla, entra en el grupo.
+5. **Contraseña de la empresa** (Empresa → Contraseña de la empresa): además de entrar con
+   Keycloak, quien elige esa empresa tiene que escribir su contraseña (vale 12 horas en ese
+   navegador). La pone quien administra la empresa; para cambiarla o quitarla hace falta la actual,
+   y al cambiarla todos los que la tenían abierta la vuelven a pedir. Si se olvida, administración
+   general la quita sin saberla (Empresa → tabla de empresas → Quitar; queda en el registro). Si
+   la empresa está reservada, antes hay que entrar en su grupo `Empresa/<código>` para verla.
+6. **Administrar solo su empresa**: quien tiene un grupo `Empresa/<código>` y un rol con todo
+   (`Rol/Administración`) administra **solo esas empresas**: datos, series, correo, contraseña y todos
+   los módulos. No ve Usuarios ni roles (son de todo Sindri), no crea empresas ni toca «Compartir y
+   reservar». Las personas de su empresa se dan de alta en Keycloak con su grupo `Empresa/<código>`.
 
 Los grupos se leen al entrar: un cambio en Keycloak se nota al volver a entrar en Sindri.
 Quien administra el servidor (root, la base de datos) sigue pudiendo llegar a todo: la separación

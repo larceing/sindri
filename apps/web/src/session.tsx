@@ -16,12 +16,16 @@ export interface Company {
   tax_id: string;
   code: string | null;
   demo: boolean;
+  /** Pide contraseña al elegirla. */
+  has_password?: boolean;
 }
 export interface Me {
   user: string;
   name: string;
   email: string;
   admin: boolean;
+  /** Administra solo sus empresas (no usuarios ni otras empresas). */
+  company_admin?: boolean;
   role: string | null;
   department: string | null;
   perms: Record<string, Level>;
