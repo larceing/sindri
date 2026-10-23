@@ -118,9 +118,9 @@ export function CompanyPage() {
           )}
         </>
       )}
-      {me?.admin && data && (
+      {(me?.admin || me?.company_admin) && data && (
         <>
-          <MailSettings />
+          <MailSettings global={!!me?.admin} />
           <IntegrationKeys />
         </>
       )}

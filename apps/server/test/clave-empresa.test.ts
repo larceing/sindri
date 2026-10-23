@@ -120,10 +120,22 @@ describe("Contraseña de la empresa y quien administra solo la suya", () => {
     expect((await call("ivan", "PUT", "/api/v1/company/sharing", { restricted: true })).status).toBe(403);
     expect((await call("ivan", "POST", "/api/v1/session/company", { company_id: A })).status).toBe(403);
     expect((await call("ivan", "DELETE", `/api/v1/companies/${B}/password`)).status).toBe(403);
+    // Lo de su empresa sí: sus llaves de integración (p. ej. para que Odin le mande sus horas) y el
+    // correo de sus pedidos; la conexión al Mail es de todo Sindri.
+    const llave = await call("ivan", "POST", "/api/v1/integraciones/llaves", { name: "incidencias" });
+    expect(llave.status).toBe(201);
+    expect(llave.body.key).toMatch(/^sdi_/);
+    expect((await call("ivan", "GET", "/api/v1/integraciones/llaves")).body).toHaveLength(1);
+    const yo = await app.inject({ url: "/api/integracion/v1/yo", headers: { authorization: `Bearer ${llave.body.key}` } });
+    expect(JSON.parse(yo.body).empresa.code).toBe("002");
+    expect((await call("ivan", "PUT", "/api/v1/correo/pedidos", { activo: true })).status).toBe(200);
+    expect((await call("ivan", "PUT", "/api/v1/correo/conexion", { url: "http://mail:3000", llave: "ml_x" })).status).toBe(403);
+    expect((await call("ivan", "GET", "/api/v1/datos/exportar")).status).toBe(403);
   });
 
   it("un comercial de la 002 entra con la contraseña pero no la cambia", async () => {
     expect((await call("pepe", "POST", "/api/v1/session/company", { company_id: B, password: "solo-de-ivan" })).status).toBe(200);
+    expect((await call("pepe", "POST", "/api/v1/integraciones/llaves", { name: "otra" })).status).toBe(403);
     expect((await call("pepe", "PUT", "/api/v1/company/password", { actual: "solo-de-ivan", nueva: "de-pepe-123" })).status).toBe(403);
   });
 

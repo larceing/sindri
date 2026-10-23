@@ -246,6 +246,13 @@ export function requireAdmin(req: FastifyRequest) {
   if (!req.sindri?.admin) throw new BusinessError("Solo administración puede hacer esto", 403);
 }
 
+/** Lo de la empresa en uso que también puede tocar quien administra solo su empresa. */
+export function requireCompanyAdmin(req: FastifyRequest) {
+  if (!req.sindri?.admin && !req.sindri?.companyAdmin) throw new BusinessError("Solo quien administra la empresa puede hacer esto", 403);
+}
+/** Rutas sin módulo que son de la empresa en uso: además de administración, quien administra solo su empresa. */
+const COMPANY_ADMIN_ROUTES = ["/api/v1/integraciones/", "/api/v1/correo/pedidos"];
+
 // Esquemas ---------------------------------------------------------------------------
 
 const optText = z.string().trim().min(1).nullish();
@@ -361,7 +368,8 @@ export function registerUsuarios(
     } else if (path === "/api/v1/companies") {
       if (needed === "editar" && !s.admin) return reply.status(403).send({ error: "Solo administración crea empresas" });
     } else if (!mod) {
-      if (!s.admin) return reply.status(403).send({ error: "No tienes permiso para esto" });
+      const deEmpresa = s.companyAdmin && (path === "/api/v1/correo" || COMPANY_ADMIN_ROUTES.some((r) => path.startsWith(r)));
+      if (!s.admin && !deEmpresa) return reply.status(403).send({ error: "No tienes permiso para esto" });
     } else {
       const has = s.perms[mod];
       if (!has || (needed === "editar" && has !== "editar"))

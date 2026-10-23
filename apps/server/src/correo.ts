@@ -10,7 +10,7 @@ import { z } from "zod";
 import type { Db } from "./db.js";
 import { generarPdf, type ReportServerConfig } from "./documentos.js";
 import { BusinessError, getCompany, getSalesOrder, log, type Ctx } from "./services.js";
-import { ctxOf, requireAdmin } from "./usuarios.js";
+import { ctxOf, requireAdmin, requireCompanyAdmin } from "./usuarios.js";
 
 export interface MailConfig {
   url: string;
@@ -154,7 +154,7 @@ export function registerCorreo(app: FastifyInstance, db: Db, opts: Opciones) {
     return { ok: true };
   });
   app.put("/api/v1/correo/pedidos", async (req) => {
-    requireAdmin(req);
+    requireCompanyAdmin(req);
     const ctx = ctxOf(req);
     const { activo } = z.object({ activo: z.boolean() }).parse(req.body);
     await db.query("update company set order_mail = $2 where id = $1", [ctx.company, activo]);
