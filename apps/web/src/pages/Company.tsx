@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, eur, post, sinVacios } from "../api";
+import { api, del, eur, post, sinVacios } from "../api";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { Code, ErrorBox, Field, Page, Table } from "../ui";
@@ -67,6 +67,7 @@ export function CompanyPage() {
           {saved && <span className="ok">Guardado</span>}
         </div>
       )}
+      {data && (me?.admin || me?.company_admin) && <ClaveEmpresa empresa={data} onSaved={async () => { await reload(); await reloadMe(); }} />}
       {me?.admin && companies && (
         <>
           <h2>Empresas del grupo</h2>
@@ -75,7 +76,7 @@ export function CompanyPage() {
             modelos de presupuesto pueden ser comunes a varias. Quien trabaja en varias elige una al entrar.
           </p>
           <Table>
-            <thead><tr><th>Código</th><th>Razón social</th><th>Nombre comercial</th><th>NIF</th><th>Clientes y productos</th><th>Acceso</th></tr></thead>
+            <thead><tr><th>Código</th><th>Razón social</th><th>Nombre comercial</th><th>NIF</th><th>Clientes y productos</th><th>Acceso</th><th>Contraseña</th></tr></thead>
             <tbody>
               {companies.map((c) => (
                 <tr key={c.id}>
@@ -85,6 +86,18 @@ export function CompanyPage() {
                   <td><Code>{c.tax_id}</Code></td>
                   <td>{c.master_company_id ? `Los de ${companies.find((m) => m.id === c.master_company_id)?.name ?? "otra empresa"}` : "Propios"}</td>
                   <td>{c.restricted ? "Reservada" : "Normal"}</td>
+                  <td>
+                    {c.has_password ? (
+                      <>
+                        Sí{" "}
+                        <button className="link" title="Si se ha olvidado: la quita sin saberla (queda en el registro)" onClick={() => run(async () => { await del(`/companies/${c.id}/password`); await reloadList(); await reloadMe(); })}>
+                          Quitar
+                        </button>
+                      </>
+                    ) : (
+                      "No"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -120,6 +133,57 @@ export function CompanyPage() {
  * solo las ve quien esté en su grupo de Keycloak (<grupo de Sindri>/Empresa/<código>), también
  * quien administra.
  */
+/** Contraseña que pide la empresa al elegirla. Para cambiarla o quitarla hay que saber la actual. */
+function ClaveEmpresa({ empresa, onSaved }: { empresa: any; onSaved: () => Promise<void> }) {
+  const [actual, setActual] = useState("");
+  const [nueva, setNueva] = useState("");
+  const [repetir, setRepetir] = useState("");
+  const [hecho, setHecho] = useState<string | null>(null);
+  const { run, error, busy } = useAction();
+  const tiene = !!empresa.has_password;
+  const guardar = (quitar: boolean) =>
+    run(async () => {
+      await api("/company/password", { method: "PUT", body: { ...(tiene ? { actual } : {}), nueva: quitar ? null : nueva } });
+      setActual("");
+      setNueva("");
+      setRepetir("");
+      setHecho(quitar ? "Contraseña quitada" : "Contraseña guardada: quien tuviera la empresa abierta la tendrá que escribir");
+      await onSaved();
+    });
+  return (
+    <div className="card">
+      <h2>Contraseña de la empresa ({empresa.name})</h2>
+      <p className="hint">
+        {tiene
+          ? "Para trabajar en esta empresa hay que escribir su contraseña al elegirla, además de entrar con tu usuario. Para cambiarla o quitarla hace falta la actual."
+          : "Si le pones contraseña, para trabajar en esta empresa habrá que escribirla al elegirla, además de entrar con el usuario."}
+      </p>
+      <div className="form">
+        {tiene && (
+          <Field label="Contraseña actual">
+            <input type="password" autoComplete="current-password" value={actual} onChange={(e) => setActual(e.target.value)} />
+          </Field>
+        )}
+        <Field label="Nueva contraseña (mínimo 8 caracteres)">
+          <input type="password" autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} />
+        </Field>
+        <Field label="Repite la nueva">
+          <input type="password" autoComplete="new-password" value={repetir} onChange={(e) => setRepetir(e.target.value)} />
+        </Field>
+      </div>
+      <ErrorBox error={error} />
+      {nueva && repetir && nueva !== repetir && <p className="hint">Las dos contraseñas no coinciden.</p>}
+      <div className="row">
+        <button className="primary" onClick={() => guardar(false)} disabled={busy || nueva.length < 8 || nueva !== repetir || (tiene && !actual)}>
+          {tiene ? "Cambiar contraseña" : "Poner contraseña"}
+        </button>
+        {tiene && <button onClick={() => guardar(true)} disabled={busy || !actual}>Quitar contraseña</button>}
+        {hecho && <span className="ok">{hecho}</span>}
+      </div>
+    </div>
+  );
+}
+
 function Compartir({ empresa, companies, onSaved }: { empresa: any; companies: any[]; onSaved: () => Promise<void> }) {
   const [master, setMaster] = useState<string>(empresa.master_company_id ?? "");
   const [reservada, setReservada] = useState<boolean>(!!empresa.restricted);

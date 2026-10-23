@@ -9,11 +9,13 @@
  * Empresa en uso: cookie de sesión «sindri_empresa». Con una sola empresa posible se elige
  * sola; con varias, la web pregunta al entrar.
  */
+import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { Db, Queryable } from "./db.js";
 import { BusinessError, createCompany, listCompanies, log, notFound, type Ctx } from "./services.js";
-import { readCookie, setCookie } from "./sso.js";
+import { readCookie, setCookie, sign, verify } from "./sso.js";
 
 export const MODULES = [
   { id: "inicio", label: "Inicio" },
@@ -93,9 +95,16 @@ export interface Session {
     demo: boolean;
     restricted: boolean;
     master_company_id: string | null;
+    /** Pide contraseña al elegirla (ver «Contraseña de la empresa» abajo). */
+    has_password: boolean;
   }[];
   company: string | null;
   needsCompany: boolean;
+  /**
+   * Administra solo sus empresas: tiene grupos «Empresa/…» en Keycloak y un rol con todo. Ve y
+   * cambia todo dentro de ellas, pero no usuarios, roles ni otras empresas (eso es global).
+   */
+  companyAdmin: boolean;
   /** Su rol: el de Keycloak («Rol/<nombre>») si lo tiene; si no, el de Usuarios. */
   roleId: string | null;
 }
@@ -107,6 +116,45 @@ declare module "fastify" {
 }
 
 const COOKIE = "sindri_empresa";
+const UNLOCK = "sindri_llave";
+const UNLOCK_HOURS = 12;
+
+// Contraseña de la empresa ----------------------------------------------------------------
+// Una empresa puede pedir contraseña al elegirla, además del login de Keycloak. La pone quien la
+// administra y la puede cambiar sabiendo la actual. Al cambiarla, quien la tenía abierta la vuelve
+// a pedir. Se guarda con scrypt en company_access, nunca en la ficha de la empresa.
+
+const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
+/** Firma de la cookie que dice «ya ha escrito la contraseña». */
+let unlockKey = randomBytes(32).toString("hex");
+
+export async function hashPassword(pw: string): Promise<string> {
+  const salt = randomBytes(16);
+  return `s1$${salt.toString("base64url")}$${(await scryptAsync(pw, salt, 32)).toString("base64url")}`;
+}
+
+export async function checkPassword(pw: string, stored: string): Promise<boolean> {
+  const [v, salt, hash] = stored.split("$");
+  if (v !== "s1" || !salt || !hash) return false;
+  const good = Buffer.from(hash, "base64url");
+  const given = await scryptAsync(pw, Buffer.from(salt, "base64url"), good.length);
+  return timingSafeEqual(given, good);
+}
+
+async function companyAccess(q: Queryable) {
+  const rows = await q.query<{ company_id: string; password_hash: string; changed_at: Date | string }>("select * from company_access");
+  return new Map(rows.map((r) => [r.company_id, { hash: r.password_hash, stamp: new Date(r.changed_at).getTime() }]));
+}
+
+type Unlock = { u: string; c: string; t: number; exp: number };
+const unlocked = (req: FastifyRequest, userId: string, companyId: string, stamp: number) => {
+  const v = verify<Unlock>(readCookie(req, UNLOCK), unlockKey);
+  return !!v && v.u === userId && v.c === companyId && v.t === stamp;
+};
+const setUnlock = (reply: FastifyReply, req: FastifyRequest, userId: string, companyId: string, stamp: number) =>
+  setCookie(reply, req, UNLOCK, sign({ u: userId, c: companyId, t: stamp, exp: Date.now() + UNLOCK_HOURS * 3600_000 }, unlockKey), null);
+/** Un fallo de contraseña tarda un poco: frena a quien prueba a ciegas. */
+const pause = () => new Promise((r) => setTimeout(r, 400));
 
 export function moduleFor(path: string): ModuleId | null {
   for (const [p, m] of ROUTE_MODULE) if (path === p || path.startsWith(p + "/") || path.startsWith(p + "?")) return m;
@@ -154,11 +202,17 @@ export async function loadSession(db: Db, req: FastifyRequest, person: Person): 
   const roleId = kcRole?.id ?? u.role_id;
   const [role] = roleId ? await db.query<{ permissions: Record<string, Level> }>("select permissions from role where id = $1", [roleId]) : [];
   const rolePerms = role?.permissions ?? {};
-  const admin = person.admin || rolePerms.usuarios === "editar";
+  // Quien tiene grupos de empresa en Keycloak administra, como mucho, esas empresas: usuarios y
+  // roles son de todo Sindri y se quedan para administración general.
+  const scoped = !person.admin && kc.companies.size > 0;
+  const admin = person.admin || (!scoped && rolePerms.usuarios === "editar");
+  const companyAdmin = scoped && rolePerms.usuarios === "editar";
   // Inicio y Relaciones los tiene todo el mundo (Relaciones solo enseña lo de los módulos que ve).
-  const perms = admin ? { ...ALL } : { ...rolePerms, inicio: "ver" as Level, relaciones: "ver" as Level };
+  const perms: Record<string, Level> = admin ? { ...ALL } : { ...rolePerms, inicio: "ver", relaciones: "ver" };
+  if (scoped) delete perms.usuarios;
 
-  const all = (await listCompanies(db)) as Session["companies"];
+  const access = await companyAccess(db);
+  const all = ((await listCompanies(db)) as Session["companies"]).map((c) => ({ ...c, has_password: access.has(c.id) }));
   const assigned = new Set((await db.query<{ company_id: string }>("select company_id from user_company where user_id = $1", [u.id])).map((r) => r.company_id));
   const inKc = (c: Session["companies"][number]) => !!c.code && kc.companies.has(c.code.toUpperCase());
   // Sin empresas asignadas (ni en Sindri ni en Keycloak), trabaja en todas; en cuanto se le asigna
@@ -168,8 +222,12 @@ export async function loadSession(db: Db, req: FastifyRequest, person: Person): 
   const free = admin || (assigned.size === 0 && kc.companies.size === 0);
   const companies = free ? open : open.filter((c) => assigned.has(c.id) || inKc(c) || c.demo);
   const chosen = readCookie(req, COOKIE);
-  const company = companies.find((c) => c.id === chosen)?.id ?? (companies.length === 1 ? companies[0]!.id : null);
-  return { person, userId: u.id, admin, perms, companies, company, needsCompany: !company && companies.length > 1, roleId: roleId ?? null };
+  let company = companies.find((c) => c.id === chosen)?.id ?? (companies.length === 1 ? companies[0]!.id : null);
+  // Con contraseña, solo vale si ya la ha escrito en esta sesión (y no ha cambiado desde entonces).
+  const lock = company ? access.get(company) : undefined;
+  if (company && lock && !unlocked(req, u.id, company, lock.stamp)) company = null;
+  const needsCompany = !company && (companies.length > 1 || companies.some((c) => c.has_password));
+  return { person, userId: u.id, admin, companyAdmin, perms, companies, company, needsCompany, roleId: roleId ?? null };
 }
 
 export const ctxOf = (req: FastifyRequest): Ctx => {
@@ -278,7 +336,15 @@ type IdParams = { Params: { id: string } };
  * `person` devuelve quién ha entrado (Keycloak, usuario y clave, o el puesto local).
  * Se registra después de la entrada (sso.ts), que ya ha rechazado a quien no tiene sesión.
  */
-export function registerUsuarios(app: FastifyInstance, db: Db, person: (req: FastifyRequest) => Person | null, logoutPath: string | null) {
+export function registerUsuarios(
+  app: FastifyInstance,
+  db: Db,
+  person: (req: FastifyRequest) => Person | null,
+  logoutPath: string | null,
+  sessionKey?: string,
+) {
+  // Con SSO la llave de sesión sobrevive a un reinicio; en local basta una al azar.
+  if (sessionKey) unlockKey = `${sessionKey}:empresa`;
   app.addHook("preHandler", async (req, reply) => {
     const path = req.url.split("?")[0]!;
     if (!path.startsWith("/api/v1/")) return;
@@ -329,6 +395,7 @@ export function registerUsuarios(app: FastifyInstance, db: Db, person: (req: Fas
       name: u?.name ?? s.person.name ?? s.person.user,
       email: u?.email ?? s.person.email ?? "",
       admin: s.admin,
+      company_admin: s.companyAdmin,
       role: u?.role_name ?? (s.person.admin ? "Administración" : null),
       department: u?.department_name ?? null,
       perms: s.perms,
@@ -348,10 +415,20 @@ export function registerUsuarios(app: FastifyInstance, db: Db, person: (req: Fas
   });
 
   app.post("/api/v1/session/company", async (req: FastifyRequest, reply: FastifyReply) => {
-    const { company_id } = z.object({ company_id: z.uuid() }).parse(req.body);
+    const { company_id, password } = z.object({ company_id: z.uuid(), password: z.string().max(200).optional() }).parse(req.body);
     const s = req.sindri!;
     const c = s.companies.find((x) => x.id === company_id);
     if (!c) return reply.status(403).send({ error: "No trabajas en esa empresa" });
+    const lock = (await companyAccess(db)).get(company_id);
+    if (lock && !unlocked(req, s.userId, company_id, lock.stamp)) {
+      if (!password) return reply.status(401).send({ error: "Esta empresa pide contraseña", code: "clave_empresa" });
+      if (!(await checkPassword(password, lock.hash))) {
+        await pause();
+        await log(db, { company: company_id, actor: s.person.user }, "company", company_id, "password_failed");
+        return reply.status(401).send({ error: "La contraseña de la empresa no es correcta", code: "clave_empresa" });
+      }
+      setUnlock(reply, req, s.userId, company_id, lock.stamp);
+    }
     // Cookie de sesión del navegador: al volver a entrar se vuelve a elegir.
     setCookie(reply, req, COOKIE, company_id, null);
     await db.query("update app_user set last_company_id = $2 where id = $1", [s.userId, company_id]);
@@ -363,7 +440,47 @@ export function registerUsuarios(app: FastifyInstance, db: Db, person: (req: Fas
     const s = req.sindri!;
     if (!s.admin) return s.companies;
     const kc = keycloakAccess(s.person.groups);
-    return ((await listCompanies(db)) as Session["companies"]).filter((c) => !c.restricted || (!!c.code && kc.companies.has(c.code.toUpperCase())));
+    const access = await companyAccess(db);
+    return ((await listCompanies(db)) as Session["companies"])
+      .filter((c) => !c.restricted || (!!c.code && kc.companies.has(c.code.toUpperCase())))
+      .map((c) => ({ ...c, has_password: access.has(c.id) }));
+  });
+  // Contraseña de la empresa en uso: quien la administra la pone, la cambia o la quita sabiendo la actual.
+  app.put("/api/v1/company/password", async (req: FastifyRequest, reply: FastifyReply) => {
+    const s = req.sindri!;
+    if (!s.admin && !s.companyAdmin) return reply.status(403).send({ error: "Solo quien administra la empresa cambia su contraseña" });
+    const body = z
+      .object({ actual: z.string().max(200).optional(), nueva: z.string().min(8, "La contraseña tiene que tener al menos 8 caracteres").max(200).nullable() })
+      .parse(req.body);
+    const ctx = ctxOf(req);
+    const lock = (await companyAccess(db)).get(ctx.company);
+    if (lock && !(body.actual && (await checkPassword(body.actual, lock.hash)))) {
+      await pause();
+      return reply.status(401).send({ error: "La contraseña actual no es correcta", code: "clave_empresa" });
+    }
+    if (body.nueva === null) {
+      await db.query("delete from company_access where company_id = $1", [ctx.company]);
+      await log(db, ctx, "company", ctx.company, "password_removed");
+      return { has_password: false };
+    }
+    const [row] = await db.query<{ changed_at: Date | string }>(
+      `insert into company_access (company_id, password_hash, changed_by) values ($1, $2, $3)
+       on conflict (company_id) do update set password_hash = excluded.password_hash, changed_at = clock_timestamp(), changed_by = excluded.changed_by
+       returning changed_at`,
+      [ctx.company, await hashPassword(body.nueva), ctx.actor],
+    );
+    await log(db, ctx, "company", ctx.company, lock ? "password_changed" : "password_set");
+    // Quien la cambia sigue dentro; el resto la vuelve a pedir.
+    setUnlock(reply, req, s.userId, ctx.company, new Date(row!.changed_at).getTime());
+    return { has_password: true };
+  });
+  // Si se olvida: administración general la quita sin saberla (queda en el registro) y se pone otra.
+  app.delete<IdParams>("/api/v1/companies/:id/password", async (req) => {
+    requireAdmin(req);
+    const id = z.uuid().parse(req.params.id);
+    await db.query("delete from company_access where company_id = $1", [id]);
+    await log(db, { company: id, actor: req.sindri!.person.user }, "company", id, "password_reset");
+    return { has_password: false };
   });
   app.post("/api/v1/companies", async (req, reply) => reply.status(201).send(await createCompany(db, CompanySchema.parse(req.body), req.sindri!.person.user)));
 
