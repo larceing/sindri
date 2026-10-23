@@ -264,6 +264,9 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
   main { padding: var(--s-4); }
   .shell-inferior main { padding-bottom: 96px; }
   .split2 { grid-template-columns: minmax(0, 1fr); }
+  /* Factura: el QR baja debajo del emisor si no cabe al lado */
+  .invoice { padding: var(--s-4); }
+  .invoice-head { flex-wrap: wrap; gap: var(--s-4); }
 }
 @media print {
   .side, .topbar, .bottomnav, .page-head button, .page-head a.button, .card, .hint, .alert, .mono-block, .no-print, .tabs { display: none !important; }
