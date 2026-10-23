@@ -14,6 +14,7 @@ const GRUPOS: Record<string, string[]> = {
   luis: ["/IT", "/DEV/Sindri/Empresa/001"],
   ivan: ["/DEV/Sindri/Empresa/002", "/DEV/Sindri/Rol/Comercial"],
   admin: ["/DEV/Sindri/Admin"],
+  nadie: ["/DEV/Sindri"],
 };
 
 async function fakeKeycloak() {
@@ -34,7 +35,7 @@ describe("Empresas separadas con clientes y productos comunes, filtradas por Key
   let db: Db;
   let app: FastifyInstance;
   let kc: FastifyInstance;
-  const cookies: Record<string, Record<string, string>> = { luis: {}, ivan: {}, admin: {} };
+  const cookies: Record<string, Record<string, string>> = { luis: {}, ivan: {}, admin: {}, nadie: {} };
   const header = (who: string) => ({ cookie: Object.entries(cookies[who]!).map(([k, v]) => `${k}=${v}`).join("; ") });
   const keep = (who: string, set: unknown) => {
     for (const c of ([] as string[]).concat((set as string[]) ?? [])) {
@@ -67,7 +68,7 @@ describe("Empresas separadas con clientes y productos comunes, filtradas por Key
     await migrate(db);
     const cfg: SsoConfig = { issuer: fake.issuer, clientId: "sindri-dev", clientSecret: "s", appGroup: "DEV/Sindri", itGroup: "IT", sessionKey: "k" };
     app = await buildApp({ db, sso: cfg });
-    for (const who of ["luis", "ivan", "admin"]) await login(who);
+    for (const who of ["luis", "ivan", "admin", "nadie"]) await login(who);
   });
   afterAll(async () => {
     await app.close();
@@ -109,6 +110,9 @@ describe("Empresas separadas con clientes y productos comunes, filtradas por Key
     expect((await call("admin", "GET", "/api/v1/companies")).body).toEqual([]);
     expect((await call("luis", "POST", "/api/v1/session/company", { company_id: B })).status).toBe(403);
     expect((await call("ivan", "POST", "/api/v1/session/company", { company_id: A })).status).toBe(403);
+    // Sin empresa propia no se ve la ficha de ninguna ni se puede crear una.
+    expect((await call("nadie", "GET", "/api/v1/company")).body).toBeNull();
+    expect((await call("nadie", "PUT", "/api/v1/company", { name: "Colada SL", tax_id: "B12345674" })).status).toBe(403);
     // Ivan es comercial: no toca la configuración de empresas.
     expect((await call("ivan", "PUT", "/api/v1/company/sharing", { restricted: false })).status).toBe(403);
   });
