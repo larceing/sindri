@@ -10,7 +10,7 @@
 import { D, computeTotals, QuotationMachine, SURCHARGE_FOR_VAT } from "@sindri/core";
 import type { QuotationAction, QuotationState } from "@sindri/core";
 import type { Db, Queryable } from "./db.js";
-import { BusinessError, createPartner, log, nextNumber, notFound, priceFor, type Ctx } from "./services.js";
+import { BusinessError, createPartner, log, nextNumber, notFound, priceFor, repFor, type Ctx } from "./services.js";
 
 // Oportunidades ----------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ const OPP_FIELDS = [
 
 async function checkRefs(q: Queryable, ctx: Ctx, refs: { partner_id?: string | null; sales_rep_id?: string | null }) {
   if (refs.partner_id) {
-    const [p] = await q.query("select 1 from partner where id = $1 and company_id = $2 and not archived", [refs.partner_id, ctx.company]);
+    const [p] = await q.query("select 1 from partner where id = $1 and company_id = maestro($2) and not archived", [refs.partner_id, ctx.company]);
     if (!p) throw notFound("Cliente");
   }
   if (refs.sales_rep_id) {
@@ -99,7 +99,7 @@ export async function createOpportunity(db: Db, ctx: Ctx, input: OpportunityInpu
     let rep = input.sales_rep_id;
     if (rep === undefined && input.partner_id) {
       const [p] = await q.query<{ sales_rep_id: string | null }>("select sales_rep_id from partner where id = $1", [input.partner_id]);
-      rep = p?.sales_rep_id ?? null;
+      rep = await repFor(q, ctx, p?.sales_rep_id);
     }
     const number = await nextNumber(q, ctx, "opportunity", "OP");
     const data = { ...input, sales_rep_id: rep ?? null, probability: input.probability ?? PROB.new };
@@ -293,11 +293,11 @@ export const MODELOS_DE_PARTIDA: TemplateInput[] = [
 ];
 
 async function ensureTemplates(q: Queryable, ctx: Ctx) {
-  const [any] = await q.query("select 1 from quotation_template where company_id = $1 limit 1", [ctx.company]);
+  const [any] = await q.query("select 1 from quotation_template where company_id = maestro($1) limit 1", [ctx.company]);
   if (any) return;
   for (const t of MODELOS_DE_PARTIDA)
     await q.query(
-      "insert into quotation_template (company_id, name, title, intro, conditions, validity_days) values ($1,$2,$3,$4,$5,$6) on conflict do nothing",
+      "insert into quotation_template (company_id, name, title, intro, conditions, validity_days) values (maestro($1),$2,$3,$4,$5,$6) on conflict do nothing",
       [ctx.company, t.name, t.title, t.intro, t.conditions, t.validity_days],
     );
 }
@@ -305,7 +305,7 @@ async function ensureTemplates(q: Queryable, ctx: Ctx) {
 export async function listTemplates(db: Db, ctx: Ctx, opts: { all?: boolean } = {}) {
   return db.tx(async (q) => {
     await ensureTemplates(q, ctx);
-    return q.query("select * from quotation_template where company_id = $1 and ($2 or active) order by name", [ctx.company, !!opts.all]);
+    return q.query("select * from quotation_template where company_id = maestro($1) and ($2 or active) order by name", [ctx.company, !!opts.all]);
   });
 }
 
@@ -313,7 +313,7 @@ export async function createTemplate(db: Db, ctx: Ctx, t: TemplateInput) {
   return db.tx(async (q) => {
     const cols = TEMPLATE_FIELDS.filter((f) => t[f] !== undefined);
     const [row] = await q.query(
-      `insert into quotation_template (company_id, ${cols.join(",")}) values ($1, ${cols.map((_, i) => `$${i + 2}`).join(",")}) returning *`,
+      `insert into quotation_template (company_id, ${cols.join(",")}) values (maestro($1), ${cols.map((_, i) => `$${i + 2}`).join(",")}) returning *`,
       [ctx.company, ...cols.map((f) => t[f])],
     );
     await log(q, ctx, "quotation_template", row!.id as string, "create", t);
@@ -326,7 +326,7 @@ export async function updateTemplate(db: Db, ctx: Ctx, id: string, t: Partial<Te
     const cols = TEMPLATE_FIELDS.filter((f) => t[f] !== undefined);
     if (!cols.length) throw new BusinessError("Nada que actualizar", 400);
     const [row] = await q.query(
-      `update quotation_template set ${cols.map((c, i) => `${c} = $${i + 3}`).join(", ")} where id = $1 and company_id = $2 returning *`,
+      `update quotation_template set ${cols.map((c, i) => `${c} = $${i + 3}`).join(", ")} where id = $1 and company_id = maestro($2) returning *`,
       [id, ctx.company, ...cols.map((f) => t[f])],
     );
     if (!row) throw notFound("Modelo de presupuesto");
@@ -410,7 +410,7 @@ async function writeLines(q: Queryable, ctx: Ctx, quotationId: string, lines: Qu
   let pos = 1;
   const [qt] = await q.query<{ partner_id: string }>("select partner_id from quotation where id = $1", [quotationId]);
   for (const l of lines) {
-    const [p] = await q.query<{ name: string; sale_price: string; vat_rate: string }>("select * from product where id = $1 and company_id = $2", [l.product_id, ctx.company]);
+    const [p] = await q.query<{ name: string; sale_price: string; vat_rate: string }>("select * from product where id = $1 and company_id = maestro($2)", [l.product_id, ctx.company]);
     if (!p) throw notFound("Producto");
     if (D(l.quantity).cmp(0) <= 0) throw new BusinessError("Cantidad no válida");
     await q.query(
@@ -443,16 +443,16 @@ export async function createQuotation(db: Db, ctx: Ctx, input: QuotationInput) {
     }
     if (!partnerId) throw new BusinessError("Indica el cliente");
     const [partner] = await q.query<{ sales_rep_id: string | null; discount_pct: string | null }>(
-      "select * from partner where id = $1 and company_id = $2",
+      "select * from partner where id = $1 and company_id = maestro($2)",
       [partnerId, ctx.company],
     );
     if (!partner) throw notFound("Cliente");
-    const rep = input.sales_rep_id === undefined ? opp?.sales_rep_id ?? partner.sales_rep_id : input.sales_rep_id;
+    const rep = input.sales_rep_id === undefined ? opp?.sales_rep_id ?? (await repFor(q, ctx, partner.sales_rep_id)) : input.sales_rep_id;
     await checkRefs(q, ctx, { sales_rep_id: rep });
 
     // El modelo pone título, textos y validez; lo que venga escrito manda sobre el modelo.
     const [tpl] = input.template_id
-      ? await q.query<TemplateInput & { id: string }>("select * from quotation_template where id = $1 and company_id = $2", [input.template_id, ctx.company])
+      ? await q.query<TemplateInput & { id: string }>("select * from quotation_template where id = $1 and company_id = maestro($2)", [input.template_id, ctx.company])
       : [undefined];
     if (input.template_id && !tpl) throw notFound("Modelo de presupuesto");
     const date = input.quote_date ?? today();

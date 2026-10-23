@@ -32,6 +32,8 @@ export interface Person {
   name: string;
   email: string;
   admin: boolean;
+  /** Subgrupos de Keycloak bajo el de la app, sin él delante: «Empresa/002», «Rol/Comercial»… */
+  groups?: string[];
 }
 
 export function ssoFromEnv(env: NodeJS.ProcessEnv = process.env): SsoConfig | undefined {
@@ -60,6 +62,20 @@ export function access(groups: unknown, cfg: Pick<SsoConfig, "appGroup" | "itGro
   const isIt = !!it && names.has(it);
   const inApp = !!app && [...names].some((g) => g === app || g.startsWith(app + "/"));
   return { enters: isIt || inApp, admin: isIt || (!!app && names.has(app + "/Admin")) };
+}
+
+/**
+ * Los subgrupos de la persona bajo el grupo de la app, sin el grupo de la app delante.
+ * Con el grupo de la app /PRO/Sindri, «/PRO/Sindri/Empresa/002» queda «Empresa/002».
+ */
+export function appSubgroups(groups: unknown, cfg: Pick<SsoConfig, "appGroup">): string[] {
+  const app = trimSlashes(cfg.appGroup);
+  if (!app) return [];
+  return (Array.isArray(groups) ? groups : [])
+    .map((g) => trimSlashes(String(g)))
+    .filter((g) => g.startsWith(app + "/"))
+    .map((g) => g.slice(app.length + 1))
+    .slice(0, 50);
 }
 
 // Cookies firmadas -------------------------------------------------------------------
@@ -191,6 +207,7 @@ export function registerSso(app: FastifyInstance, cfg: SsoConfig) {
       name: String(info.name ?? info.preferred_username).slice(0, 128),
       email: String(info.email ?? ""),
       admin,
+      groups: appSubgroups(info.groups, cfg),
       exp: Date.now() + hours * 3600_000,
     };
     setCookie(reply, req, STATE, "", 0);

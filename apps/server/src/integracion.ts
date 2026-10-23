@@ -3,7 +3,8 @@
  *
  *  - /api/integracion/v1/...  la usa la otra app con su llave (Authorization: Bearer sdi_…).
  *    Ve los clientes y productos de esa empresa y le manda lo que hay que facturar
- *    (horas de una incidencia, de una tarea…). Con esa llave no se ve nada más.
+ *    (horas de una incidencia, de una tarea…). Puede dar de alta un cliente o un servicio que
+ *    falte (nunca cambia ni borra los que hay). Con esa llave no se ve nada más.
  *  - /api/v1/integraciones/... administración crea y revoca las llaves (empresa en uso).
  *  - /api/v1/por-facturar/...  la web: lo pendiente, pasarlo a un pedido o descartarlo.
  *
@@ -14,7 +15,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { D } from "@sindri/core";
 import type { Db, Queryable } from "./db.js";
-import { BusinessError, cancelSalesOrder, createSalesOrder, log, notFound, type Ctx } from "./services.js";
+import { BusinessError, cancelSalesOrder, createPartner, createProduct, createSalesOrder, log, notFound, type Ctx } from "./services.js";
 import { ctxOf, requireAdmin } from "./usuarios.js";
 
 const hash = (t: string) => createHash("sha256").update(t).digest("hex");
@@ -83,15 +84,15 @@ export async function upsertItems(db: Db, llave: Llave, items: ItemInput[]) {
     const out: { ref: string; estado: string; id?: string; pedido?: string | null; error?: string }[] = [];
     for (const it of items) {
       const [cli] = UUID.test(it.cliente)
-        ? await q.query<{ id: string }>("select id from partner where id = $1 and company_id = $2 and not archived", [it.cliente, ctx.company])
-        : await q.query<{ id: string }>("select id from partner where upper(tax_id) = upper($1) and company_id = $2 and not archived limit 1", [it.cliente, ctx.company]);
+        ? await q.query<{ id: string }>("select id from partner where id = $1 and company_id = maestro($2) and not archived", [it.cliente, ctx.company])
+        : await q.query<{ id: string }>("select id from partner where upper(tax_id) = upper($1) and company_id = maestro($2) and not archived limit 1", [it.cliente, ctx.company]);
       if (!cli) {
         out.push({ ref: it.ref, estado: "error", error: `No hay cliente ${it.cliente} en Sindri` });
         continue;
       }
       const [prod] = UUID.test(it.producto)
-        ? await q.query<{ id: string }>("select id from product where id = $1 and company_id = $2", [it.producto, ctx.company])
-        : await q.query<{ id: string }>("select id from product where sku = $1 and company_id = $2", [it.producto, ctx.company]);
+        ? await q.query<{ id: string }>("select id from product where id = $1 and company_id = maestro($2)", [it.producto, ctx.company])
+        : await q.query<{ id: string }>("select id from product where sku = $1 and company_id = maestro($2)", [it.producto, ctx.company]);
       if (!prod) {
         out.push({ ref: it.ref, estado: "error", error: `No hay producto ${it.producto} en Sindri` });
         continue;
@@ -160,6 +161,61 @@ export async function itemStates(q: Queryable, llave: Llave, refs?: string[]) {
      order by b.item_date desc limit 2000`,
     [llave.company_id, llave.name, refs?.length ? refs : null],
   );
+}
+
+// Altas desde la app --------------------------------------------------------------------
+
+export interface ClienteInput {
+  name: string;
+  trade_name?: string | null;
+  tax_id?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postal_code?: string | null;
+  province?: string | null;
+  notes?: string | null;
+}
+
+const ctxDe = (llave: Llave): Ctx => ({ company: llave.company_id, actor: `integracion:${llave.name}` });
+const nif = (s: string) => s.replace(/[\s.-]/g, "").toUpperCase();
+
+/**
+ * Un cliente que la app necesita: si ya está (mismo NIF o mismo nombre), se devuelve ese y no
+ * se toca; si no, se da de alta como cliente.
+ */
+export async function ensureCliente(db: Db, llave: Llave, c: ClienteInput) {
+  const ctx = ctxDe(llave);
+  const tax = c.tax_id ? nif(c.tax_id) : null;
+  const [cur] = await db.query<{ id: string }>(
+    `select id from partner where company_id = maestro($1) and not archived and kind <> 'supplier'
+       and (($2::text is not null and upper(regexp_replace(coalesce(tax_id, ''), '[\\s.-]', '', 'g')) = $2)
+            or lower(name) = lower($3) or lower(coalesce(trade_name, '')) = lower($3))
+     order by ($2::text is not null and upper(regexp_replace(coalesce(tax_id, ''), '[\\s.-]', '', 'g')) = $2) desc limit 1`,
+    [ctx.company, tax, c.name],
+  );
+  if (cur) return { id: cur.id, creado: false };
+  const row = (await createPartner(db, ctx, { ...c, kind: "customer", tax_id: tax })) as { id: string };
+  return { id: row.id, creado: true };
+}
+
+export interface ServicioInput {
+  sku: string;
+  name: string;
+  uom?: string;
+  sale_price?: string;
+  vat_rate?: string;
+}
+
+/** Un servicio que la app necesita: si el sku ya está, se devuelve y no se toca; si no, se da de alta. */
+export async function ensureServicio(db: Db, llave: Llave, p: ServicioInput) {
+  const ctx = ctxDe(llave);
+  const [cur] = await db.query<{ id: string; archived: boolean }>("select id, archived from product where company_id = maestro($1) and sku = $2", [ctx.company, p.sku]);
+  if (cur?.archived) throw new BusinessError(`El producto ${p.sku} está archivado en Sindri`, 409);
+  if (cur) return { id: cur.id, creado: false };
+  const row = (await createProduct(db, ctx, { ...p, kind: "service", uom: p.uom || "h" })) as { id: string };
+  return { id: row.id, creado: true };
 }
 
 // Por facturar (web) --------------------------------------------------------------------
@@ -243,6 +299,27 @@ const ItemSchema = z.object({
   precio: z.union([z.string(), z.number()]).transform(String).refine((v) => /^\d+([.,]\d+)?$/.test(v.trim()), "Precio no válido").transform((v) => v.replace(",", ".")).nullish(),
   descripcion: z.string().trim().min(1).max(1000),
 });
+const txt = z.string().trim().min(1).max(300).nullish();
+const ClienteSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  trade_name: txt,
+  tax_id: z.string().trim().min(1).max(30).nullish(),
+  email: txt,
+  phone: txt,
+  address: txt,
+  city: txt,
+  postal_code: txt,
+  province: txt,
+  notes: z.string().trim().min(1).max(2000).nullish(),
+});
+const num = z.union([z.string(), z.number()]).transform(String).refine((v) => /^\d+([.,]\d+)?$/.test(v.trim()), "Número no válido").transform((v) => v.replace(",", "."));
+const ServicioSchema = z.object({
+  sku: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(200),
+  uom: z.string().trim().min(1).max(10).optional(),
+  sale_price: num.optional(),
+  vat_rate: num.optional(),
+});
 const Ids = z.object({ ids: z.array(z.uuid()).min(1).max(500) });
 
 export function registerIntegracion(app: FastifyInstance, db: Db) {
@@ -269,15 +346,23 @@ export function registerIntegracion(app: FastifyInstance, db: Db) {
       api.get<{ Querystring: { q?: string } }>("/clientes", async (req) =>
         db.query(
           `select id, code, name, trade_name, tax_id, email, phone, address, city, postal_code, province, country
-           from partner where company_id = $1 and not archived and kind <> 'supplier'
+           from partner where company_id = maestro($1) and not archived and kind <> 'supplier'
              and ($2::text is null or lower(name) like '%' || lower($2) || '%' or lower(coalesce(trade_name, '')) like '%' || lower($2) || '%' or tax_id ilike $2)
            order by name limit 2000`,
           [llaveDe(req).company_id, req.query.q?.trim() || null],
         ),
       );
       api.get("/productos", async (req) =>
-        db.query("select id, sku, name, kind, uom, sale_price, vat_rate from product where company_id = $1 and not archived order by sku", [llaveDe(req).company_id]),
+        db.query("select id, sku, name, kind, uom, sale_price, vat_rate from product where company_id = maestro($1) and not archived order by sku", [llaveDe(req).company_id]),
       );
+      api.post("/clientes", async (req, reply) => {
+        const r = await ensureCliente(db, llaveDe(req), ClienteSchema.parse(req.body));
+        return reply.status(r.creado ? 201 : 200).send(r);
+      });
+      api.post("/productos", async (req, reply) => {
+        const r = await ensureServicio(db, llaveDe(req), ServicioSchema.parse(req.body));
+        return reply.status(r.creado ? 201 : 200).send(r);
+      });
       api.post("/por-facturar", async (req) => {
         const b = z.object({ elementos: z.array(ItemSchema).min(1).max(500) }).parse(req.body);
         return { elementos: await upsertItems(db, llaveDe(req), b.elementos) };

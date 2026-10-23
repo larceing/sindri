@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Building2, ChevronDown, LogOut, Menu as MenuIcon } from "lucide-react";
+import { Building2, ChevronDown, LogOut, Menu as MenuIcon, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { post } from "./api";
 import { useData } from "./hooks";
 import { navigate, useRoute } from "./router";
@@ -78,6 +78,9 @@ function Screen({ route, me }: { route: string; me: Me }) {
       return <HomePage />;
   }
 }
+
+/** Guarda en este navegador si el menú lateral va plegado (solo iconos). */
+const PLEGADO = "sindri.menu-plegado";
 
 /** Marca: el símbolo de Sindri. Las piezas claras siguen el color del texto (blanco en el menú oscuro). */
 export const BrandMark = () => (
@@ -224,6 +227,29 @@ function Shell() {
   const [elegir, setElegir] = useState(false);
   // Al cambiar de empresa se vuelve a montar todo para que ninguna pantalla enseñe datos de la otra.
   const [gen, setGen] = useState(0);
+  // Móvil: el menú lateral se pliega tras un botón. Escritorio: se puede dejar solo con iconos.
+  const [abierto, setAbierto] = useState(false);
+  const [plegado, setPlegado] = useState(() => {
+    try {
+      return localStorage.getItem(PLEGADO) === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => setAbierto(false), [route]);
+  useEffect(() => {
+    if (!abierto) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAbierto(false);
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [abierto]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(PLEGADO, plegado ? "1" : "0");
+    } catch {
+      /* sin almacenamiento: se queda desplegado */
+    }
+  }, [plegado]);
 
   if (!me)
     return (
@@ -252,18 +278,26 @@ function Shell() {
   const items = menuDe(me);
   const active = (path: string) => route.startsWith(path) || (path === "/inicio" && route === "/");
   const nav = items.map((m) => (
-    <a key={m.id} href={`#${m.path}`} className={active(m.path) ? "active" : ""} aria-current={active(m.path) ? "page" : undefined}>
+    <a key={m.id} href={`#${m.path}`} className={active(m.path) ? "active" : ""} aria-current={active(m.path) ? "page" : undefined} title={plegado && posicion === "lateral" ? m.label : undefined}>
       <m.icon size={18} aria-hidden /> <span>{m.label}</span>
     </a>
   ));
   const userMenu = <UserMenu me={me} arriba={posicion === "lateral"} onCambiarEmpresa={() => setElegir(true)} />;
 
   return (
-    <div className={`shell shell-${posicion}`}>
+    <div className={`shell shell-${posicion}${plegado && posicion === "lateral" ? " plegado" : ""}`}>
       {posicion === "lateral" ? (
-        <nav className="side" aria-label="Menú principal">
-          <div className="brand"><BrandMark /> Sindri</div>
-          {nav}
+        <nav className={`side${abierto ? " abierto" : ""}`} aria-label="Menú principal">
+          <div className="side-top">
+            <div className="brand"><BrandMark /> <span className="brand-txt">Sindri</span></div>
+            <button className="side-toggle" aria-expanded={abierto} aria-controls="menu-principal" aria-label={abierto ? "Cerrar menú" : "Abrir menú"} onClick={() => setAbierto(!abierto)}>
+              {abierto ? <X size={22} aria-hidden /> : <MenuIcon size={22} aria-hidden />}
+            </button>
+            <button className="side-plegar" aria-label={plegado ? "Desplegar menú" : "Plegar menú"} title={plegado ? "Desplegar menú" : "Plegar menú"} onClick={() => setPlegado(!plegado)}>
+              {plegado ? <PanelLeftOpen size={18} aria-hidden /> : <PanelLeftClose size={18} aria-hidden />}
+            </button>
+          </div>
+          <div className="side-items" id="menu-principal">{nav}</div>
           <div className="side-foot">{userMenu}</div>
         </nav>
       ) : (
