@@ -18,6 +18,8 @@ export interface Company {
   demo: boolean;
   /** Pide contraseña al elegirla. */
   has_password?: boolean;
+  /** Invitado por quien la administra: entra con el rol de la invitación y sin contraseña. */
+  guest?: boolean;
 }
 export interface Me {
   user: string;
@@ -26,6 +28,8 @@ export interface Me {
   admin: boolean;
   /** Administra solo sus empresas (no usuarios ni otras empresas). */
   company_admin?: boolean;
+  /** Trabaja en la empresa en uso como invitado. */
+  guest?: boolean;
   role: string | null;
   department: string | null;
   perms: Record<string, Level>;

@@ -97,6 +97,8 @@ export interface Session {
     master_company_id: string | null;
     /** Pide contraseña al elegirla (ver «Contraseña de la empresa» abajo). */
     has_password: boolean;
+    /** Está invitado: entra con el rol que le dio quien administra esa empresa, sin su contraseña. */
+    guest: boolean;
   }[];
   company: string | null;
   needsCompany: boolean;
@@ -105,8 +107,10 @@ export interface Session {
    * cambia todo dentro de ellas, pero no usuarios, roles ni otras empresas (eso es global).
    */
   companyAdmin: boolean;
-  /** Su rol: el de Keycloak («Rol/<nombre>») si lo tiene; si no, el de Usuarios. */
+  /** Su rol: el de la invitación en la empresa en uso; si no, el de Keycloak («Rol/<nombre>»); si no, el de Usuarios. */
   roleId: string | null;
+  /** Trabaja en la empresa en uso como invitado. */
+  guest: boolean;
 }
 
 declare module "fastify" {
@@ -206,28 +210,50 @@ export async function loadSession(db: Db, req: FastifyRequest, person: Person): 
   // roles son de todo Sindri y se quedan para administración general.
   const scoped = !person.admin && kc.companies.size > 0;
   const admin = person.admin || (!scoped && rolePerms.usuarios === "editar");
-  const companyAdmin = scoped && rolePerms.usuarios === "editar";
-  // Inicio y Relaciones los tiene todo el mundo (Relaciones solo enseña lo de los módulos que ve).
-  const perms: Record<string, Level> = admin ? { ...ALL } : { ...rolePerms, inicio: "ver", relaciones: "ver" };
-  if (scoped) delete perms.usuarios;
-
   const access = await companyAccess(db);
-  const all = ((await listCompanies(db)) as Session["companies"]).map((c) => ({ ...c, has_password: access.has(c.id) }));
-  const assigned = new Set((await db.query<{ company_id: string }>("select company_id from user_company where user_id = $1", [u.id])).map((r) => r.company_id));
-  const inKc = (c: Session["companies"][number]) => !!c.code && kc.companies.has(c.code.toUpperCase());
+  const rows = await db.query<{ company_id: string; role_id: string | null; invited_by: string | null }>(
+    "select company_id, role_id, invited_by from user_company where user_id = $1",
+    [u.id],
+  );
+  const assigned = new Set(rows.map((r) => r.company_id));
+  // Invitaciones: las hace quien administra la empresa, con un rol para esa empresa.
+  const invites = new Map(rows.filter((r) => r.invited_by && r.role_id).map((r) => [r.company_id, r.role_id!]));
+  const inKc = (c: { code: string | null }) => !!c.code && kc.companies.has(c.code.toUpperCase());
+  const all = ((await listCompanies(db)) as Session["companies"]).map((c) => ({
+    ...c,
+    has_password: access.has(c.id),
+    guest: invites.has(c.id) && !inKc(c),
+  }));
   // Sin empresas asignadas (ni en Sindri ni en Keycloak), trabaja en todas; en cuanto se le asigna
   // alguna, solo en esas. Las de demostración están abiertas a todos; las reales, a quien se le asignen.
-  // Las reservadas, solo a quien tenga su grupo en Keycloak, aunque administre.
-  const open = all.filter((c) => !c.restricted || inKc(c));
+  // Las reservadas, solo a quien tenga su grupo en Keycloak o una invitación, aunque administre.
+  const open = all.filter((c) => !c.restricted || inKc(c) || c.guest);
   const free = admin || (assigned.size === 0 && kc.companies.size === 0);
   const companies = free ? open : open.filter((c) => assigned.has(c.id) || inKc(c) || c.demo);
   const chosen = readCookie(req, COOKIE);
   let company = companies.find((c) => c.id === chosen)?.id ?? (companies.length === 1 ? companies[0]!.id : null);
+  const guest = !!company && !!companies.find((c) => c.id === company)?.guest;
   // Con contraseña, solo vale si ya la ha escrito en esta sesión (y no ha cambiado desde entonces).
+  // Un invitado no la necesita: le ha dejado entrar quien administra la empresa.
   const lock = company ? access.get(company) : undefined;
-  if (company && lock && !unlocked(req, u.id, company, lock.stamp)) company = null;
-  const needsCompany = !company && (companies.length > 1 || companies.some((c) => c.has_password));
-  return { person, userId: u.id, admin, companyAdmin, perms, companies, company, needsCompany, roleId: roleId ?? null };
+  if (company && lock && !guest && !unlocked(req, u.id, company, lock.stamp)) company = null;
+  const needsCompany = !company && (companies.length > 1 || companies.some((c) => c.has_password && !c.guest));
+
+  if (guest && company) {
+    // En una empresa a la que le han invitado manda el rol de la invitación, también para quien
+    // administra Sindri: ahí no es más que un invitado.
+    const guestRole = invites.get(company)!;
+    const [r] = await db.query<{ permissions: Record<string, Level> }>("select permissions from role where id = $1", [guestRole]);
+    const gp = r?.permissions ?? {};
+    const perms: Record<string, Level> = { ...gp, inicio: "ver", relaciones: "ver" };
+    delete perms.usuarios;
+    return { person, userId: u.id, admin: false, companyAdmin: gp.usuarios === "editar", perms, companies, company, needsCompany, roleId: guestRole, guest: true };
+  }
+  const companyAdmin = scoped && rolePerms.usuarios === "editar";
+  // Inicio y Relaciones los tiene todo el mundo (Relaciones solo enseña lo de los módulos que ve).
+  const perms: Record<string, Level> = admin ? { ...ALL } : { ...rolePerms, inicio: "ver", relaciones: "ver" };
+  if (scoped) delete perms.usuarios;
+  return { person, userId: u.id, admin, companyAdmin, perms, companies, company, needsCompany, roleId: roleId ?? null, guest: false };
 }
 
 export const ctxOf = (req: FastifyRequest): Ctx => {
@@ -298,7 +324,8 @@ export async function listUsers(q: Queryable) {
 
 async function saveUserCompanies(q: Queryable, userId: string, ids: string[] | undefined) {
   if (ids === undefined) return;
-  await q.query("delete from user_company where user_id = $1", [userId]);
+  // Las invitaciones son de quien administra cada empresa: aquí no se tocan.
+  await q.query("delete from user_company where user_id = $1 and invited_by is null", [userId]);
   for (const c of ids) await q.query("insert into user_company (user_id, company_id) values ($1, $2) on conflict do nothing", [userId, c]);
 }
 
@@ -404,6 +431,7 @@ export function registerUsuarios(
       email: u?.email ?? s.person.email ?? "",
       admin: s.admin,
       company_admin: s.companyAdmin,
+      guest: s.guest,
       role: u?.role_name ?? (s.person.admin ? "Administración" : null),
       department: u?.department_name ?? null,
       perms: s.perms,
@@ -428,7 +456,7 @@ export function registerUsuarios(
     const c = s.companies.find((x) => x.id === company_id);
     if (!c) return reply.status(403).send({ error: "No trabajas en esa empresa" });
     const lock = (await companyAccess(db)).get(company_id);
-    if (lock && !unlocked(req, s.userId, company_id, lock.stamp)) {
+    if (lock && !c.guest && !unlocked(req, s.userId, company_id, lock.stamp)) {
       if (!password) return reply.status(401).send({ error: "Esta empresa pide contraseña", code: "clave_empresa" });
       if (!(await checkPassword(password, lock.hash))) {
         await pause();
@@ -450,13 +478,13 @@ export function registerUsuarios(
     const kc = keycloakAccess(s.person.groups);
     const access = await companyAccess(db);
     return ((await listCompanies(db)) as Session["companies"])
-      .filter((c) => !c.restricted || (!!c.code && kc.companies.has(c.code.toUpperCase())))
+      .filter((c) => !c.restricted || (!!c.code && kc.companies.has(c.code.toUpperCase())) || s.companies.some((x) => x.id === c.id))
       .map((c) => ({ ...c, has_password: access.has(c.id) }));
   });
   // Contraseña de la empresa en uso: quien la administra la pone, la cambia o la quita sabiendo la actual.
   app.put("/api/v1/company/password", async (req: FastifyRequest, reply: FastifyReply) => {
     const s = req.sindri!;
-    if (!s.admin && !s.companyAdmin) return reply.status(403).send({ error: "Solo quien administra la empresa cambia su contraseña" });
+    if ((!s.admin && !s.companyAdmin) || s.guest) return reply.status(403).send({ error: "Solo quien administra la empresa cambia su contraseña" });
     const body = z
       .object({ actual: z.string().max(200).optional(), nueva: z.string().min(8, "La contraseña tiene que tener al menos 8 caracteres").max(200).nullable() })
       .parse(req.body);
@@ -496,6 +524,72 @@ export function registerUsuarios(
   app.post("/api/v1/users", async (req, reply) => reply.status(201).send(await createUser(db, req.sindri!.person.user, UserSchema.parse(req.body))));
   app.patch<IdParams>("/api/v1/users/:id", async (req) => updateUser(db, req.sindri!.person.user, z.uuid().parse(req.params.id), UserSchema.partial().parse(req.body)));
 
+  // Personas invitadas a la empresa en uso -----------------------------------------------
+  // Quien administra la empresa invita a otra persona (por su usuario) con un rol para esa empresa:
+  // el rol dice qué módulos ve y en cuáles cambia cosas. No necesita la contraseña de la empresa.
+  const MemberSchema = z.object({ username: z.string().trim().min(1).max(64), role_id: z.uuid() });
+  const rolExiste = async (id: string) => {
+    const [r] = await db.query("select 1 from role where id = $1", [id]);
+    if (!r) throw notFound("Rol");
+  };
+  app.get("/api/v1/company/members", async (req) => {
+    requireCompanyAdmin(req);
+    const ctx = ctxOf(req);
+    const members = await db.query(
+      `select u.id as user_id, u.username, u.name, u.email, uc.role_id, r.name as role_name, uc.invited_by, uc.invited_at, u.last_login_at
+         from user_company uc join app_user u on u.id = uc.user_id left join role r on r.id = uc.role_id
+        where uc.company_id = $1 and uc.invited_by is not null order by coalesce(u.name, u.username)`,
+      [ctx.company],
+    );
+    const roles = await db.query("select id, name, description, permissions from role order by name");
+    return { members, roles };
+  });
+  app.post("/api/v1/company/members", async (req, reply) => {
+    requireCompanyAdmin(req);
+    const ctx = ctxOf(req);
+    const b = MemberSchema.parse(req.body);
+    await rolExiste(b.role_id);
+    if (b.username.toLowerCase() === req.sindri!.person.user.toLowerCase()) throw new BusinessError("No te puedes invitar a ti mismo", 400);
+    // Si todavía no ha entrado nunca en Sindri, su ficha se crea ya y se completa al entrar.
+    const [u] = await db.query<{ id: string }>(
+      `insert into app_user (username, name) values ($1, $1)
+       on conflict (username) do update set username = app_user.username returning id`,
+      [b.username],
+    );
+    await db.query(
+      `insert into user_company (user_id, company_id, role_id, invited_by, invited_at) values ($1, $2, $3, $4, now())
+       on conflict (user_id, company_id) do update set role_id = excluded.role_id, invited_by = excluded.invited_by, invited_at = now()`,
+      [u!.id, ctx.company, b.role_id, ctx.actor],
+    );
+    await log(db, ctx, "company", ctx.company, "invite", { usuario: b.username, role_id: b.role_id });
+    return reply.status(201).send({ user_id: u!.id });
+  });
+  app.patch<IdParams>("/api/v1/company/members/:id", async (req) => {
+    requireCompanyAdmin(req);
+    const ctx = ctxOf(req);
+    const { role_id } = z.object({ role_id: z.uuid() }).parse(req.body);
+    await rolExiste(role_id);
+    const [r] = await db.query("update user_company set role_id = $3 where user_id = $1 and company_id = $2 and invited_by is not null returning user_id", [
+      z.uuid().parse(req.params.id),
+      ctx.company,
+      role_id,
+    ]);
+    if (!r) throw notFound("Invitación");
+    await log(db, ctx, "company", ctx.company, "invite_role", { user_id: req.params.id, role_id });
+    return { ok: true };
+  });
+  app.delete<IdParams>("/api/v1/company/members/:id", async (req) => {
+    requireCompanyAdmin(req);
+    const ctx = ctxOf(req);
+    const [r] = await db.query("delete from user_company where user_id = $1 and company_id = $2 and invited_by is not null returning user_id", [
+      z.uuid().parse(req.params.id),
+      ctx.company,
+    ]);
+    if (!r) throw notFound("Invitación");
+    await log(db, ctx, "company", ctx.company, "uninvite", { user_id: req.params.id });
+    return { ok: true };
+  });
+
   app.get("/api/v1/roles", async () => listRoles(db));
   app.post("/api/v1/roles", async (req, reply) => {
     const r = RoleSchema.parse(req.body);
@@ -515,7 +609,7 @@ export function registerUsuarios(
   });
   app.delete<IdParams>("/api/v1/roles/:id", async (req) => {
     const id = z.uuid().parse(req.params.id);
-    const [used] = await db.query("select 1 from app_user where role_id = $1 limit 1", [id]);
+    const [used] = await db.query("select 1 from app_user where role_id = $1 union all select 1 from user_company where role_id = $1 limit 1", [id]);
     if (used) throw new BusinessError("Hay usuarios con ese rol: cámbiales el rol antes de borrarlo", 409);
     await db.query("delete from role where id = $1", [id]);
     return { ok: true };

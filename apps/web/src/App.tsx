@@ -113,11 +113,11 @@ function CompanyChooser({ me, onChosen, onCancel }: { me: Me; onChosen: () => vo
     .filter((c) => !f || [c.code, c.name, c.trade_name, c.tax_id].some((v) => v?.toLowerCase().includes(f)))
     .sort((a, b) => (a.id === preferida ? -1 : b.id === preferida ? 1 : Number(a.demo) - Number(b.demo) || (a.code ?? "").localeCompare(b.code ?? "") || a.name.localeCompare(b.name)));
   // Empresa con contraseña: se pide aquí mismo antes de entrar.
-  const [conClave, setConClave] = useState<string | null>(me.companies.length === 1 && me.companies[0]!.has_password ? me.companies[0]!.id : null);
+  const [conClave, setConClave] = useState<string | null>(me.companies.length === 1 && me.companies[0]!.has_password && !me.companies[0]!.guest ? me.companies[0]!.id : null);
   const [clave, setClave] = useState("");
   const elegir = async (id: string, password?: string) => {
     const c = me.companies.find((x) => x.id === id);
-    if (c?.has_password && password === undefined && id !== me.company) {
+    if (c?.has_password && !c.guest && password === undefined && id !== me.company) {
       setConClave(id);
       setClave("");
       setError(null);
@@ -169,7 +169,7 @@ function CompanyChooser({ me, onChosen, onCancel }: { me: Me; onChosen: () => vo
             <button key={c.id} className="chooser-item" disabled={busy} autoFocus={i === 0 && me.companies.length <= 5} onClick={() => elegir(c.id)}>
               <Building2 size={22} aria-hidden />
               <span>
-                <b>{nombreEmpresa(c)}{c.demo && <span className="tag tag-aviso">DEMO</span>}</b>
+                <b>{nombreEmpresa(c)}{c.demo && <span className="tag tag-aviso">DEMO</span>}{c.guest && <span className="tag">INVITADO</span>}</b>
                 <small>{c.trade_name ? `${c.name} · ` : ""}NIF {c.tax_id}</small>
               </span>
               {c.id === preferida && <em>{c.id === me.company ? "En uso" : "La última vez"}</em>}

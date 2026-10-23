@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, del, eur, post, sinVacios } from "../api";
+import { api, del, eur, patch, post, sinVacios } from "../api";
 import { useAction, useData } from "../hooks";
 import { useSession } from "../session";
 import { Code, ErrorBox, Field, Page, Table } from "../ui";
@@ -67,7 +67,9 @@ export function CompanyPage() {
           {saved && <span className="ok">Guardado</span>}
         </div>
       )}
-      {data && (me?.admin || me?.company_admin) && <ClaveEmpresa empresa={data} onSaved={async () => { await reload(); await reloadMe(); }} />}
+      {me?.guest && <p className="hint">Estás aquí como invitado: ves y cambias lo que te deja el rol que te han dado.</p>}
+      {data && (me?.admin || me?.company_admin) && <Invitados empresa={data} />}
+      {data && (me?.admin || me?.company_admin) && !me?.guest && <ClaveEmpresa empresa={data} onSaved={async () => { await reload(); await reloadMe(); }} />}
       {me?.admin && companies && (
         <>
           <h2>Empresas del grupo</h2>
@@ -133,6 +135,65 @@ export function CompanyPage() {
  * solo las ve quien esté en su grupo de Keycloak (<grupo de Sindri>/Empresa/<código>), también
  * quien administra.
  */
+/**
+ * Personas invitadas a la empresa en uso, cada una con su rol aquí (como en un ERP): quien
+ * administra la empresa decide qué ve y qué toca cada una. No necesitan la contraseña de la empresa.
+ */
+function Invitados({ empresa }: { empresa: any }) {
+  const { data, reload } = useData<{ members: any[]; roles: { id: string; name: string; description: string | null }[] }>("/company/members");
+  const { run, error, busy } = useAction();
+  const [usuario, setUsuario] = useState("");
+  const [rol, setRol] = useState("");
+  const roles = data?.roles ?? [];
+  const invitar = () =>
+    run(async () => {
+      await post("/company/members", { username: usuario.trim(), role_id: rol });
+      setUsuario("");
+      await reload();
+    });
+  return (
+    <div className="card">
+      <h2>Personas invitadas a {empresa.name}</h2>
+      <p className="hint">
+        Invita a alguien por su usuario (el de entrar en Sindri) y elige su rol aquí: el rol dice qué partes ve y en cuáles puede cambiar cosas. Entra sin la
+        contraseña de la empresa y solo mientras no le quites la invitación. Fuera de esta empresa sigue con lo suyo. Un rol con «Usuarios: editar» le deja invitar
+        a otros.
+      </p>
+      {data && data.members.length > 0 && (
+        <Table>
+          <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol aquí</th><th>Invitado por</th><th></th></tr></thead>
+          <tbody>
+            {data.members.map((m) => (
+              <tr key={m.user_id}>
+                <td><Code>{m.username}</Code></td>
+                <td>{m.last_login_at ? m.name : `${m.name ?? ""} (aún no ha entrado)`}</td>
+                <td>
+                  <select value={m.role_id ?? ""} disabled={busy} onChange={(e) => run(async () => { await patch(`/company/members/${m.user_id}`, { role_id: e.target.value }); await reload(); })}>
+                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </td>
+                <td>{m.invited_by}</td>
+                <td><button className="link" disabled={busy} onClick={() => run(async () => { await del(`/company/members/${m.user_id}`); await reload(); })}>Quitar</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+      <div className="form">
+        <Field label="Usuario"><input value={usuario} onChange={(e) => setUsuario(e.target.value)} placeholder="p. ej. ivan" /></Field>
+        <Field label="Rol en esta empresa">
+          <select value={rol} onChange={(e) => setRol(e.target.value)}>
+            <option value="">Elige un rol</option>
+            {roles.map((r) => <option key={r.id} value={r.id}>{r.name}{r.description ? ` · ${r.description}` : ""}</option>)}
+          </select>
+        </Field>
+      </div>
+      <ErrorBox error={error} />
+      <div className="row"><button className="primary" onClick={invitar} disabled={busy || !usuario.trim() || !rol}>Invitar</button></div>
+    </div>
+  );
+}
+
 /** Contraseña que pide la empresa al elegirla. Para cambiarla o quitarla hay que saber la actual. */
 function ClaveEmpresa({ empresa, onSaved }: { empresa: any; onSaved: () => Promise<void> }) {
   const [actual, setActual] = useState("");
