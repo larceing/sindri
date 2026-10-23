@@ -37,7 +37,8 @@ services:
       KEYCLOAK_SECRETO_LOCAL: ${KEYCLOAK_SECRETO_LOCAL:-solo-para-el-keycloak-local}
     volumes:
       - ./desarrollo/keycloak:/opt/keycloak/data/import:ro
-    ports: ["8080:8080"]
+    # Solo en este PC: lleva usuario admin/admin.
+    ports: ["127.0.0.1:8080:8080"]
 
   app:
     build:
@@ -73,7 +74,8 @@ services:
 
   simulador-opcua:
     build: ./planta/simulador
-    ports: ["4840:4840"]
+    # Solo en este PC: el simulador no lleva seguridad.
+    ports: ["127.0.0.1:4840:4840"]
 
   # Agente de planta contra el simulador. Arranca aparte, cuando ya tiene token:
   #   1. En Sindri → Planta, crea un agente y copia su token en desarrollo/planta.token
@@ -83,6 +85,7 @@ services:
   agente-planta:
     build: ./planta/agente
     profiles: [planta]
+    restart: unless-stopped
     depends_on: [entrada, simulador-opcua]
     environment:
       SINDRI_URL: http://entrada:8000/sindri

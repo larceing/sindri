@@ -1,20 +1,25 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 
 export function useData<T = any>(path: string | null) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(path !== null);
+  // Solo cuenta la última petición: una respuesta vieja que llega tarde (p. ej. al buscar) no pisa a la nueva.
+  const ultima = useRef(0);
   const reload = useCallback(async () => {
     if (!path) return;
+    const n = ++ultima.current;
     setLoading(true);
     try {
-      setData(await api<T>(path));
+      const d = await api<T>(path);
+      if (n !== ultima.current) return;
+      setData(d);
       setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      if (n === ultima.current) setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (n === ultima.current) setLoading(false);
     }
   }, [path]);
   useEffect(() => {

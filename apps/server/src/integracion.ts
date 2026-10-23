@@ -84,15 +84,15 @@ export async function upsertItems(db: Db, llave: Llave, items: ItemInput[]) {
     const out: { ref: string; estado: string; id?: string; pedido?: string | null; error?: string }[] = [];
     for (const it of items) {
       const [cli] = UUID.test(it.cliente)
-        ? await q.query<{ id: string }>("select id from partner where id = $1 and company_id = $2 and not archived", [it.cliente, ctx.company])
-        : await q.query<{ id: string }>("select id from partner where upper(tax_id) = upper($1) and company_id = $2 and not archived limit 1", [it.cliente, ctx.company]);
+        ? await q.query<{ id: string }>("select id from partner where id = $1 and company_id = maestro($2) and not archived", [it.cliente, ctx.company])
+        : await q.query<{ id: string }>("select id from partner where upper(tax_id) = upper($1) and company_id = maestro($2) and not archived limit 1", [it.cliente, ctx.company]);
       if (!cli) {
         out.push({ ref: it.ref, estado: "error", error: `No hay cliente ${it.cliente} en Sindri` });
         continue;
       }
       const [prod] = UUID.test(it.producto)
-        ? await q.query<{ id: string }>("select id from product where id = $1 and company_id = $2", [it.producto, ctx.company])
-        : await q.query<{ id: string }>("select id from product where sku = $1 and company_id = $2", [it.producto, ctx.company]);
+        ? await q.query<{ id: string }>("select id from product where id = $1 and company_id = maestro($2)", [it.producto, ctx.company])
+        : await q.query<{ id: string }>("select id from product where sku = $1 and company_id = maestro($2)", [it.producto, ctx.company]);
       if (!prod) {
         out.push({ ref: it.ref, estado: "error", error: `No hay producto ${it.producto} en Sindri` });
         continue;
@@ -148,7 +148,7 @@ export async function withdrawItem(db: Db, llave: Llave, ref: string) {
   );
   if (!row) throw notFound("Elemento");
   if (row.state !== "pending") throw new BusinessError("Ya está en un pedido o descartado: se quita desde Sindri", 409);
-  await db.query("delete from billable_item where company_id = $1 and source = $2 and external_ref = $3", [llave.company_id, llave.name, ref]);
+  await db.query("delete from billable_item where company_id = $1 and source = $2 and external_ref = $3 and state = 'pending'", [llave.company_id, llave.name, ref]);
   return { ok: true };
 }
 
@@ -189,7 +189,7 @@ export async function ensureCliente(db: Db, llave: Llave, c: ClienteInput) {
   const ctx = ctxDe(llave);
   const tax = c.tax_id ? nif(c.tax_id) : null;
   const [cur] = await db.query<{ id: string }>(
-    `select id from partner where company_id = $1 and not archived and kind <> 'supplier'
+    `select id from partner where company_id = maestro($1) and not archived and kind <> 'supplier'
        and (($2::text is not null and upper(regexp_replace(coalesce(tax_id, ''), '[\\s.-]', '', 'g')) = $2)
             or lower(name) = lower($3) or lower(coalesce(trade_name, '')) = lower($3))
      order by ($2::text is not null and upper(regexp_replace(coalesce(tax_id, ''), '[\\s.-]', '', 'g')) = $2) desc limit 1`,
@@ -211,7 +211,7 @@ export interface ServicioInput {
 /** Un servicio que la app necesita: si el sku ya está, se devuelve y no se toca; si no, se da de alta. */
 export async function ensureServicio(db: Db, llave: Llave, p: ServicioInput) {
   const ctx = ctxDe(llave);
-  const [cur] = await db.query<{ id: string; archived: boolean }>("select id, archived from product where company_id = $1 and sku = $2", [ctx.company, p.sku]);
+  const [cur] = await db.query<{ id: string; archived: boolean }>("select id, archived from product where company_id = maestro($1) and sku = $2", [ctx.company, p.sku]);
   if (cur?.archived) throw new BusinessError(`El producto ${p.sku} está archivado en Sindri`, 409);
   if (cur) return { id: cur.id, creado: false };
   const row = (await createProduct(db, ctx, { ...p, kind: "service", uom: p.uom || "h" })) as { id: string };
@@ -346,14 +346,14 @@ export function registerIntegracion(app: FastifyInstance, db: Db) {
       api.get<{ Querystring: { q?: string } }>("/clientes", async (req) =>
         db.query(
           `select id, code, name, trade_name, tax_id, email, phone, address, city, postal_code, province, country
-           from partner where company_id = $1 and not archived and kind <> 'supplier'
+           from partner where company_id = maestro($1) and not archived and kind <> 'supplier'
              and ($2::text is null or lower(name) like '%' || lower($2) || '%' or lower(coalesce(trade_name, '')) like '%' || lower($2) || '%' or tax_id ilike $2)
            order by name limit 2000`,
           [llaveDe(req).company_id, req.query.q?.trim() || null],
         ),
       );
       api.get("/productos", async (req) =>
-        db.query("select id, sku, name, kind, uom, sale_price, vat_rate from product where company_id = $1 and not archived order by sku", [llaveDe(req).company_id]),
+        db.query("select id, sku, name, kind, uom, sale_price, vat_rate from product where company_id = maestro($1) and not archived order by sku", [llaveDe(req).company_id]),
       );
       api.post("/clientes", async (req, reply) => {
         const r = await ensureCliente(db, llaveDe(req), ClienteSchema.parse(req.body));

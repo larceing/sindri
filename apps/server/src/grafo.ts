@@ -19,7 +19,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Db, Queryable } from "./db.js";
-import { BusinessError, type Ctx } from "./services.js";
+import { BusinessError, OWN_LOCATION, type Ctx } from "./services.js";
+
+/** SQL: el lote `l` ha pasado por algún almacén de la empresa `param` (los productos pueden ser comunes; los lotes de cada una, no). */
+const LOTE_PROPIO = (param: string) =>
+  `exists (select 1 from stock_move m join location a on a.id = m.from_location_id join location b on b.id = m.to_location_id
+           where m.lot_id = l.id and (${OWN_LOCATION("a", param)} or ${OWN_LOCATION("b", param)}))`;
 import { ctxOf } from "./usuarios.js";
 
 export interface Nodo {
@@ -87,7 +92,7 @@ export const TIPOS: Record<string, Tipo> = {
     modulo: "clientes",
     centro: true,
     async cargar(q, ctx, id) {
-      const [p] = await q.query("select * from partner where id = $1 and company_id = $2", [id, ctx.company]);
+      const [p] = await q.query("select * from partner where id = $1 and company_id = maestro($2)", [id, ctx.company]);
       if (!p) return null;
       return {
         titulo: String(p.trade_name ?? p.name),
@@ -122,7 +127,7 @@ export const TIPOS: Record<string, Tipo> = {
     },
     buscar: (q, ctx, t) =>
       q.query(
-        `select id from partner where company_id = $1 and (name ilike $2 or trade_name ilike $2 or code ilike $2 or tax_id ilike $2)
+        `select id from partner where company_id = maestro($1) and (name ilike $2 or trade_name ilike $2 or code ilike $2 or tax_id ilike $2)
          order by archived, name limit 8`,
         [ctx.company, like(t)],
       ),
@@ -329,8 +334,9 @@ export const TIPOS: Record<string, Tipo> = {
     async cargar(q, ctx, id) {
       const [l] = await q.query(
         `select l.*, p.sku, p.name as producto,
-           (select coalesce(sum(b.quantity), 0) from stock_balance b where b.lot_id = l.id) as existencias
-         from lot l join product p on p.id = l.product_id where l.id = $1 and p.company_id = $2`,
+           (select coalesce(sum(b.quantity), 0) from stock_balance b join location loc on loc.id = b.location_id
+             where b.lot_id = l.id and ${OWN_LOCATION("loc", "$2")}) as existencias
+         from lot l join product p on p.id = l.product_id where l.id = $1 and p.company_id = maestro($2) and ${LOTE_PROPIO("$2")}`,
         [id, ctx.company],
       );
       if (!l) return null;
@@ -353,7 +359,7 @@ export const TIPOS: Record<string, Tipo> = {
       return ids(dels, "albaran", "antes", "lote");
     },
     buscar: (q, ctx, t) =>
-      q.query(`select l.id from lot l join product p on p.id = l.product_id where p.company_id = $1 and l.code ilike $2 order by l.created_at desc limit 8`, [
+      q.query(`select l.id from lot l join product p on p.id = l.product_id where p.company_id = maestro($1) and ${LOTE_PROPIO("$1")} and l.code ilike $2 order by l.created_at desc limit 8`, [
         ctx.company,
         like(t),
       ]),
@@ -362,14 +368,14 @@ export const TIPOS: Record<string, Tipo> = {
 
 const METODO: Record<string, string> = { transfer: "Transferencia", cash: "Efectivo", card: "Tarjeta", direct_debit: "Domiciliación" };
 
-const visible = (tipo: string, perms: Record<string, unknown>) => !!TIPOS[tipo] && !!perms[TIPOS[tipo]!.modulo];
+const visible = (tipo: string, perms: Record<string, unknown>) => Object.hasOwn(TIPOS, tipo) && !!perms[TIPOS[tipo]!.modulo];
 
 /**
  * Recorre el grafo desde un registro. Los centros (cliente, lote, ruta) solo se abren si son el
  * punto de partida; los demás se abren hasta `profundidad` saltos.
  */
 export async function grafoDesde(q: Queryable, ctx: Ctx, perms: Record<string, unknown>, tipo: string, id: string, profundidad = MAX_PROFUNDIDAD) {
-  if (!TIPOS[tipo]) throw new BusinessError(`No hay registros de tipo «${tipo}»`, 404);
+  if (!Object.hasOwn(TIPOS, tipo)) throw new BusinessError(`No hay registros de tipo «${tipo}»`, 404);
   if (!visible(tipo, perms)) throw new BusinessError("Tu rol no da acceso a esta parte de Sindri", 403);
   const inicio = `${tipo}:${id}`;
   const nodos = new Map<string, Nodo>();

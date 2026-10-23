@@ -157,6 +157,17 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
     expect((await call("GET", `/api/v1/sales-orders/${o3}`)).body.state).toBe("confirmed");
   });
 
+  it("no emite una factura ordinaria en negativo (el abono va en rectificativa)", async () => {
+    const o4 = (await call("POST", "/api/v1/sales-orders", { partner_id: customer, lines: [{ product_id: service, quantity: "1", unit_price: "-50" }] })).body.id;
+    await call("POST", `/api/v1/sales-orders/${o4}/confirm`);
+    await call("POST", `/api/v1/sales-orders/${o4}/deliver`);
+    const inv = (await call("POST", `/api/v1/sales-orders/${o4}/invoice`)).body.id;
+    const r = await call("POST", `/api/v1/invoices/${inv}/issue`);
+    expect(r.status).toBe(422);
+    expect(r.body.error).toMatch(/rectificativa/);
+    expect((await call("GET", `/api/v1/invoices/${inv}`)).body.state).toBe("draft");
+  });
+
   it("deja auditoría de todo", async () => {
     const ev = (await call("GET", "/api/v1/events")).body;
     expect(ev.some((e: { action: string }) => e.action === "issue")).toBe(true);

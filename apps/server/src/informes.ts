@@ -4,7 +4,8 @@
  *  - /api/v1/informes/...      la web: crear y revocar lectores (permiso «informes»).
  *  - /api/informes/v1/...      la herramienta de informes, con el token de su lector.
  *
- * Cada lector es de una empresa y solo ve los datos de esa empresa. El token va en
+ * Cada lector es de una empresa y solo ve los datos de esa empresa. Si la empresa comparte los
+ * maestros con otra, los clientes son los comunes; pedidos, facturas, stock… siguen siendo suyos. El token va en
  * «Authorization: Bearer …» o, para herramientas que no dejan poner cabeceras, en «?token=».
  * Formatos: JSON (por defecto), CSV (separado por punto y coma) y XML.
  */
@@ -12,7 +13,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import type { Db } from "./db.js";
-import { BusinessError, log, notFound, type Ctx } from "./services.js";
+import { BusinessError, OWN_LOCATION, log, notFound, type Ctx } from "./services.js";
 import { ctxOf } from "./usuarios.js";
 
 const hash = (t: string) => createHash("sha256").update(t).digest("hex");
@@ -26,8 +27,8 @@ export const DATASETS: Record<string, { label: string; sql: string }> = {
             p.phone as telefono, p.mobile as movil, p.email, r.code as comercial_codigo, r.name as comercial,
             p.payment_method as forma_pago, p.payment_days as dias_pago, p.credit_limit as limite_credito,
             p.discount_pct as descuento, p.route_zone as zona_reparto, p.created_at::date as alta
-          from partner p left join sales_rep r on r.id = p.sales_rep_id
-          where p.company_id = $1 and not p.archived and ($2::date is null or true) and ($3::date is null or true) order by p.name`,
+          from partner p left join sales_rep r on r.id = p.sales_rep_id and r.company_id = $1
+          where p.company_id = maestro($1) and not p.archived and ($2::date is null or true) and ($3::date is null or true) order by p.name`,
   },
   pedidos: {
     label: "Pedidos de venta (cabecera)",
@@ -89,7 +90,7 @@ export const DATASETS: Record<string, { label: string; sql: string }> = {
             l.code as ubicacion, b.quantity as cantidad, p.cost_price as coste, round(b.quantity * p.cost_price, 2) as valor
           from stock_balance b join product p on p.id = b.product_id join location l on l.id = b.location_id
           left join lot on lot.id = b.lot_id
-          where p.company_id = $1 and ($2::date is null or true) and ($3::date is null or true) order by p.sku, lot.code`,
+          where ${OWN_LOCATION("l", "$1")} and ($2::date is null or true) and ($3::date is null or true) order by p.sku, lot.code`,
   },
 };
 
@@ -106,7 +107,9 @@ export function toCsv(rows: Record<string, unknown>[]) {
   if (!rows.length) return "";
   const cols = Object.keys(rows[0]!);
   const cell = (v: unknown) => {
-    const s = str(v);
+    // Lo que empieza por = + - @ Excel lo tomaría como fórmula: se protege con un apóstrofo.
+    const s0 = str(v);
+    const s = typeof v === "string" && /^[=+\-@\t\r]/.test(s0) ? `'${s0}` : s0;
     return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [cols.join(";"), ...rows.map((r) => cols.map((c) => cell(r[c])).join(";"))].join("\r\n") + "\r\n";

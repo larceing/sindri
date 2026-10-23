@@ -25,6 +25,24 @@ body {
 .dot { width: 8px; height: 8px; border-radius: var(--r-full); background: var(--ok-9); }
 main { padding: var(--s-6) var(--s-8); min-width: 0; max-width: 1440px; }
 .side-foot { margin-top: auto; padding-top: var(--s-3); }
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.side-items { display: flex; flex-direction: column; gap: var(--s-0_5); flex: 1; min-height: 0; overflow-y: auto; }
+.side-toggle, .side-plegar { background: transparent; color: var(--lateral-texto); border-color: transparent; padding: 0; width: max(40px, var(--target)); flex: none; }
+.side-toggle:hover, .side-plegar:hover { background: var(--lateral-activo); color: #fff; }
+.side-toggle { display: none; }
+.side-plegar { min-height: 32px; width: 32px; margin-bottom: var(--s-4); }
+
+/* Menú lateral plegado (solo en pantallas anchas): solo iconos, el nombre sale al pasar el ratón. */
+@media (min-width: 761px) {
+  .shell.plegado { grid-template-columns: 64px 1fr; }
+  .plegado .side { padding-left: var(--s-2); padding-right: var(--s-2); }
+  .plegado .side-top { flex-direction: column; }
+  .plegado .brand { padding: var(--s-1) 0 var(--s-2); }
+  .plegado .side-plegar { margin-bottom: var(--s-3); }
+  .plegado .brand-txt, .plegado .side-items a span, .plegado .usermenu-txt, .plegado .usermenu-btn > svg { display: none; }
+  .plegado .side-items a { justify-content: center; padding: 0; }
+  .plegado .usermenu-btn { justify-content: center; padding: var(--s-1) 0; }
+}
 
 /* Menú arriba o abajo: la barra va encima y el contenido ocupa todo el ancho. */
 .shell-superior, .shell-inferior { display: flex; flex-direction: column; }
@@ -79,6 +97,8 @@ h2 { font-size: var(--t-md); line-height: var(--lh-md); font-weight: 600; margin
 .mono, .code { font-family: var(--fuente-mono); font-size: 0.92em; font-variant-ligatures: none; }
 .num, .tnum { font-variant-numeric: tabular-nums; }
 .hint { color: var(--texto-2); max-inline-size: 70ch; }
+/* Una dirección larga dentro de un texto parte línea en vez de ensanchar la página. */
+p .code, p .mono, .hint .code { overflow-wrap: anywhere; }
 .mono-block { font-family: var(--fuente-mono); font-size: var(--t-xs); line-height: var(--lh-xs); color: var(--texto-2); word-break: break-all; }
 
 /* ---------- Página ---------- */
@@ -131,7 +151,8 @@ h3 { font-size: var(--t-sm); line-height: var(--lh-sm); font-weight: 600; color:
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
 .card-head h2 { margin: 0; }
 .subform { background: var(--superficie-2); border-radius: var(--r-2); padding: var(--s-4); margin: var(--s-3) 0; }
-.split2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--s-6); }
+.split2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: var(--s-6); }
+.split2 > * { min-width: 0; }
 td.acts { display: flex; gap: var(--s-2); align-items: center; height: auto; min-height: var(--fila); flex-wrap: wrap; padding-top: var(--s-1); padding-bottom: var(--s-1); }
 td.acts a { color: var(--enlace); }
 td.acts button:not(.link) { min-height: 32px; padding: 0 var(--s-2); }
@@ -139,8 +160,8 @@ tr.inactive td { color: var(--texto-2); }
 .checks { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-5); }
 .filters { margin-top: 0; }
 .ico { vertical-align: -3px; color: var(--texto-2); }
-.tabs { display: flex; gap: var(--s-1); border-bottom: 1px solid var(--borde); margin-bottom: var(--s-5); }
-.tabs button { border: 0; border-radius: var(--r-2) var(--r-2) 0 0; background: none; color: var(--texto-2); box-shadow: none; }
+.tabs { display: flex; gap: var(--s-1); border-bottom: 1px solid var(--borde); margin-bottom: var(--s-5); overflow-x: auto; scrollbar-width: thin; }
+.tabs button { white-space: nowrap; flex: none; border: 0; border-radius: var(--r-2) var(--r-2) 0 0; background: none; color: var(--texto-2); box-shadow: none; }
 .tabs button.active { color: var(--texto); box-shadow: inset 0 -2px 0 var(--accion); }
 .print-only { display: none; }
 .stop-delivered td { background: color-mix(in srgb, var(--ok-3) 60%, transparent); }
@@ -226,16 +247,23 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
 .kpi b { display: block; font-size: min(var(--t-2xl), 14cqi); line-height: 1.2; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
 @media (max-width: 760px) {
-  .shell { grid-template-columns: 1fr; }
-  .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; }
-  .brand { padding-bottom: var(--s-1); }
-  .side .side-foot { margin-top: 0; width: 100%; }
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  /* Móvil: barra fina arriba con la marca y el botón ☰; el menú se abre y se cierra con él. */
+  .side { position: sticky; top: 0; z-index: 20; height: auto; max-height: 100dvh; padding: var(--s-1) var(--s-2) var(--s-1) var(--s-3); }
+  .side-top { min-height: 48px; }
+  .side .brand { padding: 0; }
+  .side-toggle { display: inline-flex; }
+  .side-plegar { display: none; }
+  .side-items, .side .side-foot { display: none; }
+  .side.abierto { overflow-y: auto; box-shadow: 0 8px 24px #0006; }
+  .side.abierto .side-items { display: flex; overflow: visible; padding-top: var(--s-2); }
+  .side.abierto .side-foot { display: block; margin-top: 0; padding-bottom: var(--s-2); }
   .topbar { flex-wrap: wrap; }
   .topnav { order: 3; flex-basis: 100%; }
   .usermenu-txt b, .usermenu-txt small { max-width: 120px; }
   main { padding: var(--s-4); }
   .shell-inferior main { padding-bottom: 96px; }
-  .split2 { grid-template-columns: 1fr; }
+  .split2 { grid-template-columns: minmax(0, 1fr); }
 }
 @media print {
   .side, .topbar, .bottomnav, .page-head button, .page-head a.button, .card, .hint, .alert, .mono-block, .no-print, .tabs { display: none !important; }

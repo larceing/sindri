@@ -11,7 +11,7 @@ import { currentPerson, registerSso, type SsoConfig } from "./sso.js";
 import { PLANTA_MINIMA, registerPlanta } from "./planta.js";
 import * as c from "./comercial.js";
 import * as crm from "./crm.js";
-import { ctxOf, maybeCtx, registerUsuarios } from "./usuarios.js";
+import { ctxOf, keycloakAccess, maybeCtx, registerUsuarios, requireAdmin } from "./usuarios.js";
 import { registerInformes } from "./informes.js";
 import { registerDocumentos, type ReportServerConfig } from "./documentos.js";
 import { registerIntegracion, releaseOrderItems } from "./integracion.js";
@@ -256,6 +256,8 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
     if (err instanceof ZodError) return reply.status(400).send({ error: "Datos no válidos", details: err.issues });
     if (err instanceof s.BusinessError) return reply.status(err.status).send({ error: err.message, code: (err as { code?: string }).code });
     if (err instanceof TransitionError) return reply.status(409).send({ error: err.message });
+    // Un número fuera de rango en las reglas de negocio (p. ej. un descuento de más del 100 %) es un dato no válido, no un fallo.
+    if (err instanceof RangeError) return reply.status(422).send({ error: err.message });
     const pgCode = (err as { code?: string }).code;
     if (pgCode === "23505") return reply.status(409).send({ error: "Ya existe un registro con ese código" });
     if (pgCode === "P0001") return reply.status(409).send({ error: (err as Error).message });
@@ -276,6 +278,13 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
 
   app.get("/api/v1/company", async (req) => s.getCompany(db, req.sindri?.company ?? null));
   app.put("/api/v1/company", async (req) => s.setupCompany(db, maybeCtx(req), CompanySchema.parse(req.body)));
+  // Maestros compartidos y empresa reservada: solo administración.
+  app.put("/api/v1/company/sharing", async (req) => {
+    requireAdmin(req);
+    const input = z.object({ master_company_id: z.uuid().nullable().optional(), restricted: z.boolean().optional(), aun_sin_verla: z.boolean().optional() }).parse(req.body);
+    const kc = keycloakAccess(req.sindri!.person.groups);
+    return s.setCompanySharing(db, ctxOf(req), input, (code) => !!code && kc.companies.has(code.toUpperCase()));
+  });
 
   app.get<{ Querystring: { q?: string } }>("/api/v1/partners", async (req) => s.listPartners(db, ctxOf(req), req.query.q));
   app.post("/api/v1/partners", async (req, reply) => reply.status(201).send(await s.createPartner(db, ctxOf(req), PartnerSchema.parse(req.body))));

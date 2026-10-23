@@ -32,6 +32,15 @@ class PruebaResumidor(unittest.TestCase):
         self.assertEqual(m["ts"], "1970-01-01T00:02:00.000Z")
         self.assertEqual(m["id"], "L1:Velocidad:minuto:1970-01-01T00:02:00.000Z")
 
+    def test_sin_numero_no_se_manda(self):
+        # NaN o infinito no son JSON válido: el ERP rechazaría el lote y la cola se atascaría.
+        r = Resumidor()
+        self.assertEqual(r.muestra("L1", "V", "value", float("nan"), 0), [])
+        self.assertEqual(r.muestra("L1", "V", "counter", float("inf"), 0), [])
+        self.assertEqual(r.muestra("L1", "E", "state", None, 0), [])
+        self.assertEqual(r.muestra("L1", "E", "state", float("nan"), 0), [])
+        self.assertEqual(len(r.muestra("L1", "E", "state", 2, 0)), 1)
+
     def test_versiones(self):
         self.assertLess(version_tupla("0.1.0"), version_tupla("0.2.0"))
         self.assertLess(version_tupla("0.9.0"), version_tupla("0.10.0"))

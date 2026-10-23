@@ -70,15 +70,26 @@ export function CompanyPage() {
       {me?.admin && companies && (
         <>
           <h2>Empresas del grupo</h2>
-          <p className="hint">Cada empresa lleva sus clientes, productos, pedidos, facturas, numeración y su cadena VERI*FACTU por separado. Quien trabaja en varias elige una al entrar.</p>
+          <p className="hint">
+            Cada empresa lleva sus presupuestos, pedidos, facturas, numeración, stock y su cadena VERI*FACTU por separado. Los clientes, productos, tarifas y
+            modelos de presupuesto pueden ser comunes a varias. Quien trabaja en varias elige una al entrar.
+          </p>
           <Table>
-            <thead><tr><th>Código</th><th>Razón social</th><th>Nombre comercial</th><th>NIF</th><th>Población</th></tr></thead>
+            <thead><tr><th>Código</th><th>Razón social</th><th>Nombre comercial</th><th>NIF</th><th>Clientes y productos</th><th>Acceso</th></tr></thead>
             <tbody>
               {companies.map((c) => (
-                <tr key={c.id}><td><Code>{c.code}</Code></td><td>{c.name}{c.id === me.company ? " (en uso)" : ""}{c.demo && <span className="tag tag-aviso">DEMO</span>}</td><td>{c.trade_name}</td><td><Code>{c.tax_id}</Code></td><td>{c.city}</td></tr>
+                <tr key={c.id}>
+                  <td><Code>{c.code}</Code></td>
+                  <td>{c.name}{c.id === me.company ? " (en uso)" : ""}{c.demo && <span className="tag tag-aviso">DEMO</span>}</td>
+                  <td>{c.trade_name}</td>
+                  <td><Code>{c.tax_id}</Code></td>
+                  <td>{c.master_company_id ? `Los de ${companies.find((m) => m.id === c.master_company_id)?.name ?? "otra empresa"}` : "Propios"}</td>
+                  <td>{c.restricted ? "Reservada" : "Normal"}</td>
+                </tr>
               ))}
             </tbody>
           </Table>
+          {data && <Compartir empresa={data} companies={companies} onSaved={async () => { await reload(); await reloadList(); await reloadMe(); }} />}
           {data && <DatosEmpresa empresa={data} />}
           {nueva ? (
             <div className="card">
@@ -101,6 +112,70 @@ export function CompanyPage() {
         </>
       )}
     </Page>
+  );
+}
+
+/**
+ * Con quién comparte la empresa en uso clientes y productos, y si es reservada. Las reservadas
+ * solo las ve quien esté en su grupo de Keycloak (<grupo de Sindri>/Empresa/<código>), también
+ * quien administra.
+ */
+function Compartir({ empresa, companies, onSaved }: { empresa: any; companies: any[]; onSaved: () => Promise<void> }) {
+  const [master, setMaster] = useState<string>(empresa.master_company_id ?? "");
+  const [reservada, setReservada] = useState<boolean>(!!empresa.restricted);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const { run, error, busy } = useAction();
+  useEffect(() => {
+    setMaster(empresa.master_company_id ?? "");
+    setReservada(!!empresa.restricted);
+  }, [empresa]);
+  const otras = companies.filter((c) => c.id !== empresa.id && !c.master_company_id);
+  const guardar = (aunSinVerla = false) =>
+    run(async () => {
+      const body: Record<string, unknown> = { restricted: reservada };
+      if ((empresa.master_company_id ?? "") !== master) body.master_company_id = master || null;
+      if (aunSinVerla) body.aun_sin_verla = true;
+      try {
+        await api("/company/sharing", { method: "PUT", body });
+        setAviso(null);
+      } catch (e) {
+        if ((e as { code?: string }).code === "dejarias_de_verla") return setAviso((e as Error).message);
+        throw e;
+      }
+      await onSaved();
+    });
+  return (
+    <div className="card">
+      <h2>Compartir y reservar ({empresa.name})</h2>
+      <p className="hint">
+        Con clientes y productos comunes, lo que una empresa da de alta lo ve la otra; los precios de cada línea se siguen pudiendo cambiar en el documento.
+        Solo se elige con la empresa vacía.
+      </p>
+      <div className="form">
+        <Field label="Clientes, productos y tarifas">
+          <select value={master} onChange={(e) => setMaster(e.target.value)}>
+            <option value="">Propios de esta empresa</option>
+            {otras.map((c) => <option key={c.id} value={c.id}>Los de {c.code} {c.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Acceso">
+          <select value={reservada ? "1" : ""} onChange={(e) => setReservada(e.target.value === "1")}>
+            <option value="">Normal: quien tenga la empresa asignada (y administración)</option>
+            <option value="1">Reservada: solo su grupo de Keycloak Empresa/{empresa.code}</option>
+          </select>
+        </Field>
+      </div>
+      <ErrorBox error={error} />
+      {aviso ? (
+        <div className="row">
+          <span className="hint">{aviso}</span>
+          <button className="primary" onClick={() => guardar(true)} disabled={busy}>Reservarla igualmente</button>
+          <button onClick={() => setAviso(null)}>Cancelar</button>
+        </div>
+      ) : (
+        <div className="row"><button onClick={() => guardar()} disabled={busy}>Guardar</button></div>
+      )}
+    </div>
   );
 }
 

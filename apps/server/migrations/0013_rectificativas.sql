@@ -1,4 +1,4 @@
--- Rectificativas: una factura emitida y sin cobrar se anula entera con una rectificativa (serie R,
+-- Rectificativas (va detrás de 0011 y 0012): una factura emitida y sin cobrar se anula entera con una rectificativa (serie R,
 -- tipo R1) de importe negativo. Las dos quedan «rectificada» y dejan de salir como pendientes.
 -- Solo se añade: compatible con la versión anterior.
 alter table invoice drop constraint if exists invoice_state_check;
