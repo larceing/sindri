@@ -19,7 +19,7 @@ export function HomePage() {
   const unpaid = invoices?.filter((i) => i.state === "issued") ?? [];
   const pendingAmount = unpaid.reduce((a, i) => a + Number(i.pending ?? i.amount_due), 0);
   const month = new Date().toISOString().slice(0, 7);
-  const billed = (invoices ?? []).filter((i) => (i.state === "issued" || i.state === "paid") && i.issue_date?.startsWith(month)).reduce((a, i) => a + Number(i.untaxed), 0);
+  const billed = (invoices ?? []).filter((i) => (i.state === "issued" || i.state === "paid" || i.state === "rectified") && i.issue_date?.startsWith(month)).reduce((a, i) => a + Number(i.untaxed), 0);
   const unsent = vf?.filter((r) => r.send_state !== "sent").length ?? 0;
   const tasks = [...toDeliver.map((o) => ({ ...o, task: "Entregar" })), ...toInvoice.map((o) => ({ ...o, task: "Facturar" }))];
   return (

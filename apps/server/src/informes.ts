@@ -57,10 +57,10 @@ export const DATASETS: Record<string, { label: string; sql: string }> = {
     sql: `select i.number as factura, i.issue_date as fecha, i.state as estado, p.name as cliente, p.tax_id as nif,
             r.name as comercial, i.untaxed as base, i.vat_total as iva, i.surcharge_total as recargo,
             i.withholding as retencion, i.total, coalesce((select sum(amount) from payment where invoice_id = i.id), 0) as cobrado,
-            i.amount_due - coalesce((select sum(amount) from payment where invoice_id = i.id), 0) as pendiente
+            case when i.state = 'rectified' then 0 else i.amount_due - coalesce((select sum(amount) from payment where invoice_id = i.id), 0) end as pendiente
           from invoice i join partner p on p.id = i.partner_id left join sales_order o on o.id = i.order_id
           left join sales_rep r on r.id = o.sales_rep_id
-          where i.company_id = $1 and i.state in ('issued', 'paid')
+          where i.company_id = $1 and i.state in ('issued', 'paid', 'rectified')
             and ($2::date is null or i.issue_date >= $2) and ($3::date is null or i.issue_date <= $3)
           order by i.issue_date, i.number`,
   },
@@ -70,7 +70,7 @@ export const DATASETS: Record<string, { label: string; sql: string }> = {
             coalesce(sum(i.untaxed), 0) as base_facturada,
             round(coalesce(sum(i.untaxed), 0) * r.commission_pct / 100, 2) as comision
           from sales_rep r left join sales_order o on o.sales_rep_id = r.id
-          left join invoice i on i.order_id = o.id and i.state in ('issued', 'paid')
+          left join invoice i on i.order_id = o.id and i.state in ('issued', 'paid', 'rectified')
             and ($2::date is null or i.issue_date >= $2) and ($3::date is null or i.issue_date <= $3)
           where r.company_id = $1 group by r.id order by r.name`,
   },

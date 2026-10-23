@@ -42,7 +42,7 @@ describe("Máquinas de estado", () => {
   it("no permite saltos ilegales", () => {
     expect(SalesOrderMachine.next("draft", "confirm")).toBe("confirmed");
     expect(() => SalesOrderMachine.next("draft", "invoice")).toThrow(TransitionError);
-    expect(InvoiceMachine.actions("issued")).toEqual(["pay"]);
+    expect(InvoiceMachine.actions("issued")).toEqual(["pay", "rectify"]);
   });
 });
 

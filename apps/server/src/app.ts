@@ -387,6 +387,9 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   app.get("/api/v1/invoices", async (req) => s.listInvoices(db, ctxOf(req)));
   app.get<IdParams>("/api/v1/invoices/:id", async (req) => s.getInvoice(db, ctxOf(req), req.params.id));
   app.post<IdParams>("/api/v1/invoices/:id/issue", async (req) => s.issueInvoice(db, ctxOf(req), req.params.id));
+  app.post<IdParams>("/api/v1/invoices/:id/rectify", async (req) =>
+    s.rectifyInvoice(db, ctxOf(req), req.params.id, z.object({ reason: z.string().trim().min(3).max(500) }).parse(req.body).reason),
+  );
   app.post<IdParams>("/api/v1/invoices/:id/payments", async (req) => s.registerPayment(db, ctxOf(req), req.params.id, PaymentSchema.parse(req.body)));
 
   app.get("/api/v1/verifactu/records", async (req) => s.listVerifactu(db, ctxOf(req)));

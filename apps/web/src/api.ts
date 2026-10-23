@@ -91,6 +91,7 @@ export const STATE_LABEL: Record<string, string> = {
   issued: "Emitida",
   paid: "Cobrada",
   discarded: "Descartada",
+  rectified: "Rectificada",
   pending: "Pendiente de envío",
   sent: "Enviado",
   error: "Error de envío",

@@ -60,9 +60,10 @@ export const InvoiceMachine = defineMachine({
     issue: { from: ["draft"], to: "issued" },
     pay: { from: ["issued"], to: "paid" },
     discard: { from: ["draft"], to: "discarded" },
+    rectify: { from: ["issued"], to: "rectified" },
   },
 } as const);
-export type InvoiceState = "draft" | "issued" | "paid" | "discarded";
+export type InvoiceState = "draft" | "issued" | "paid" | "discarded" | "rectified";
 
 /**
  * Presupuesto: se prepara en borrador, se envía y el cliente lo acepta o lo rechaza. Uno

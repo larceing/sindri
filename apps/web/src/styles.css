@@ -208,7 +208,7 @@ table.clickable tbody tr:focus-visible td { background: var(--seleccion); }
 .badge-stop-incident { background: var(--aviso-3); color: var(--aviso-11); border-color: transparent; }
 .badge-contacted, .badge-proposal { background: var(--info-3); color: var(--info-11); border-color: transparent; }
 .badge-won, .badge-accepted { background: var(--ok-3); color: var(--ok-11); border-color: transparent; }
-.badge-cancelled, .badge-error, .badge-discarded, .badge-lost, .badge-rejected { background: var(--error-3); color: var(--error-11); border-color: transparent; }
+.badge-cancelled, .badge-error, .badge-discarded, .badge-rectified, .badge-lost, .badge-rejected { background: var(--error-3); color: var(--error-11); border-color: transparent; }
 
 .alert { display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3) var(--s-4); border-radius: var(--r-2); margin: var(--s-3) 0; border-left: 4px solid; color: var(--texto); }
 .alert svg { flex: none; margin-top: 2px; }
