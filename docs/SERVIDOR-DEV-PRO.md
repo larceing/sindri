@@ -71,7 +71,8 @@ mismos clientes y servicios:
    Keycloak, quien elige esa empresa tiene que escribir su contraseña (vale 12 horas en ese
    navegador). La pone quien administra la empresa; para cambiarla o quitarla hace falta la actual,
    y al cambiarla todos los que la tenían abierta la vuelven a pedir. Si se olvida, administración
-   general la quita sin saberla (Empresa → tabla de empresas → Quitar; queda en el registro).
+   general la quita sin saberla (Empresa → tabla de empresas → Quitar; queda en el registro). Si
+   la empresa está reservada, antes hay que entrar en su grupo `Empresa/<código>` para verla.
 6. **Administrar solo su empresa**: quien tiene un grupo `Empresa/<código>` y un rol con todo
    (`Rol/Administración`) administra **solo esas empresas**: datos, series, correo, contraseña y todos
    los módulos. No ve Usuarios ni roles (son de todo Sindri), no crea empresas ni toca «Compartir y
