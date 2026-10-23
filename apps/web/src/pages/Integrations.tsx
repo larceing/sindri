@@ -66,7 +66,8 @@ export function IntegrationKeys() {
 }
 
 /** Conexión con el Mail del servidor y confirmación de pedidos por correo. */
-export function MailSettings() {
+/** Correo de la empresa. Conectar o desconectar el Mail es de todo Sindri: solo administración («global»). */
+export function MailSettings({ global = true }: { global?: boolean }) {
   const { data: c, reload } = useData("/correo");
   const [f, setF] = useState<{ url: string; llave: string } | null>(null);
   const { run, error, busy } = useAction();
@@ -88,7 +89,7 @@ export function MailSettings() {
     <div className="card">
       <div className="card-head">
         <h2>Correo</h2>
-        {!f && c.origen !== "variables" && <button onClick={() => setF({ url: c.url ?? "", llave: "" })}>{c.origen ? "Cambiar conexión" : "Conectar"}</button>}
+        {global && !f && c.origen !== "variables" && <button onClick={() => setF({ url: c.url ?? "", llave: "" })}>{c.origen ? "Cambiar conexión" : "Conectar"}</button>}
       </div>
       {f ? (
         <>
@@ -106,13 +107,13 @@ export function MailSettings() {
           </div>
         </>
       ) : !c.origen ? (
-        <Alert tone="info">Sindri no está conectado al Mail. Pulsa «Conectar» para poder mandar la confirmación de los pedidos.</Alert>
+        <Alert tone="info">Sindri no está conectado al Mail.{global ? " Pulsa «Conectar» para poder mandar la confirmación de los pedidos." : " Lo conecta administración."}</Alert>
       ) : (
         <>
           <p className="hint">
             Conectado a <Code>{c.url}</Code> con la llave …{c.llave_fin}
             {c.origen === "variables" ? " (viene del app.env del servidor; se cambia ahí)." : "."}
-            {c.origen === "sindri" && <> <button className="link" onClick={quitar}>Desconectar</button></>}
+            {global && c.origen === "sindri" && <> <button className="link" onClick={quitar}>Desconectar</button></>}
           </p>
           <label className="check">
             <input type="checkbox" checked={c.pedidos} disabled={busy} onChange={(e) => pedidos(e.target.checked)} />

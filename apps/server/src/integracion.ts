@@ -16,7 +16,7 @@ import { z } from "zod";
 import { D } from "@sindri/core";
 import type { Db, Queryable } from "./db.js";
 import { BusinessError, cancelSalesOrder, createPartner, createProduct, createSalesOrder, log, notFound, type Ctx } from "./services.js";
-import { ctxOf, requireAdmin } from "./usuarios.js";
+import { ctxOf, requireCompanyAdmin } from "./usuarios.js";
 
 const hash = (t: string) => createHash("sha256").update(t).digest("hex");
 
@@ -375,18 +375,18 @@ export function registerIntegracion(app: FastifyInstance, db: Db) {
     { prefix: "/api/integracion/v1" },
   );
 
-  // Administración: las llaves de la empresa en uso.
+  // Administración (también quien administra solo esta empresa): las llaves de la empresa en uso.
   app.get("/api/v1/integraciones/llaves", async (req) => {
-    requireAdmin(req);
+    requireCompanyAdmin(req);
     return listKeys(db, ctxOf(req));
   });
   app.post("/api/v1/integraciones/llaves", async (req, reply) => {
-    requireAdmin(req);
+    requireCompanyAdmin(req);
     const b = z.object({ name: z.string().trim().min(2).max(40).regex(/^[a-z0-9][a-z0-9_-]*$/, "Nombre en minúsculas, sin espacios (p. ej. incidencias)") }).parse(req.body);
     return reply.status(201).send(await createKey(db, ctxOf(req), b.name));
   });
   app.delete<{ Params: { id: string } }>("/api/v1/integraciones/llaves/:id", async (req) => {
-    requireAdmin(req);
+    requireCompanyAdmin(req);
     return revokeKey(db, ctxOf(req), z.uuid().parse(req.params.id));
   });
 
