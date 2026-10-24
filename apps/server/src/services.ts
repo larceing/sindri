@@ -514,7 +514,7 @@ export const OWN_LOCATION = (alias: string, param: string) =>
  * Ubicación por código. Las internas (WH/STOCK...) son de cada empresa; la primera usa las de
  * antes de tener varias empresas. Las virtuales (clientes, proveedores, ajustes) son comunes.
  */
-async function locationId(q: Queryable, ctx: Ctx, code: string): Promise<string> {
+export async function locationId(q: Queryable, ctx: Ctx, code: string): Promise<string> {
   const [l] = await q.query<{ id: string }>(
     `select id from location where code = $1
        and (company_id = $2 or (company_id is null and (kind <> 'internal' or $2 = $3)))
@@ -525,7 +525,7 @@ async function locationId(q: Queryable, ctx: Ctx, code: string): Promise<string>
   return l.id;
 }
 
-async function lockProduct(q: Queryable, productId: string) {
+export async function lockProduct(q: Queryable, productId: string) {
   // Bloqueo por producto mientras dure la transacción: evita vender dos veces la misma unidad.
   // Clave de 64 bits derivada del UUID (hashtext es de 32 bits y podría colisionar entre productos).
   await q.query("select pg_advisory_xact_lock(('x' || substr(md5($1), 1, 16))::bit(64)::bigint)", [productId]);
@@ -610,7 +610,8 @@ export async function receiveStock(db: Db, ctx: Ctx, r: ReceiptInput) {
       lotId = lot!.id;
     }
     const from = await locationId(q, ctx, r.origin === "adjustment" ? "VIRTUAL/ADJUST" : "PARTNER/SUPPLIER");
-    const to = await locationId(q, ctx, r.location_code ?? "WH/STOCK");
+    // Ubicar al recibir: la PDA lee la etiqueta de la ubicación; sin ella, al almacén principal.
+    const to = r.location_code ? await internalLocationId(q, ctx, r.location_code) : await locationId(q, ctx, "WH/STOCK");
     const [m] = await q.query(
       `insert into stock_move (id, product_id, lot_id, from_location_id, to_location_id, quantity, unit_cost, reference_type, note, created_by)
        values (coalesce($10::uuid, gen_random_uuid()), $1,$2,$3,$4,$5,$6,$7,$8,$9) returning *`,
@@ -836,11 +837,42 @@ export async function splitSalesOrder(db: Db, ctx: Ctx, id: string, input: { lin
   });
 }
 
+/** Lo que la PDA dice que ha cogido: producto, lote y ubicación leídos. */
+export interface DeliveryPick {
+  product_id: string;
+  quantity: string;
+  lot_code?: string;
+  location_code?: string;
+}
+
+interface Bucket {
+  lot_id: string | null;
+  location_id: string;
+  quantity: string;
+}
+
+/**
+ * Existencias de un producto en los almacenes de la empresa (todas sus ubicaciones), en el orden
+ * en que deben salir: primero el lote que caduca antes (FEFO), a igualdad el más antiguo, y luego
+ * por ubicación. Se puede limitar a un lote o a una ubicación.
+ */
+async function bucketsFor(q: Queryable, ctx: Ctx, productId: string, lotId: string | null, locId: string | null) {
+  return q.query<Bucket>(
+    `select b.lot_id, b.location_id, b.quantity from stock_balance b
+       join location l on l.id = b.location_id left join lot on lot.id = b.lot_id
+      where b.product_id = $1 and b.quantity > 0 and ${OWN_LOCATION("l", "$2")}
+        and ($3::uuid is null or b.lot_id = $3) and ($4::uuid is null or b.location_id = $4)
+      order by lot.expiry_date nulls last, lot.created_at nulls first, l.code`,
+    [productId, ctx.company, lotId, locId],
+  );
+}
+
 /**
  * Entrega completa del pedido: genera el albarán y los movimientos de stock.
- * Consume lotes por FEFO (primero el que caduca antes) y, a igualdad, por antigüedad.
+ * Sin `picks`, consume por FEFO en todas las ubicaciones de la empresa. Con `picks` (la PDA), sale
+ * exactamente el lote y la ubicación leídos; tienen que cubrir todo lo almacenable del pedido.
  */
-export async function deliverSalesOrder(db: Db, ctx: Ctx, id: string) {
+export async function deliverSalesOrder(db: Db, ctx: Ctx, id: string, picks?: DeliveryPick[]) {
   return db.tx(async (q) => {
     await transitionOrder(q, ctx, id, "deliver");
     const stockLoc = await locationId(q, ctx, "WH/STOCK");
@@ -850,41 +882,112 @@ export async function deliverSalesOrder(db: Db, ctx: Ctx, id: string) {
       "insert into delivery (company_id, number, order_id, from_location_id) values ($1,$2,$3,$4) returning id",
       [ctx.company, number, id, stockLoc],
     );
+    await q.query("update sales_order set picked_by = null, picking_since = null where id = $1", [id]);
     const lines = await q.query<{ product_id: string; quantity: string; kind: string; track_lots: boolean; sku: string; cost_price: string }>(
       "select l.product_id, l.quantity, p.kind, p.track_lots, p.sku, p.cost_price from sales_order_line l join product p on p.id = l.product_id where l.order_id = $1 order by position",
       [id],
     );
+    // Cantidad por producto (un producto puede ir en varias líneas).
+    const porProducto = new Map<string, (typeof lines)[number] & { total: Dec }>();
     for (const l of lines) {
       if (l.kind === "service") continue;
-      await lockProduct(q, l.product_id);
-      let pending = D(l.quantity);
-      if (l.kind === "stockable") {
-        const total = await available(q, l.product_id, stockLoc);
-        if (total.cmp(pending) < 0)
-          throw new BusinessError(`Stock insuficiente de ${l.sku}: hay ${total.toFixed()} y se piden ${pending.toFixed()}`);
-      }
-      const buckets = l.track_lots
-        ? await q.query<{ lot_id: string; quantity: string }>(
-            `select b.lot_id, b.quantity from stock_balance b join lot on lot.id = b.lot_id
-             where b.product_id = $1 and b.location_id = $2 and b.quantity > 0
-             order by lot.expiry_date nulls last, lot.created_at`,
-            [l.product_id, stockLoc],
-          )
-        : [{ lot_id: null as unknown as string, quantity: pending.toFixed() }];
-      for (const b of buckets) {
-        if (pending.isZero()) break;
-        const take = D(b.quantity).cmp(pending) < 0 ? D(b.quantity) : pending;
-        await q.query(
-          `insert into stock_move (product_id, lot_id, from_location_id, to_location_id, quantity, unit_cost, reference_type, reference_id, created_by)
-           values ($1,$2,$3,$4,$5,$6,'delivery',$7,$8)`,
-          [l.product_id, b.lot_id, stockLoc, customerLoc, take.toFixed(), l.cost_price, del!.id, ctx.actor],
-        );
-        pending = pending.sub(take);
-      }
-      if (!pending.isZero()) throw new BusinessError(`No hay lotes suficientes de ${l.sku}`);
+      const ya = porProducto.get(l.product_id);
+      porProducto.set(l.product_id, { ...l, total: ya ? ya.total.add(D(l.quantity)) : D(l.quantity) });
     }
-    await log(q, ctx, "delivery", del!.id, "create", { number, order_id: id });
+    if (picks) {
+      const leido = new Map<string, Dec>();
+      for (const pk of picks) {
+        if (!porProducto.has(pk.product_id)) throw new BusinessError("Se ha leído un producto que no está en el pedido");
+        leido.set(pk.product_id, (leido.get(pk.product_id) ?? D(0)).add(D(pk.quantity)));
+      }
+      for (const [pid, l] of porProducto)
+        if (l.kind === "stockable" && !(leido.get(pid) ?? D(0)).eq(l.total))
+          throw new BusinessError(`${l.sku}: el pedido lleva ${l.total.toFixed()} y se han leído ${(leido.get(pid) ?? D(0)).toFixed()}`);
+    }
+    const mover = async (productId: string, lotId: string | null, from: string, cantidad: Dec, cost: string) =>
+      q.query(
+        `insert into stock_move (product_id, lot_id, from_location_id, to_location_id, quantity, unit_cost, reference_type, reference_id, created_by)
+         values ($1,$2,$3,$4,$5,$6,'delivery',$7,$8)`,
+        [productId, lotId, from, customerLoc, cantidad.toFixed(), cost, del!.id, ctx.actor],
+      );
+    for (const [pid, l] of porProducto) {
+      await lockProduct(q, pid);
+      const tramos = picks?.filter((pk) => pk.product_id === pid && l.kind === "stockable") ?? [];
+      // Sin lectura (o consumible): lo que toque por FEFO.
+      const pedidos = tramos.length ? tramos : [{ product_id: pid, quantity: l.total.toFixed() } as DeliveryPick];
+      for (const pk of pedidos) {
+        let pending = D(pk.quantity);
+        if (pending.isZero()) continue;
+        let lotId: string | null = null;
+        if (pk.lot_code) {
+          const [lot] = await q.query<{ id: string }>("select id from lot where product_id = $1 and code = $2", [pid, pk.lot_code]);
+          if (!lot) throw new BusinessError(`${l.sku}: el lote ${pk.lot_code} no existe en Sindri`);
+          lotId = lot.id;
+        } else if (l.track_lots && tramos.length) {
+          throw new BusinessError(`${l.sku} lleva lote: hay que leerlo`);
+        }
+        const locId = pk.location_code ? await internalLocationId(q, ctx, pk.location_code) : null;
+        const buckets = await bucketsFor(q, ctx, pid, lotId, locId);
+        const hay = buckets.reduce((t, b) => t.add(D(b.quantity)), D(0));
+        if (l.kind === "stockable" && hay.cmp(pending) < 0) {
+          const donde = [pk.lot_code ? `lote ${pk.lot_code}` : "", pk.location_code ? `en ${pk.location_code}` : ""].filter(Boolean).join(" ");
+          throw new BusinessError(`Stock insuficiente de ${l.sku}${donde ? ` (${donde})` : ""}: hay ${hay.toFixed()} y se piden ${pending.toFixed()}`);
+        }
+        for (const b of buckets) {
+          if (pending.isZero()) break;
+          const take = D(b.quantity).cmp(pending) < 0 ? D(b.quantity) : pending;
+          await mover(pid, b.lot_id, b.location_id, take, l.cost_price);
+          pending = pending.sub(take);
+        }
+        // Consumibles sin existencias: salen igual (pueden quedar en negativo), como hasta ahora.
+        if (!pending.isZero()) {
+          if (l.kind === "stockable" || l.track_lots) throw new BusinessError(`No hay lotes suficientes de ${l.sku}`);
+          await mover(pid, null, locId ?? stockLoc, pending, l.cost_price);
+        }
+      }
+    }
+    await log(q, ctx, "delivery", del!.id, "create", { number, order_id: id, picks: picks ?? null });
     return { delivery: { id: del!.id, number }, order: await getSalesOrder(q, ctx, id) };
+  });
+}
+
+/** Ubicación interna de la empresa por su código (la etiqueta que lee la PDA). */
+export async function internalLocationId(q: Queryable, ctx: Ctx, code: string): Promise<string> {
+  const [l] = await q.query<{ id: string }>(
+    `select l.id from location l where upper(l.code) = upper($1) and not l.archived and ${OWN_LOCATION("l", "$2")} limit 1`,
+    [code.trim(), ctx.company],
+  );
+  if (!l) throw new BusinessError(`La ubicación ${code} no existe en este almacén`, 404);
+  return l.id;
+}
+
+/** Reservar el pedido a quien lo prepara. Otra persona no puede cogerlo en 2 h salvo que fuerce. */
+export async function takeSalesOrder(db: Db, ctx: Ctx, id: string, force = false) {
+  return db.tx(async (q) => {
+    const [o] = await q.query<{ state: string; picked_by: string | null; picking_since: string | null; vigente: boolean }>(
+      `select state, picked_by, picking_since, picking_since > now() - interval '2 hours' as vigente
+         from sales_order where id = $1 and company_id = $2 for update`,
+      [id, ctx.company],
+    );
+    if (!o) throw notFound("Pedido");
+    if (o.state !== "confirmed") throw new BusinessError("Solo se preparan pedidos confirmados");
+    if (o.picked_by && o.picked_by !== ctx.actor && o.vigente && !force)
+      throw new BusinessError(`Lo está preparando ${o.picked_by} desde ${isoWithOffset(new Date(o.picking_since!)).slice(11, 16)}`, 409);
+    await q.query("update sales_order set picked_by = $2, picking_since = now() where id = $1", [id, ctx.actor]);
+    if (o.picked_by !== ctx.actor) await log(q, ctx, "sales_order", id, "take", { from: o.picked_by, forced: force && !!o.picked_by });
+    return getSalesOrder(q, ctx, id);
+  });
+}
+
+export async function releaseSalesOrder(db: Db, ctx: Ctx, id: string) {
+  return db.tx(async (q) => {
+    const [o] = await q.query<{ picked_by: string | null }>("select picked_by from sales_order where id = $1 and company_id = $2 for update", [id, ctx.company]);
+    if (!o) throw notFound("Pedido");
+    if (o.picked_by === ctx.actor) {
+      await q.query("update sales_order set picked_by = null, picking_since = null where id = $1", [id]);
+      await log(q, ctx, "sales_order", id, "release", {});
+    }
+    return getSalesOrder(q, ctx, id);
   });
 }
 

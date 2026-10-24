@@ -179,6 +179,19 @@ La fase P7 se ha adelantado para poder probar la captura con Android Studio y co
 
 Comprobado en la nube: la app compila, sus 7 pruebas pasan (lectura de extras de cada marca, prefijo AIM, GS en Base64, escapado seguro para JavaScript) y, en Chromium contra Sindri local, el JavaScript exacto que genera la app rellena «Recibir» con producto, lote, caducidad y 24 ud; el Intro tardío se lee; una persona tecleando despacio no; y los botones de gatillo y cámara llaman a la app. **Probada en el emulador** (PC de Luis, 24-10-2026, dispositivo virtual Pixel 4a con Android 15): por Intent y en modo teclado se rellenan bien «Recibir» (GS1-128 y DataMatrix con lote, caducidad y cantidad) y «Consultar» (EAN-13), y la etiqueta con dígito de control malo avisa. Salieron dos fallos, ya corregidos: con el GS perdido no había aviso (ahora `leerCodigo` avisa cuando un lote o serie final acaba en algo que parece otro campo, como `…3724` = (37) 24), y en Android 15 la cabecera quedaba bajo la barra de estado (ahora la app deja el hueco de las barras del sistema). También: página propia cuando Sindri no responde y cada lectura en logcat.
 
+### 8.2 Fase 2: ubicaciones, traspasos, salida con lote, reserva y recuento
+
+| Qué | En la PDA | En Sindri |
+|---|---|---|
+| **Ubicaciones** (muelle, estanterías, huecos) | Se leen por su código (la etiqueta). Consultar una ubicación enseña lo que hay | Almacén → Ubicaciones (crear, «dentro de»). `POST /locations` |
+| **Ubicar al recibir** | En Recibir, leer la ubicación antes o después del producto; se queda para las siguientes entradas | `location_code` en la entrada |
+| **Traspasar** | Origen → producto (y lote) → cantidad → destino. Propone el lote si en el origen solo hay uno | `POST /stock/transfers`, con id: reenviarlo no duplica |
+| **Salida con el lote leído** | Preparar sugiere ubicación y lote (FEFO); se lee la ubicación y cada artículo con su lote. Sale exactamente lo leído | `deliver` con `picks`. Sin lecturas (web), FEFO en todas las ubicaciones |
+| **Reserva del pedido** | Al abrirlo queda a nombre de quien lo prepara; si otra persona lo tiene, avisa y deja forzarlo. «Dejar el pedido» lo suelta | `take` / `release`, 2 h |
+| **Recuento a ciegas** | Inventario: leer una ubicación → «Contar»; leer productos (leer otra vez suma); otra ubicación guarda lo anterior; «Terminar». La PDA no enseña lo que dice Sindri | Almacén → Recuentos: diferencias al terminar y «Aprobar y ajustar stock». Lo no contado en el ámbito queda a cero |
+
+La demo trae `MUELLE`, `A-01`, `A-02` y `B-01` con stock repartido. Comprobado en Chromium contra Sindri local con la demo: recibir en el muelle, traspasar a A-01, preparar un pedido leyendo ubicación y lote (queda reservado y sale de B-01 el lote leído), recontar B-01 y aprobar en la web (ajustes +62 y +240).
+
 ### El otro simulador (análisis de CRM)
 
 El hilo de análisis de CRM hizo un simulador de PDA suelto (`analisis-crm/simulador-pda/index.html`) con servidor de mentira, modo comercial y modo almacén. Se ha unido aquí lo que aportaba al almacén, para que quede uno solo:
@@ -194,7 +207,7 @@ Lo que se queda para **Brokkr** (el CRM), porque necesita API que Sindri aún no
 | Fase | Qué | Depende de |
 |---|---|---|
 | **P1** (hecha) | Prototipo: GS1, PDA con 4 tareas, cola sin duplicar, simulador | — |
-| **P2** | Ubicaciones en árbol y traspaso; ubicar al recibir; **salida con el lote leído** (entrega con líneas y lotes); recuento de inventario a ciegas con ajuste aprobado; comprobar lote leído contra los existentes | Partir `services.ts` (fase 0 del plan general) ayuda |
+| **P2** (hecha, §8.2) | Ubicaciones en árbol y traspaso; ubicar al recibir; **salida con el lote leído** (entrega con líneas y lotes); recuento de inventario a ciegas con ajuste aprobado; comprobar lote leído contra los existentes | Partir `services.ts` (fase 0 del plan general) ayuda |
 | **P3** | PWA de verdad: service worker, IndexedDB, instalar en la pantalla de inicio; **HTTPS en el servidor de la fábrica**; entrada rápida de operario; Idempotency-Key en todos los POST; pruebas Playwright del simulador en CI; métricas de uso | Fase 3 del plan general (contrato de APIs) |
 | **P4** | Recepción contra **pedido de compra** (parcial, diferencias) | Compras (fase 6) |
 | **P5** | Expedición: bultos y palés con **SSCC**, etiqueta ZPL, DeCA | Etiquetas (fase 7) y prefijo GS1 de la empresa |

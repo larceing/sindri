@@ -56,7 +56,7 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 - Máquina de estados estricta: borrador → confirmado → entregado → facturado.
 
 **PDA del almacén** ([docs/PDA.md](docs/PDA.md))
-- `#/pda` en el Chrome de la PDA: consultar, recibir leyendo la etiqueta del proveedor, preparar pedidos y lo pendiente. Sigue sin conexión y lo manda al volver sin duplicar.
+- `#/pda` en el Chrome de la PDA: consultar, recibir y ubicar leyendo la etiqueta del proveedor, traspasar entre ubicaciones, preparar pedidos con el lote y la ubicación leídos (reservados a quien los prepara), recuento de inventario a ciegas y lo pendiente. Sigue sin conexión y lo manda al volver sin duplicar.
 - Entiende GS1-128, DataMatrix, QR, Digital Link y EAN (lote, caducidad, SSCC, cantidad, peso).
 - `#/pda-simulador`: prueba la PDA sin aparato, con el escáner de DataWedge, Honeywell o una pistola USB y sus fallos.
 - [`pda-android/`](pda-android/README.md): app Android que recibe el escáner por Intent (DataWedge, Honeywell), con gatillo y cámara, y scripts para probar lecturas en el emulador de Android Studio.

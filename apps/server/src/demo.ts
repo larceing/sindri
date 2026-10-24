@@ -6,6 +6,7 @@
 import type { Db } from "./db.js";
 import * as s from "./services.js";
 import * as c from "./comercial.js";
+import { createLocation } from "./almacen.js";
 import { saveMachine } from "./planta.js";
 
 const isoDaysFromNow = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
@@ -39,10 +40,13 @@ export async function seedDemo(db: Db): Promise<boolean> {
   const portes = await s.createProduct(db, ctx, { sku: "PORTES", name: "Portes", kind: "service", sale_price: "25", vat_rate: "21" });
 
   const id = (r: unknown) => (r as { id: string }).id;
-  await s.receiveStock(db, ctx, { product_id: id(bonito), quantity: "600", unit_cost: "2.60", lot_code: "L-BON-2601", expiry_date: isoDaysFromNow(400) });
-  await s.receiveStock(db, ctx, { product_id: id(bonito), quantity: "400", unit_cost: "2.55", lot_code: "L-BON-2588", expiry_date: isoDaysFromNow(120) });
-  await s.receiveStock(db, ctx, { product_id: id(anchoa), quantity: "300", unit_cost: "3.90", lot_code: "L-ANC-2602", expiry_date: isoDaysFromNow(200) });
-  await s.receiveStock(db, ctx, { product_id: id(mejillon), quantity: "800", unit_cost: "1.30", lot_code: "L-MEJ-2590", expiry_date: isoDaysFromNow(500) });
+  // Ubicaciones con etiqueta para la PDA: muelle de entrada y dos estanterías.
+  await createLocation(db, ctx, { code: "MUELLE", name: "Muelle de entrada" });
+  for (const code of ["A-01", "A-02", "B-01"]) await createLocation(db, ctx, { code, name: `Estantería ${code}` });
+  await s.receiveStock(db, ctx, { product_id: id(bonito), quantity: "600", unit_cost: "2.60", lot_code: "L-BON-2601", expiry_date: isoDaysFromNow(400), location_code: "A-01" });
+  await s.receiveStock(db, ctx, { product_id: id(bonito), quantity: "400", unit_cost: "2.55", lot_code: "L-BON-2588", expiry_date: isoDaysFromNow(120), location_code: "A-02" });
+  await s.receiveStock(db, ctx, { product_id: id(anchoa), quantity: "300", unit_cost: "3.90", lot_code: "L-ANC-2602", expiry_date: isoDaysFromNow(200), location_code: "B-01" });
+  await s.receiveStock(db, ctx, { product_id: id(mejillon), quantity: "800", unit_cost: "1.30", lot_code: "L-MEJ-2590", expiry_date: isoDaysFromNow(500), location_code: "B-01" });
   await s.receiveStock(db, ctx, { product_id: id(caja), quantity: "1000", unit_cost: "0.35" });
 
   // Un pedido en cada estado, para que todas las pantallas tengan algo que enseñar.

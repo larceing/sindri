@@ -11,3 +11,6 @@ peso-bonito|]C1|0102000000000015310300125010L-BON-2612|GS1-128 con peso neto 1,2
 gs-perdido|]C1|01020000000000151728123110L-BON-26113724|El GS se perdió: el lote se come la cantidad (L-BON-26113724) y debe avisar
 etiqueta-mal|]C1|01020000000000161728123110X|Dígito de control erróneo: debe avisar
 texto|]C0|HOLA-PDA|Texto que no es de ningún producto
+muelle|]C0|MUELLE|Ubicación: muelle de entrada (ubicar al recibir, origen de un traspaso)
+a-01|]C0|A-01|Ubicación: estantería A-01
+b-01|]C0|B-01|Ubicación: estantería B-01 (anchoas y mejillones; para probar un recuento)
