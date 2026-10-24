@@ -55,6 +55,11 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 **Pedidos**
 - Máquina de estados estricta: borrador → confirmado → entregado → facturado.
 
+**PDA del almacén** ([docs/PDA.md](docs/PDA.md))
+- `#/pda` en el Chrome de la PDA: consultar, recibir leyendo la etiqueta del proveedor, preparar pedidos y lo pendiente. Sigue sin conexión y lo manda al volver sin duplicar.
+- Entiende GS1-128, DataMatrix, QR, Digital Link y EAN (lote, caducidad, SSCC, cantidad, peso).
+- `#/pda-simulador`: prueba la PDA sin aparato, con el escáner de DataWedge, Honeywell o una pistola USB y sus fallos.
+
 **Facturas**
 - Número sin huecos que se asigna al emitir.
 - IVA desglosado por tipos.
@@ -137,4 +142,5 @@ Más detalle en [planta/README.md](planta/README.md).
 
 - [Arquitectura](docs/ARQUITECTURA.md)
 - [Hoja de ruta](docs/HOJA-DE-RUTA.md)
+- [PDA y su simulador](docs/PDA.md)
 - [Sistema de diseño](docs/SISTEMA-DE-DISENO.md)

@@ -21,7 +21,7 @@ El orden sigue el ciclo de negocio y los huecos detectados en la investigación:
    - órdenes de fabricación con consumo por lote y lote de salida;
    - coste real (materiales + tiempo);
    - trazabilidad registrada lote a lote.
-5. **Pantalla de taller y PDA** (web progresiva con modo sin conexión): fichar operaciones, consumir y producir leyendo códigos de barras.
+5. **Pantalla de taller y PDA** (web progresiva con modo sin conexión): fichar operaciones, consumir y producir leyendo códigos de barras. Prototipo y plan en [PDA.md](PDA.md).
 6. **Etiquetas ZPL** (producto, lote, SSCC/GS1-128) impresas desde el servidor a las Zebra de la red.
 7. **Báscula** por RS-232/TCP a través del gateway.
 8. **Expediciones**:
