@@ -61,7 +61,7 @@ export const MODULOS: { id: string; path: string; label: string; icon: LucideIco
   { id: "usuarios", path: "/usuarios", label: "Usuarios", icon: UserCog },
 ];
 
-export const MENU_DEFECTO: Menu = { posicion: "lateral", orden: MODULOS.map((m) => m.id), ocultos: [] };
+export const MENU_DEFECTO: Menu = { posicion: "superior", orden: MODULOS.map((m) => m.id), ocultos: [] };
 
 /** Los módulos que esta persona ve, en su orden y sin los que ha ocultado. */
 export function menuDe(me: Me, menu: Menu = me.menu ?? MENU_DEFECTO, conOcultos = false) {

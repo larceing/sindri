@@ -3,7 +3,9 @@
  * Fuente y justificación de cada valor: forja-diseno/01-investigacion-diseno.md §9.
  *
  *  - Color en OKLCH (perceptualmente uniforme) con fallback hex para WebViews antiguos de PDA.
- *  - Neutros de 12 pasos (n-1 fondo … n-12 texto), marca índigo 268 solo para acción/selección/foco.
+ *  - Neutros de 12 pasos (n-1 fondo … n-12 texto), marca azul Arce Data Lab (#1D4F7A) solo para acción/selección/foco.
+ *  - Plantilla común de las apps (8 + 9 + 7): superficie tonal #F3F6FA, menú claro en píldoras,
+ *    tarjetas blancas redondeadas y Roboto Flex. El modo taller no cambia.
  *  - Estados: ok (verde), aviso (ámbar, SIEMPRE texto negro), error (rojo), info (azul).
  *  - Modos: oficina (claro/oscuro) y taller (ISA-101: gris, color solo para lo anómalo; día/noche).
  *  - Densidades: compacta, normal, comoda, tactil, guantes. Se reduce espacio, nunca letra.
@@ -14,7 +16,7 @@
   --n-1: #fafcfe; --n-2: #f5f7f9; --n-3: #edf0f4; --n-4: #e4e8ed; --n-5: #dce0e6; --n-6: #cfd5dc;
   --n-7: #bfc5cd; --n-8: #a4acb5; --n-9: #6e757f; --n-10: #5f6771; --n-11: #4f565f; --n-12: #181d24;
 
-  --marca-3: #ecf2fe; --marca-7: #b1c3f3; --marca-9: #3a58c3; --marca-10: #324ca7; --marca-11: #324ca7;
+  --marca-3: #d3e4f5; --marca-7: #a0cafd; --marca-9: #1d4f7a; --marca-10: #163d5f; --marca-11: #1d4f7a; --marca-12: #0b2e4b;
 
   --ok-3: #e6f5e8; --ok-9: #0a7e3a; --ok-11: #09672e;
   --aviso-3: #f9eee0; --aviso-9: #f0a726; --aviso-11: #7a4702;
@@ -26,7 +28,7 @@
   --serie-otros: var(--n-8);
 
   /* Roles semánticos */
-  --fondo: var(--n-1);
+  --fondo: #f3f6fa;
   --superficie: #ffffff;
   --superficie-2: var(--n-2);
   --borde: var(--n-6);
@@ -39,12 +41,16 @@
   --seleccion: var(--marca-3);
   --foco: var(--marca-9);
   --enlace: var(--marca-11);
-  --lateral: var(--n-12);
-  --lateral-texto: #c9d1dc;
-  --lateral-activo: #ffffff1f;
+  --lateral: var(--fondo);
+  --lateral-texto: #43474e;
+  --lateral-hover: #e6ebf2;
+  --lateral-activo: var(--marca-3);
+  --lateral-activo-texto: var(--marca-12);
+  --lateral-marca: var(--texto);
+  --capa: #e6ebf2;
 
   /* Tipografía */
-  --fuente: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fuente: "Roboto Flex Variable", "Roboto Flex", Roboto, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --fuente-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
   --t-xs: 12px; --lh-xs: 16px;
   --t-sm: 13px; --lh-sm: 20px;
@@ -60,7 +66,7 @@
   --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
 
   /* Radios */
-  --r-1: 2px; --r-2: 4px; --r-3: 6px; --r-4: 8px; --r-5: 12px; --r-full: 9999px;
+  --r-1: 4px; --r-2: 10px; --r-3: 12px; --r-4: 20px; --r-5: 24px; --r-full: 9999px;
 
   /* Elevación (claro: sombra de contacto + ambiente) */
   --e-1: 0 1px 2px oklch(23% 0.016 255 / 0.08);
@@ -88,8 +94,6 @@
     --n-4: oklch(93% 0.008 255); --n-5: oklch(90.5% 0.009 255); --n-6: oklch(87% 0.011 255);
     --n-7: oklch(82% 0.013 255); --n-8: oklch(74% 0.016 255); --n-9: oklch(56% 0.018 255);
     --n-10: oklch(51% 0.018 255); --n-11: oklch(45% 0.018 255); --n-12: oklch(23% 0.016 255);
-    --marca-3: oklch(96% 0.018 268); --marca-7: oklch(82% 0.07 268); --marca-9: oklch(50% 0.17 268);
-    --marca-10: oklch(45% 0.15 268); --marca-11: oklch(45% 0.15 268);
     --ok-3: oklch(96% 0.022 150); --ok-9: oklch(52% 0.14 150); --ok-11: oklch(45% 0.12 150);
     --aviso-3: oklch(96% 0.022 75); --aviso-9: oklch(78% 0.155 75); --aviso-11: oklch(45% 0.1 65);
     --error-3: oklch(96% 0.022 27); --error-9: oklch(54% 0.19 27); --error-11: oklch(45% 0.15 27);
@@ -102,7 +106,7 @@
   :root:not([data-tema="claro"]) {
     --n-1: #0c0d0f; --n-2: #131416; --n-3: #191b1d; --n-4: #1f2225; --n-5: #26292d; --n-6: #2f3338;
     --n-7: #3e4349; --n-8: #525961; --n-9: #7f8791; --n-10: #9199a4; --n-11: #b3bbc6; --n-12: #e7eff9;
-    --marca-3: #1a2133; --marca-9: #4564d0; --marca-10: #3a58c3; --marca-11: #a5bcf9;
+    --marca-3: #1f3a55; --marca-9: #4f86bd; --marca-10: #3f74a8; --marca-11: #a0cafd; --marca-12: #d3e4f5;
     --ok-3: oklch(25% 0.035 150); --ok-11: #89d298;
     --aviso-3: oklch(25% 0.035 75); --aviso-11: #e7b369;
     --error-3: oklch(25% 0.035 27); --error-11: #fda297;
@@ -110,7 +114,11 @@
     --serie-2: #e69f00;
     --superficie: var(--n-2);
     --superficie-2: var(--n-3);
-    --lateral: #08090b;
+    --fondo: var(--n-1);
+    --lateral: var(--n-1);
+    --lateral-texto: var(--n-11);
+    --lateral-hover: var(--n-4);
+    --capa: var(--n-4);
     --e-1: none; --e-2: 0 0 0 1px var(--n-6); --e-3: 0 0 0 1px var(--n-6), 0 12px 24px #0006;
     color-scheme: dark;
   }
@@ -118,14 +126,18 @@
 :root[data-tema="oscuro"] {
   --n-1: #0c0d0f; --n-2: #131416; --n-3: #191b1d; --n-4: #1f2225; --n-5: #26292d; --n-6: #2f3338;
   --n-7: #3e4349; --n-8: #525961; --n-9: #7f8791; --n-10: #9199a4; --n-11: #b3bbc6; --n-12: #e7eff9;
-  --marca-3: #1a2133; --marca-9: #4564d0; --marca-10: #3a58c3; --marca-11: #a5bcf9;
+  --marca-3: #1f3a55; --marca-9: #4f86bd; --marca-10: #3f74a8; --marca-11: #a0cafd; --marca-12: #d3e4f5;
   --ok-3: oklch(25% 0.035 150); --ok-11: #89d298;
   --aviso-3: oklch(25% 0.035 75); --aviso-11: #e7b369;
   --error-3: oklch(25% 0.035 27); --error-11: #fda297;
   --info-3: oklch(25% 0.035 240); --info-11: #78c7fd;
   --superficie: var(--n-2);
   --superficie-2: var(--n-3);
-  --lateral: #08090b;
+  --fondo: var(--n-1);
+  --lateral: var(--n-1);
+  --lateral-texto: var(--n-11);
+  --lateral-hover: var(--n-4);
+  --capa: var(--n-4);
   --e-1: none; --e-2: 0 0 0 1px var(--n-6); --e-3: 0 0 0 1px var(--n-6), 0 12px 24px #0006;
   color-scheme: dark;
 }
@@ -146,6 +158,13 @@
   --foco: #181b1f;
   --enlace: #181b1f;
   --lateral: #3a3d42;
+  --lateral-texto: #c9d1dc;
+  --lateral-hover: #ffffff1f;
+  --lateral-activo: #ffffff2e;
+  --lateral-activo-texto: #ffffff;
+  --lateral-marca: #ffffff;
+  --capa: #c3c7cc;
+  --r-1: 2px; --r-2: 4px; --r-3: 6px; --r-4: 8px; --r-5: 12px;
   --e-1: none; --e-2: none; --e-3: none;
   --t-base: 18px; --lh-base: 28px;
   --t-sm: 16px; --lh-sm: 24px;
