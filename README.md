@@ -55,6 +55,11 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 **Pedidos**
 - Máquina de estados estricta: borrador → confirmado → entregado → facturado.
 
+**PDA del almacén** ([docs/PDA.md](docs/PDA.md))
+- `#/pda` en el Chrome de la PDA: consultar, recibir leyendo la etiqueta del proveedor, preparar pedidos y lo pendiente. Sigue sin conexión y lo manda al volver sin duplicar.
+- Entiende GS1-128, DataMatrix, QR, Digital Link y EAN (lote, caducidad, SSCC, cantidad, peso).
+- `#/pda-simulador`: prueba la PDA sin aparato, con el escáner de DataWedge, Honeywell o una pistola USB y sus fallos.
+
 **Facturas**
 - Número sin huecos que se asigna al emitir.
 - IVA desglosado por tipos.
@@ -99,6 +104,9 @@ pnpm --filter @sindri/server start      # http://127.0.0.1:8000  (datos en ./.da
 # Servidor de empresa con PostgreSQL, accesible desde la red local
 DATABASE_URL=postgres://usuario:clave@localhost/sindri SINDRI_HOST=0.0.0.0 pnpm --filter @sindri/server start
 
+# Con HTTPS propio (lo necesitan las PDA para trabajar sin conexión)
+SINDRI_TLS_CERT=cert.pem SINDRI_TLS_CLAVE=clave.pem SINDRI_HOST=0.0.0.0 pnpm --filter @sindri/server start
+
 # Desarrollo de la interfaz con recarga en caliente
 pnpm dev:server   # en una terminal
 pnpm dev:web      # en otra: http://localhost:5173
@@ -137,4 +145,5 @@ Más detalle en [planta/README.md](planta/README.md).
 
 - [Arquitectura](docs/ARQUITECTURA.md)
 - [Hoja de ruta](docs/HOJA-DE-RUTA.md)
+- [PDA y su simulador](docs/PDA.md)
 - [Sistema de diseño](docs/SISTEMA-DE-DISENO.md)

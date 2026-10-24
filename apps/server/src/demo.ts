@@ -31,10 +31,11 @@ export async function seedDemo(db: Db): Promise<boolean> {
   await s.createPartner(db, ctx, { kind: "supplier", name: "Envases Metálicos Test, S.L.", tax_id: "B82540279", city: "Madrid", postal_code: "28042" });
   await s.createPartner(db, ctx, { kind: "supplier", name: "Lonja Simulada, S.L.", tax_id: "B90419326", city: "Sevilla", postal_code: "41001" });
 
-  const bonito = await s.createProduct(db, ctx, { sku: "BON-250", name: "Bonito del norte en aceite de oliva 250 g", sale_price: "4.95", cost_price: "2.60", vat_rate: "10", track_lots: true });
-  const anchoa = await s.createProduct(db, ctx, { sku: "ANC-100", name: "Anchoas del Cantábrico 100 g", sale_price: "6.80", cost_price: "3.90", vat_rate: "10", track_lots: true });
-  const mejillon = await s.createProduct(db, ctx, { sku: "MEJ-120", name: "Mejillones en escabeche 120 g", sale_price: "2.75", cost_price: "1.30", vat_rate: "10", track_lots: true });
-  const caja = await s.createProduct(db, ctx, { sku: "CAJ-24", name: "Caja de cartón para 24 latas", kind: "consumable", sale_price: "0.60", cost_price: "0.35", vat_rate: "21" });
+  // GTIN del rango 20…29 (uso interno de GS1): no coincide con ningún producto real. Sirven para el simulador de PDA.
+  const bonito = await s.createProduct(db, ctx, { sku: "BON-250", gtin: "2000000000015", name: "Bonito del norte en aceite de oliva 250 g", sale_price: "4.95", cost_price: "2.60", vat_rate: "10", track_lots: true });
+  const anchoa = await s.createProduct(db, ctx, { sku: "ANC-100", gtin: "2000000000022", name: "Anchoas del Cantábrico 100 g", sale_price: "6.80", cost_price: "3.90", vat_rate: "10", track_lots: true });
+  const mejillon = await s.createProduct(db, ctx, { sku: "MEJ-120", gtin: "2000000000039", name: "Mejillones en escabeche 120 g", sale_price: "2.75", cost_price: "1.30", vat_rate: "10", track_lots: true });
+  const caja = await s.createProduct(db, ctx, { sku: "CAJ-24", gtin: "2000000000046", name: "Caja de cartón para 24 latas", kind: "consumable", sale_price: "0.60", cost_price: "0.35", vat_rate: "21" });
   const portes = await s.createProduct(db, ctx, { sku: "PORTES", name: "Portes", kind: "service", sale_price: "25", vat_rate: "21" });
 
   const id = (r: unknown) => (r as { id: string }).id;

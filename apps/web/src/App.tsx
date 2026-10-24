@@ -24,6 +24,8 @@ import { MyMenuPage } from "./pages/MyMenu";
 import { OpportunitiesPage, OpportunityPage } from "./pages/Opportunities";
 import { NewQuotationPage, QuotationPage, QuotationsPage, TemplatesPage } from "./pages/Quotations";
 import { RelacionesPage } from "./pages/Relaciones";
+import { PdaApp } from "./pda/PdaApp";
+import { SimuladorPda } from "./pda/Simulador";
 
 /** Qué módulo (permiso) necesita cada pantalla. */
 const SECCION_MODULO: Record<string, string> = {
@@ -385,6 +387,18 @@ function Shell() {
         }}
       />
     );
+
+  // La PDA y su simulador ocupan toda la pantalla, sin el menú de Sindri.
+  const seccion = route.split("?")[0]!.split("/")[1];
+  if (seccion === "pda" || seccion === "pda-simulador") {
+    if (!me.perms.almacen)
+      return (
+        <Page title="Sin acceso">
+          <Alert tone="aviso">La PDA necesita permiso de Almacén. Pídeselo a administración.</Alert>
+        </Page>
+      );
+    return seccion === "pda" ? <PdaApp key={gen} me={me} /> : <SimuladorPda key={gen} />;
+  }
 
   const posicion = me.menu?.posicion ?? "superior";
   const items = menuDe(me);

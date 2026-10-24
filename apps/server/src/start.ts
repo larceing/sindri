@@ -24,6 +24,8 @@ export interface StartOptions {
   demo?: boolean;
   reportServer?: ReportServerConfig;
   mail?: MailConfig;
+  /** HTTPS propio (servidor de la fábrica): clave y certificado en PEM. */
+  https?: { key: Buffer; cert: Buffer };
 }
 
 export interface RunningServer {
@@ -40,7 +42,7 @@ export async function startServer(o: StartOptions = {}): Promise<RunningServer> 
     await seedDemo(db);
     await seedDemoPlanta(db);
   }
-  const app = await buildApp({ db, webDir: o.webDir, logger: o.logger ?? false, auth: o.auth, sso: o.sso, version: o.version, trustProxy: o.trustProxy, entorno: o.entorno, reportServer: o.reportServer, mail: o.mail });
+  const app = await buildApp({ db, webDir: o.webDir, logger: o.logger ?? false, auth: o.auth, sso: o.sso, version: o.version, trustProxy: o.trustProxy, entorno: o.entorno, reportServer: o.reportServer, mail: o.mail, https: o.https });
   const address = await app.listen({ host: o.host ?? "127.0.0.1", port: o.port ?? 8000 });
   return {
     url: address,
