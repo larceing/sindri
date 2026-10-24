@@ -27,9 +27,42 @@ export interface OpcionesEscaner {
   prefijo?: string;
   /** Lecturas iguales dentro de este margen (ms) cuentan una (gatillo pulsado dos veces, rebote). */
   antiRebote?: number;
+  /**
+   * Espera máxima del Intro/Tab final (ms). Algunos lectores Bluetooth y `adb shell input` lo mandan
+   * un poco después del código; lo que cuenta es que el código llegara deprisa.
+   */
+  esperaFinal?: number;
 }
 
 const GS = "\u001d";
+
+declare global {
+  interface Window {
+    /** Lo pone la app Android de Sindri (`pda-android/`) cuando la PDA web va dentro de ella. */
+    SindriAndroid?: {
+      info(): string;
+      gatillo(): void;
+      camara(): void;
+      servidor(): void;
+    };
+  }
+}
+
+export interface InfoAndroid {
+  version: string;
+  /** Es una Zebra con DataWedge: hay gatillo por software. */
+  dataWedge: boolean;
+  camara: boolean;
+}
+
+/** Qué ofrece la app Android, si la PDA va dentro de ella. */
+export function appAndroid(): InfoAndroid | null {
+  try {
+    return window.SindriAndroid ? (JSON.parse(window.SindriAndroid.info()) as InfoAndroid) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Pone un valor a un campo controlado por React y avisa del cambio. */
 function restaurar(el: HTMLInputElement | HTMLTextAreaElement, valor: string) {
@@ -45,7 +78,7 @@ const esCampo = (t: EventTarget | null): t is HTMLInputElement | HTMLTextAreaEle
 export function useEscaner(alLeer: (e: Escaneo) => void, op: OpcionesEscaner = {}) {
   const cb = useRef(alLeer);
   cb.current = alLeer;
-  const { huecoMaximo = 50, minimo = 3, prefijo, antiRebote = 700 } = op;
+  const { huecoMaximo = 50, minimo = 3, prefijo, antiRebote = 700, esperaFinal = 1000 } = op;
 
   useEffect(() => {
     let buf = "";
@@ -74,7 +107,8 @@ export function useEscaner(alLeer: (e: Escaneo) => void, op: OpcionesEscaner = {
       const ahora = performance.now();
       const hueco = ahora - ultima;
       ultima = ahora;
-      if (buf && hueco > huecoMaximo && !conPrefijo) {
+      const fin = ev.key === "Enter" || ev.key === "Tab";
+      if (buf && hueco > (fin ? esperaFinal : huecoMaximo) && !conPrefijo) {
         // Demasiado lento: lo anterior lo tecleaba una persona. Esta tecla puede empezar una lectura.
         reiniciar();
       }
@@ -83,7 +117,7 @@ export function useEscaner(alLeer: (e: Escaneo) => void, op: OpcionesEscaner = {
         ev.preventDefault();
         return;
       }
-      if (ev.key === "Enter" || ev.key === "Tab") {
+      if (fin) {
         const valido = conPrefijo || (rapido && buf.length >= minimo);
         if (valido && buf) {
           ev.preventDefault();
@@ -120,5 +154,5 @@ export function useEscaner(alLeer: (e: Escaneo) => void, op: OpcionesEscaner = {
       window.removeEventListener("keydown", tecla, true);
       window.removeEventListener("sindri:escaneo", evento);
     };
-  }, [huecoMaximo, minimo, prefijo, antiRebote]);
+  }, [huecoMaximo, minimo, prefijo, antiRebote, esperaFinal]);
 }

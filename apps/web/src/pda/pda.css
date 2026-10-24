@@ -47,6 +47,7 @@
 .pda .pda-tarea:disabled { opacity: .5; }
 .pda-tarea:active:not(:disabled), .pda-boton:active:not(:disabled), .pda-item:active { transform: scale(.98); }
 .pda-pista { display: flex; align-items: center; gap: 8px; margin: auto 0 0; padding: 14px; border-radius: 12px; border: 2px dashed var(--borde); color: var(--texto-2); }
+.pda button.pda-pista { font: inherit; background: transparent; width: 100%; text-align: left; border: 2px dashed var(--accion); color: var(--accion); }
 .pda-nota { color: var(--texto-2); font-size: 14px; margin: 0; }
 .pda-tarjeta { background: var(--superficie); border: 1px solid var(--borde); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
 .pda-ref { font-size: 14px; color: var(--texto-2); }

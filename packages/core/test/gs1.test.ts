@@ -98,3 +98,23 @@ describe("GS1: composición", () => {
     expect(() => componerGs1([{ ai: "01", valor: "123" }])).toThrow();
   });
 });
+
+describe("GS1: GS perdido", () => {
+  const hoy = new Date("2026-10-24T00:00:00Z");
+  it("avisa si el lote se ha tragado la cantidad", () => {
+    const l = leerCodigo("]C101020000000000151728123110L-BON-26113724", hoy);
+    expect(l.tipo).toBe("gs1");
+    expect(l.lote).toBe("L-BON-26113724");
+    expect(l.avisos[0]).toContain("(37) 24");
+  });
+  it("también sin simbología (pistola en modo teclado)", () => {
+    const l = leerCodigo("01020000000000151728123110L-BON-26113724", hoy);
+    expect(l.tipo).toBe("gs1");
+    expect(l.gtin).toBe("02000000000015");
+    expect(l.avisos[0]).toContain("separador GS");
+  });
+  it("no avisa con el GS en su sitio ni con un lote normal", () => {
+    expect(leerCodigo(`]C101020000000000151728123110L-BON-2611${GS}3724`, hoy).avisos).toEqual([]);
+    expect(leerCodigo("]C101020000000000151728123110L-BON-2611", hoy).avisos).toEqual([]);
+  });
+});
