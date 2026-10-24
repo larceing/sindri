@@ -13,6 +13,8 @@ import android.os.Bundle
 import android.text.InputType
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
+import android.util.Log
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -65,6 +67,13 @@ class MainActivity : Activity() {
                 startActivity(Intent(Intent.ACTION_VIEW, r.url))
                 return true
             }
+
+            // Sin servidor: una página propia con «Reintentar» y «Cambiar servidor» en vez de la de Android.
+            override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
+                if (!r.isForMainFrame) return
+                Log.w(TAG, "No carga ${r.url}: ${e.errorCode} ${e.description}")
+                v.loadDataWithBaseURL(null, paginaSinServidor(r.url.toString(), e.description.toString()), "text/html", "utf-8", null)
+            }
         }
         web.addJavascriptInterface(Puente(), "SindriAndroid")
 
@@ -103,6 +112,7 @@ class MainActivity : Activity() {
     }
 
     private fun entregar(l: Escaneo.Lectura) {
+        Log.d(TAG, "Escaneo ${l.simbologia ?: "-"} ${l.datos.replace('\u001d', '|')}")
         runOnUiThread { web.evaluateJavascript(Escaneo.javascript(l), null) }
     }
 
@@ -173,5 +183,24 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun servidor() = runOnUiThread { pedirServidor() }
+
+        @JavascriptInterface
+        fun recargar() = runOnUiThread { this@MainActivity.servidor()?.let { web.loadUrl(it) } }
+    }
+
+    private fun paginaSinServidor(url: String, error: String): String {
+        val esc = { t: String -> t.replace("&", "&amp;").replace("<", "&lt;") }
+        return """<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+<body style="font:17px sans-serif;margin:0;padding:24px;background:#f4f6f8;color:#14212b">
+<h2 style="margin-top:8px">Sindri no responde</h2>
+<p>No se puede abrir <b style="word-break:break-all">${esc(url)}</b>.</p>
+<p style="color:#5a6773">${esc(error)}. ¿Está arrancado el servidor y la PDA en su red? En el emulador, el PC es 10.0.2.2.</p>
+<button onclick="SindriAndroid.recargar()" style="display:block;width:100%;min-height:56px;margin:16px 0 10px;border:0;border-radius:12px;background:#1d4e79;color:#fff;font:inherit;font-weight:700">Reintentar</button>
+<button onclick="SindriAndroid.servidor()" style="display:block;width:100%;min-height:56px;border:2px solid #1d4e79;border-radius:12px;background:none;color:#1d4e79;font:inherit;font-weight:700">Cambiar servidor</button>
+</body>"""
+    }
+
+    companion object {
+        private const val TAG = "SindriPDA"
     }
 }

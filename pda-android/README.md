@@ -41,7 +41,7 @@ cd pda-android
 adb shell am start -n com.sindri.pda/.MainActivity --es url "http://10.0.2.2:8000/#/pda"
 ```
 
-La primera vez pregunta el servidor (ya viene `http://10.0.2.2:8000/#/pda`). Para cambiarlo: botón Atrás en el menú de la PDA → «Cambiar servidor».
+La primera vez pregunta el servidor (ya viene `http://10.0.2.2:8000/#/pda`). Para cambiarlo: botón Atrás en el menú de la PDA → «Cambiar servidor». Si Sindri no responde, la app enseña «Reintentar» y «Cambiar servidor». Cada lectura recibida queda en logcat (`adb logcat -s SindriPDA`).
 
 ### 4. Escanear
 
