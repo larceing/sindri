@@ -11,7 +11,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.graphics.Color
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.webkit.JavascriptInterface
 import android.util.Log
 import android.webkit.WebResourceError
@@ -53,7 +57,25 @@ class MainActivity : Activity() {
         if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true) // chrome://inspect desde el PC
 
         web = WebView(this)
-        setContentView(web)
+        // Android 15 dibuja la app bajo la barra de estado y la de gestos: se deja su hueco
+        // (y el del teclado) con el azul de la cabecera de la PDA detrás.
+        val marco = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#0B2E4B"))
+            addView(web, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        }
+        setContentView(marco)
+        if (Build.VERSION.SDK_INT >= 35) {
+            marco.setOnApplyWindowInsetsListener { v, ins ->
+                val b = ins.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
+                v.setPadding(b.left, b.top, b.right, b.bottom)
+                WindowInsets.CONSUMED
+            }
+            // Iconos claros sobre el azul.
+            window.insetsController?.setSystemBarsAppearance(
+                0,
+                WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+            )
+        }
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true // la cola sin conexión vive en localStorage

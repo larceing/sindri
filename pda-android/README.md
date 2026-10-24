@@ -18,6 +18,7 @@ No hace falta ninguna PDA. El emulador no tiene DataWedge, pero los scripts de `
 ### 1. Sindri en el PC, con datos de demostración
 
 ```powershell
+npm install -g pnpm@10            # una vez, si no tienes el comando pnpm
 pnpm install; pnpm build
 $env:SINDRI_DEMO = "1"; pnpm --filter @sindri/server start      # http://127.0.0.1:8000
 ```

@@ -267,6 +267,35 @@ function leerDigitalLink(url: URL, l: LecturaCodigo) {
 }
 
 /** Interpreta lo que manda un escáner. Nunca lanza: lo que no entiende lo devuelve como texto. */
+/** Lo que, pegado al final de un lote o serie, parece otro campo GS1 que se lo ha tragado. */
+function campoPegado(cola: string, hoy: Date): string | null {
+  let m = /^(37|30)(\d{1,8})$/.exec(cola);
+  if (m) return `(${m[1]}) ${m[2]}`;
+  m = /^(1[1357])(\d{6})$/.exec(cola);
+  if (m && fechaGs1(m[2]!, hoy)) return `(${m[1]}) ${m[2]}`;
+  m = /^(3[12]0\d)(\d{6})$/.exec(cola);
+  if (m) return `(${m[1]}) ${m[2]}`;
+  return null;
+}
+
+/**
+ * Si se pierde el GS tras un lote o una serie (pistola que no lo manda), el campo siguiente se pega:
+ * lote «L1» + (37) 24 se lee como lote «L13724». No se puede saber seguro, así que solo se avisa.
+ */
+function avisarGsPerdido(l: LecturaCodigo, hoy: Date) {
+  const ultimo = l.campos.at(-1);
+  if (!ultimo || (ultimo.ai !== "10" && ultimo.ai !== "21")) return;
+  const v = ultimo.valor;
+  for (let i = 1; i <= v.length - 3; i++) {
+    const pegado = campoPegado(v.slice(i), hoy);
+    if (pegado) {
+      const que = ultimo.ai === "10" ? "El lote" : "La serie";
+      l.avisos.push(`¿Falta el separador GS? ${que} «${v}» acaba en «${v.slice(i)}», que parece ${pegado}. Revisa antes de confirmar.`);
+      return;
+    }
+  }
+}
+
 export function leerCodigo(entrada: string, hoy = new Date()): LecturaCodigo {
   const bruto = entrada;
   let s = entrada.replace(/[\r\n\t]+$/g, "").replace(/<GS>|\{GS\}|\\x1[dD]|\\u001[dD]/g, GS);
@@ -281,6 +310,7 @@ export function leerCodigo(entrada: string, hoy = new Date()): LecturaCodigo {
       fn();
       l.tipo = "gs1";
       completar(l, hoy);
+      if (!s.startsWith("(") && !/^https?:/i.test(s)) avisarGsPerdido(l, hoy);
       return true;
     } catch (e) {
       l.campos = [];
@@ -312,7 +342,10 @@ export function leerCodigo(entrada: string, hoy = new Date()): LecturaCodigo {
     try {
       leerElementos(s, copia);
       completar(copia, hoy);
-      if (!copia.avisos.length) return { ...copia, tipo: "gs1" };
+      if (!copia.avisos.length) {
+        avisarGsPerdido(copia, hoy);
+        return { ...copia, tipo: "gs1" };
+      }
     } catch {
       /* texto */
     }
