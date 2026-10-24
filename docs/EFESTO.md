@@ -187,12 +187,16 @@ Ordenado por lo que más máquinas españolas abre por esfuerzo:
 4. **asyncua 1.1.6 → 2.x** (salió la 2.1.0) y pymodbus 4 cuando salga.
 5. **Instalador de Efesto como servicio de Windows**, que ya estaba pendiente.
 
-## Decisiones para Luis
+## Decisiones
 
-1. ¿Los drivers con licencia GPL o DLL de terceros van **siempre como módulo aparte**, nunca dentro
-   de Efesto? Recomendado: sí.
-2. ¿Se permite a Efesto **escribir el fichero de petición de Euromap 63** en la carpeta de la
-   inyectora? No toca el control de la máquina, pero rompe la regla de «nada escribe». Recomendado:
-   no por defecto; activable por fuente en PRO si un cliente lo pide.
+Tomadas por Luis el 24-10-2026:
+
+1. Los drivers con licencia GPL o con DLL de terceros van **siempre como módulo aparte**, nunca
+   dentro de Efesto.
+2. Efesto **no escribe** el fichero de petición de Euromap 63. Sigue siendo solo lectura; si un
+   cliente lo pide, se estudia más adelante como opción por fuente, desactivada por defecto.
+
+Pendiente de Luis:
+
 3. ¿Qué tres sistemas primero en clientes reales? Recomendado: OPC UA con perfiles (cada vez más
    marcas lo traen de serie), Siemens S7 y Modbus con los mapas de los analizadores de red.
