@@ -5,11 +5,14 @@
  *   SINDRI_HOST=0.0.0.0 para aceptar conexiones desde otros equipos de la red.
  *   SINDRI_USUARIO y SINDRI_CLAVE: piden usuario y clave para entrar.
  *   SINDRI_DEMO=1: carga datos de demostración si la base está vacía (en DEV del servidor, siempre).
+ *   SINDRI_TLS_CERT y SINDRI_TLS_CLAVE (ficheros PEM): sirve por HTTPS. En la red de la fábrica hace
+ *   falta para que las PDA trabajen sin conexión. En DEV/PRO no: el HTTPS lo pone la entrada.
  *
  * En el servidor DEV/PRO (larceing/servidor) el agente pone en app.env SERVIDOR_ENTORNO,
  * AUTH_MODO=sso y KEYCLOAK_*: entonces se entra con Keycloak y se confía en el proxy.
  * APP_VERSION la fija la imagen al construirla.
  */
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { startServer } from "./start.js";
 import { ssoFromEnv } from "./sso.js";
@@ -39,9 +42,14 @@ const server = await startServer({
     : undefined,
   reportServer: reportServerFromEnv(),
   mail: mailFromEnv(),
+  https: process.env.SINDRI_TLS_CERT && process.env.SINDRI_TLS_CLAVE
+    ? { cert: readFileSync(process.env.SINDRI_TLS_CERT), key: readFileSync(process.env.SINDRI_TLS_CLAVE) }
+    : undefined,
   demo: process.env.SINDRI_DEMO === "1" || (process.env.SERVIDOR_ENTORNO === "dev" && process.env.SINDRI_DEMO !== "0"),
 });
 if (!process.env.SINDRI_USUARIO && process.env.AUTH_MODO !== "sso" && process.env.SINDRI_HOST === "0.0.0.0")
   console.warn("Aviso: el servidor acepta conexiones de la red sin usuario ni clave. Define SINDRI_USUARIO y SINDRI_CLAVE.");
+if (!process.env.SERVIDOR_ENTORNO && process.env.SINDRI_HOST === "0.0.0.0" && !process.env.SINDRI_TLS_CERT)
+  console.warn("Aviso: sin HTTPS (SINDRI_TLS_CERT y SINDRI_TLS_CLAVE) las PDA no pueden trabajar sin conexión. Ver docs/PDA.md.");
 console.log(`Sindri ERP escuchando en ${server.url} (base de datos: ${server.db.kind})`);
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => void server.close().then(() => process.exit(0)));

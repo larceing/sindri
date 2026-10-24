@@ -8,7 +8,7 @@
 - Por eso la PDA de Sindri es **una pantalla más de la misma web** (`#/pda`), con la misma API. No hace falta app nativa para empezar.
 - Ya hay un **prototipo** en este PR: lector de códigos GS1 en el núcleo, la PDA con *Consultar*, *Recibir*, *Preparar pedido* y *Pendientes*, trabajo **sin conexión** con cola que no duplica, y un **simulador** (`#/pda-simulador`) que hace de escáner como DataWedge, Honeywell o una pistola USB, y provoca los fallos típicos.
 - Lo que falta para un almacén de verdad está en el [plan](#9-plan-por-fases): ubicaciones, que la salida respete el lote leído, inventario, la PWA sin conexión con HTTPS en la red de la fábrica, recepción contra pedido de compra, expedición con SSCC y los partes de fabricación.
-- Decisiones para Luis al final: [§10](#10-decisiones-y-riesgos).
+- Decisiones tomadas: [§10](#10-decisiones-y-riesgos).
 
 > «Aspectos de uso de aplicaciones»: lo he leído como **cómo usa la gente estas apps en la nave** (una mano, guantes, ruido, prisa) y qué conviene medir de ese uso. Está en el [§3](#3-cómo-se-usan-en-la-nave). Si querías decir otra cosa, dímelo.
 
@@ -193,12 +193,14 @@ Lo que se queda para **Brokkr** (el CRM), porque necesita API que Sindri aún no
 
 ## 10. Decisiones y riesgos
 
-| # | Pregunta | Recomendación |
+Decididas el 24-10-2026 (Luis dio el «adelante» a las recomendaciones):
+
+| # | Decisión | Qué se ha hecho |
 |---|---|---|
-| 1 | ¿Chrome + modo teclado, Enterprise Browser o app propia? | Chrome + modo teclado ahora; app envoltorio solo si hace falta (P7). Enterprise Browser no: es de pago y solo Zebra |
-| 2 | ¿HTTPS en el servidor de la fábrica? | Sí, es obligatorio para la PWA sin conexión. Certificado de una CA interna instalada en las PDA, o un subdominio propio con certificado público |
-| 3 | ¿Comprar una PDA de pruebas? | Sí antes del primer cliente: una Zebra TC2x o Honeywell CT30 de segunda mano basta |
-| 4 | ¿Prefijo GS1 propio para las demos? | No hace falta: los GTIN 20… sirven. Cada cliente usa el suyo |
+| 1 | **Chrome + modo teclado** ahora; app envoltorio solo si hace falta (P7). Enterprise Browser no | Es como funciona el prototipo |
+| 2 | **HTTPS en el servidor de la fábrica** | Sindri ya puede servir HTTPS él mismo: `SINDRI_TLS_CERT` y `SINDRI_TLS_CLAVE` (ficheros PEM). Si escucha en la red sin HTTPS, avisa al arrancar. Certificado: una CA interna instalada en las PDA, o un subdominio propio con certificado público. En DEV/PRO no hace falta: el HTTPS lo pone la entrada del servidor |
+| 3 | **Comprar una PDA de pruebas** antes del primer cliente (Zebra TC2x o Honeywell CT30 de segunda mano) | Pendiente de Luis: es una compra |
+| 4 | **Sin prefijo GS1 propio para demos**: los GTIN 20… sirven; cada cliente usa el suyo | Los productos demo ya llevan GTIN 20… |
 
 Riesgos: el **GS perdido** que pega lotes (§2); trabajar mucho tiempo sin conexión con la copia vieja (se ve la fecha, y el servidor rechaza lo imposible); dos personas preparando el mismo pedido (P2: reservar el pedido a quien lo abre).
 

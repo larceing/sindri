@@ -216,6 +216,11 @@ export interface AppOptions {
   entorno?: string;
   /** Report Server (REPORT_URL y REPORT_LLAVE) para sacar facturas, pedidos y hojas de ruta en PDF. */
   reportServer?: ReportServerConfig;
+  /**
+   * HTTPS propio, para el servidor de la fábrica (sin proxy delante). Las PDA lo necesitan para
+   * trabajar sin conexión: Chrome solo deja usar service worker y almacenamiento seguro en HTTPS.
+   */
+  https?: { key: Buffer; cert: Buffer };
   /** Mail del servidor (MAIL_URL y MAIL_LLAVE) para mandar la confirmación de los pedidos. */
   mail?: MailConfig;
 }
@@ -226,8 +231,9 @@ const sameText = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-export async function buildApp({ db, webDir, logger = false, auth, sso, version = "dev", trustProxy = false, entorno = "local", reportServer, mail }: AppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger, trustProxy });
+export async function buildApp({ db, webDir, logger = false, auth, sso, version = "dev", trustProxy = false, entorno = "local", reportServer, mail, https }: AppOptions): Promise<FastifyInstance> {
+  // Fastify tipa distinto el servidor HTTPS; las rutas son las mismas.
+  const app = (https ? Fastify({ logger, trustProxy, https }) : Fastify({ logger, trustProxy })) as unknown as FastifyInstance;
 
   // Página de versión que lee el servidor DEV/PRO (punto verde, «Pasar a PRO»).
   const versionBody = async () => ({ version, escritorio_minima: ESCRITORIO_MINIMA });

@@ -104,6 +104,9 @@ pnpm --filter @sindri/server start      # http://127.0.0.1:8000  (datos en ./.da
 # Servidor de empresa con PostgreSQL, accesible desde la red local
 DATABASE_URL=postgres://usuario:clave@localhost/sindri SINDRI_HOST=0.0.0.0 pnpm --filter @sindri/server start
 
+# Con HTTPS propio (lo necesitan las PDA para trabajar sin conexión)
+SINDRI_TLS_CERT=cert.pem SINDRI_TLS_CLAVE=clave.pem SINDRI_HOST=0.0.0.0 pnpm --filter @sindri/server start
+
 # Desarrollo de la interfaz con recarga en caliente
 pnpm dev:server   # en una terminal
 pnpm dev:web      # en otra: http://localhost:5173
