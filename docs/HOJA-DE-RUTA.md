@@ -2,6 +2,8 @@
 
 El orden sigue el ciclo de negocio y los huecos detectados en la investigación: integración con planta, normativa española nativa, y taller, calidad y PDA incluidos sin coste.
 
+> Lo que falta, en orden y con las decisiones pendientes, está en [PLAN-DESARROLLO.md](PLAN-DESARROLLO.md) (24-10-2026).
+
 ## Fase 0 · Esqueleto (hecho, v0.1)
 
 - [x] Monorepo con TypeScript, pruebas y licencia AGPL.
