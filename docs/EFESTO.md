@@ -93,12 +93,40 @@ líneas y el de FINS unas 85.
 Así un driver con una licencia que no queramos dentro de Efesto (GPL, una DLL propietaria) vive
 aparte y solo lo instala el cliente que lo necesita.
 
-### Dar de alta una máquina real
+## Conectar una fábrica, paso a paso
 
-`python agente.py descubrir <fuente>` lista lo que hay para leer: variables OPC UA, tags de un
-Logix, topics MQTT, métricas Sparkplug, columnas de un CSV o elementos MTConnect. Contra una
-máquina real solo funciona con `EFESTO_DESCUBRIR_REAL=1`, que se pone en la fábrica. El
-descubrimiento también es de solo lectura.
+Así se pondrá en marcha Efesto en un cliente real cuando toque. Nada de esto se hace desde DEV:
+el agente de una fábrica habla siempre con el Sindri PRO de ese cliente.
+
+1. **Mirar qué hay en la planta.** Por cada máquina: marca, modelo y cómo se puede leer (OPC UA,
+   Modbus, S7…). La tabla de «Qué cubre» dice qué driver toca, y las dos investigaciones de
+   [efesto/](efesto/) dicen qué suele traer cada fabricante. Si no hay driver, ver «Huecos».
+2. **Crear el agente en Sindri.** En Planta → Agentes → «Crear agente». El token sale una sola vez:
+   se guarda en un fichero en el equipo de la fábrica, nunca en un chat ni en el repositorio.
+3. **Instalar Efesto en un equipo de la fábrica** que vea las máquinas: la imagen de
+   `planta/agente/Dockerfile` o Python con `pip install -r requirements.txt`. Solo necesita salida
+   HTTPS hacia Sindri; la red de planta no se abre hacia fuera.
+4. **Escribir `fuentes.json`** en ese equipo, una entrada por sistema, con el driver y cómo llegar
+   (como en [fuentes.simulador.json](../planta/agente/ejemplos/fuentes.simulador.json)). Las claves
+   van en ficheros aparte (`clave_fichero`).
+5. **Ver qué se puede leer** con `python agente.py descubrir <fuente>`. Contra una máquina real
+   solo funciona con `EFESTO_DESCUBRIR_REAL=1`, que se pone en la fábrica. También es de solo lectura.
+6. **Dar de alta las máquinas y sus tags en Sindri** (`PUT /api/v1/planta/maquinas`, como hace
+   [dar_de_alta.py](../planta/agente/ejemplos/dar_de_alta.py)): para cada máquina, su fuente; para
+   cada tag, el `origen` que salió en el paso 5, su tipo y, si hace falta, sus ajustes (`mapa`,
+   `escala`, `bit`…). Todavía no hay pantalla para esto.
+7. **Arrancar el agente** con estas variables:
+
+   | Variable | Para qué |
+   |---|---|
+   | `SINDRI_URL` | dirección del Sindri del cliente (siempre HTTPS) |
+   | `SINDRI_PLANTA_TOKEN_FICHERO` | fichero con el token del paso 2 |
+   | `EFESTO_FUENTES` | ruta de `fuentes.json` (por defecto, la carpeta actual) |
+   | `DATOS` | carpeta de la cola local (por defecto, `datos/`) |
+
+   `python agente.py correr`. Si algo falla al leer, lo guarda y lo reenvía cuando vuelve la conexión.
+8. **Comprobar en Sindri → Planta** que el agente sale «Conectado», con todas sus fuentes bien
+   («N/N fuentes»), y que las máquinas cambian de estado y suman piezas.
 
 ## Lo que protege la planta
 
@@ -196,7 +224,8 @@ Tomadas por Luis el 24-10-2026:
 2. Efesto **no escribe** el fichero de petición de Euromap 63. Sigue siendo solo lectura; si un
    cliente lo pide, se estudia más adelante como opción por fuente, desactivada por defecto.
 
-Pendiente de Luis:
+Para más adelante:
 
-3. ¿Qué tres sistemas primero en clientes reales? Recomendado: OPC UA con perfiles (cada vez más
-   marcas lo traen de serie), Siemens S7 y Modbus con los mapas de los analizadores de red.
+3. Qué sistemas se prueban primero en clientes reales. Se decidirá cuando haya un cliente; la
+   propuesta es OPC UA con perfiles (cada vez más marcas lo traen de serie), Siemens S7 y Modbus con
+   los mapas de los analizadores de red.
