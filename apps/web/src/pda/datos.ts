@@ -129,7 +129,7 @@ export function useCopia<T>(empresa: string, clave: string, ruta: string) {
 
 export interface Operacion {
   id: string;
-  tipo: "entrada" | "entrega";
+  tipo: "entrada" | "entrega" | "traspaso" | "recuento";
   /** Texto para la persona: «50 ud TOR-8 lote L1». */
   resumen: string;
   ruta: string;
