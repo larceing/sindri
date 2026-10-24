@@ -1,22 +1,30 @@
-"""Agente de planta de Sindri (docs/INSTRUCCIONES.md, parte C).
+"""Efesto, el agente de planta de Sindri (docs/INSTRUCCIONES.md, parte C, y docs/EFESTO.md).
 
-Corre dentro de la fábrica, lee del SCADA por OPC UA y manda los datos al ERP por HTTPS.
-La conexión la abre siempre el agente, hacia fuera: el ERP nunca entra en la planta.
+Corre dentro de la fábrica, lee de los sistemas de producción (OPC UA, Modbus, S7, EtherNet/IP,
+MQTT, MTConnect, bases de datos, ficheros, básculas…) con un driver por protocolo, y manda los
+datos al ERP por HTTPS. La conexión la abre siempre el agente, hacia fuera.
 
-- Solo lectura: este programa no escribe nunca en el SCADA ni en un PLC.
+- Solo lectura: ningún driver escribe en un PLC, un SCADA ni una base de datos.
 - Guarda y reenvía: lo que no se puede mandar se queda en SQLite y sale cuando vuelve la red.
 - Resume en origen: estados y textos cuando cambian; contadores y valores, un resumen por minuto.
-- La configuración (máquinas y tags) la descarga del ERP; aquí solo va cómo llegar a cada sitio.
-- DEV nunca toca la planta de verdad: fuera de PRO solo arranca contra el simulador.
+- La configuración (máquinas y tags) la descarga del ERP. Cómo llegar a cada sistema (fuentes)
+  vive aquí, en fuentes.json: ni direcciones ni claves de la fábrica salen de ella.
+- DEV nunca toca la planta de verdad: fuera de PRO, cada fuente tiene que ser el simulador.
 
 Variables:
-  SINDRI_URL                 p. ej. https://dev.<dominio>/sindri  (en local, http://entrada:8000/sindri)
+  SINDRI_URL                  p. ej. https://dev.<dominio>/sindri  (en local, http://entrada:8000/sindri)
   SINDRI_PLANTA_TOKEN_FICHERO fichero con el token del agente, legible solo por su usuario
-  SINDRI_PLANTA_TOKEN        el token directamente (solo para desarrollo)
-  OPCUA_URL                  p. ej. opc.tcp://scada:4840/
-  OPCUA_USUARIO, OPCUA_CLAVE_FICHERO   usuario de solo lectura del SCADA (opcional)
-  OPCUA_SEGURIDAD            p. ej. Basic256Sha256,SignAndEncrypt,cert.der,clave.pem (opcional)
-  DATOS                      carpeta para la cola local (por defecto ./datos)
+  SINDRI_PLANTA_TOKEN         el token directamente (solo para desarrollo)
+  EFESTO_FUENTES              fichero de fuentes (por defecto ./fuentes.json; ver fuentes.ejemplo.json)
+  OPCUA_URL, OPCUA_USUARIO, OPCUA_CLAVE_FICHERO, OPCUA_SEGURIDAD
+                              sin fuentes.json: una sola fuente OPC UA, como en la versión 0.1
+  DATOS                       carpeta para la cola local (por defecto ./datos)
+
+Uso:
+  python agente.py                     lee y manda
+  python agente.py drivers             qué drivers hay
+  python agente.py descubrir <fuente>  qué se puede leer en una fuente (solo el simulador, salvo
+                                       EFESTO_DESCUBRIR_REAL=1 en la propia fábrica)
 """
 from __future__ import annotations
 
@@ -26,17 +34,20 @@ import logging
 import math
 import os
 import sqlite3
+import sys
 import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-VERSION = "0.1.0"
-ESPACIO_SIMULADOR = "urn:sindri:simulador"
+import drivers
+from drivers.base import Driver, Tag, transformar
+
+VERSION = "0.2.0"
 LOTE = 500
 
-log = logging.getLogger("sindri-planta")
+log = logging.getLogger("efesto")
 
 
 def ahora_iso(t: float | None = None) -> str:
@@ -181,40 +192,111 @@ def version_tupla(v: str) -> tuple[int, ...]:
         return (0,)
 
 
+# Fuentes ------------------------------------------------------------------------------
+
+def cargar_fuentes() -> dict[str, dict]:
+    """fuentes.json: {"nombre": {"driver": "modbus", "host": "...", ...}}. Sin él, OPC UA por variables."""
+    ruta = os.environ.get("EFESTO_FUENTES", "fuentes.json")
+    if os.path.isfile(ruta):
+        with open(ruta, encoding="utf-8") as f:
+            # ${VARIABLE} se sustituye por su valor: así una ruta o un host pueden venir del entorno.
+            fuentes = json.loads(os.path.expandvars(f.read()))
+        for nombre, ajustes in fuentes.items():
+            if not isinstance(ajustes, dict) or "driver" not in ajustes:
+                raise SystemExit(f"La fuente «{nombre}» de {ruta} no dice qué driver usa.")
+            if any(k in ajustes for k in ("clave", "password", "token")):
+                raise SystemExit(f"La fuente «{nombre}» lleva una clave en {ruta}: va en un fichero aparte (clave_fichero).")
+        return fuentes
+    if os.environ.get("OPCUA_URL"):
+        return {"opcua": {
+            "driver": "opcua", "url": os.environ["OPCUA_URL"], "usuario": os.environ.get("OPCUA_USUARIO"),
+            "clave_fichero": os.environ.get("OPCUA_CLAVE_FICHERO"), "seguridad": os.environ.get("OPCUA_SEGURIDAD"),
+        }}
+    return {}
+
+
+def tags_por_fuente(config: dict, fuentes: dict) -> tuple[dict[str, list[Tag]], list[str]]:
+    """Reparte los tags del ERP entre las fuentes. Una máquina sin fuente usa la única que haya."""
+    reparto: dict[str, list[Tag]] = {n: [] for n in fuentes}
+    avisos = []
+    for m in config.get("maquinas", []):
+        fuente = m.get("fuente") or (next(iter(fuentes)) if len(fuentes) == 1 else "opcua")
+        if fuente not in fuentes:
+            avisos.append(f"La máquina {m['codigo']} usa la fuente «{fuente}», que no está en fuentes.json.")
+            continue
+        for t in m.get("tags", []):
+            reparto[fuente].append(Tag(m["codigo"], t["clave"], t["origen"], t["tipo"], t.get("ajustes") or {}, m.get("espacio")))
+    return reparto, avisos
+
+
+def normalizar(tag: Tag, crudo):
+    """Del valor del driver al que entiende el resumen: número para estados, contadores y medidas."""
+    v = transformar(crudo, tag.ajustes)
+    if tag.tipo == "text":
+        return None if v is None else str(v)
+    if isinstance(v, str):
+        try:
+            v = float(v.strip().replace(",", "."))
+        except ValueError:
+            raise ValueError(f"«{v[:40]}» no es un número (falta un «mapa» en los ajustes del tag)") from None
+    if isinstance(v, bool):
+        v = int(v)
+    if not isinstance(v, (int, float)) or (isinstance(v, float) and not math.isfinite(v)):
+        raise ValueError(f"valor no numérico: {v!r}"[:80])
+    return v
+
+
 # Bucle principal ------------------------------------------------------------------
+
+class PlantaRealEnDev(Exception):
+    pass
+
 
 class Agente:
     def __init__(self) -> None:
         url = os.environ.get("SINDRI_URL")
         token = leer_secreto("SINDRI_PLANTA_TOKEN")
-        self.opc_url = os.environ.get("OPCUA_URL")
-        if not url or not token or not self.opc_url:
-            raise SystemExit("Faltan SINDRI_URL, el token del agente (SINDRI_PLANTA_TOKEN_FICHERO) u OPCUA_URL.")
+        self.fuentes = cargar_fuentes()
+        if not url or not token or not self.fuentes:
+            raise SystemExit("Faltan SINDRI_URL, el token del agente (SINDRI_PLANTA_TOKEN_FICHERO) o las fuentes (fuentes.json u OPCUA_URL).")
         if url.startswith("http://") and not os.environ.get("SINDRI_PERMITIR_HTTP"):
             raise SystemExit("SINDRI_URL tiene que ir por HTTPS (en desarrollo local, SINDRI_PERMITIR_HTTP=1).")
+        for ajustes in self.fuentes.values():
+            drivers.cargar(ajustes["driver"])  # falla al arrancar si falta un driver o su librería
         datos = os.environ.get("DATOS", "datos")
         os.makedirs(datos, exist_ok=True)
         self.erp = Erp(url, token)
         self.cola = Cola(os.path.join(datos, "cola.sqlite"))
         self.resumen = Resumidor()
         self.config: dict | None = None
-        self.fuente_ok = False
-        self.ultimo_error: str | None = None
+        self.reparto: dict[str, list[Tag]] = {}
+        self.estado: dict[str, dict] = {n: {"driver": a["driver"], "ok": False, "error": None, "tags": 0, "fallan": 0} for n, a in self.fuentes.items()}
+
+    @property
+    def fuente_ok(self) -> bool:
+        return all(e["ok"] for n, e in self.estado.items() if self.reparto.get(n))
 
     async def cargar_config(self) -> None:
         cfg = await self.erp.pedir("GET", "/config")
         if version_tupla(VERSION) < version_tupla(cfg.get("planta_minima", "0")):
             log.warning("Este agente (%s) es más viejo que el mínimo del ERP (%s): hay que actualizarlo.", VERSION, cfg["planta_minima"])
         if cfg.get("escritura"):
-            log.warning("El ERP pide escritura, pero este agente solo lee: se ignora.")
+            log.warning("El ERP pide escritura, pero Efesto solo lee: se ignora.")
         if cfg != self.config:
-            log.info("Configuración: %s en %s, %d máquinas", cfg.get("agente"), cfg.get("entorno"), len(cfg.get("maquinas", [])))
+            self.reparto, avisos = tags_por_fuente(cfg, self.fuentes)
+            for a in avisos:
+                log.warning("%s", a)
+            log.info("Configuración: %s en %s, %d máquinas, %s", cfg.get("agente"), cfg.get("entorno"), len(cfg.get("maquinas", [])),
+                     ", ".join(f"{n}: {len(t)} tags" for n, t in self.reparto.items()))
         self.config = cfg
 
     async def latido(self) -> None:
+        errores = [f"{n}: {e['error']}" for n, e in self.estado.items() if e["error"] and self.reparto.get(n)]
         await self.erp.pedir("POST", "/latido", {
             "version": VERSION, "pendientes": self.cola.cuantas(), "fuente_ok": self.fuente_ok,
-            "error": self.ultimo_error, "ts": ahora_iso(),
+            "error": "; ".join(errores)[:500] or None, "ts": ahora_iso(),
+            "fuentes": {n: {k: e[k] for k in ("driver", "ok", "tags", "fallan")} | {"error": (e["error"] or None) and e["error"][:200]}
+                        for n, e in self.estado.items()},
         })
 
     async def enviar(self) -> None:
@@ -235,87 +317,132 @@ class Agente:
                 log.warning("Sin conexión con el ERP (%s): %s", tarea.__name__, e)
             await asyncio.sleep(float((self.config or {}).get(segundos_clave, defecto)))
 
-    async def leer_planta(self) -> None:
-        from asyncua import Client
-
+    async def leer_fuente(self, nombre: str) -> None:
+        """Una tarea por fuente: si una máquina se cae, las demás siguen."""
+        ajustes = self.fuentes[nombre]
+        clase = drivers.cargar(ajustes["driver"])
+        estado = self.estado[nombre]
+        espera = 5
         while self.config is None:
             await asyncio.sleep(1)
         while True:
+            if not self.reparto.get(nombre):
+                estado.update(ok=False, error=None, tags=0)
+                await asyncio.sleep(5)
+                continue
+            driver: Driver = clase(nombre, ajustes)
             try:
-                cliente = Client(self.opc_url, timeout=10)
-                usuario = os.environ.get("OPCUA_USUARIO")
-                if usuario:
-                    cliente.set_user(usuario)
-                    cliente.set_password(leer_secreto("OPCUA_CLAVE") or "")
-                if os.environ.get("OPCUA_SEGURIDAD"):
-                    await cliente.set_security_string(os.environ["OPCUA_SEGURIDAD"])
-                async with cliente:
-                    await self.comprobar_entorno(cliente)
-                    await self.bucle_lectura(cliente)
+                await asyncio.wait_for(driver.abrir(), 20)
+                await self.comprobar_entorno(nombre, driver)
+                espera = 5
+                await self.bucle_lectura(nombre, driver)
             except PlantaRealEnDev:
                 raise
             except Exception as e:  # noqa: BLE001 - la fuente se cae y vuelve; el agente sigue
-                self.fuente_ok = False
-                self.ultimo_error = f"OPC UA: {e}"[:500]
-                log.warning("Sin conexión con OPC UA: %s. Reintento en 10 s.", e)
-                await asyncio.sleep(10)
+                estado.update(ok=False, error=f"{ajustes['driver']}: {e}"[:300])
+                log.warning("Fuente %s (%s) sin conexión: %s. Reintento en %d s.", nombre, ajustes["driver"], e, espera)
+            finally:
+                try:
+                    await asyncio.wait_for(driver.cerrar(), 5)
+                except Exception:  # noqa: BLE001
+                    pass
+            await asyncio.sleep(espera)
+            espera = min(espera * 2, 120)
 
-    async def comprobar_entorno(self, cliente) -> None:
+    async def comprobar_entorno(self, nombre: str, driver: Driver) -> None:
         """DEV nunca toca la planta de verdad: fuera de PRO solo vale el simulador."""
         entorno = (self.config or {}).get("entorno", "")
-        espacios = await cliente.get_namespace_array()
-        if entorno != "pro" and ESPACIO_SIMULADOR not in espacios:
-            raise PlantaRealEnDev(f"El ERP es «{entorno}» y {self.opc_url} no es el simulador. Un agente de DEV nunca lee la planta real.")
+        if entorno != "pro" and not await driver.es_simulador():
+            raise PlantaRealEnDev(f"El ERP es «{entorno}» y la fuente «{nombre}» ({driver.nombre}) no es el simulador de Sindri ({driver.marca}). Un agente de DEV nunca lee la planta real.")
 
-    async def bucle_lectura(self, cliente) -> None:
-        nodos: dict[tuple[str, str], tuple[str, object]] = {}
+    async def bucle_lectura(self, nombre: str, driver: Driver) -> None:
+        estado = self.estado[nombre]
         version_cfg = None
+        avisados: set = set()
         while True:
             if self.config is not version_cfg:
-                nodos = await self.resolver(cliente)
+                tags = self.reparto.get(nombre, [])
+                if not tags:
+                    return
+                await driver.preparar(tags)
                 version_cfg = self.config
+                porid = {t.id: t for t in tags}
+                log.info("Fuente %s (%s): leyendo %d tags", nombre, driver.nombre, len(tags) - len(driver.errores))
             t = time.time()
+            crudos = await asyncio.wait_for(driver.leer(), 30)
             lecturas: list[dict] = []
-            for (maquina, tag), (tipo, nodo) in nodos.items():
-                valor = await nodo.read_value()
-                lecturas += self.resumen.muestra(maquina, tag, tipo, valor, t)
+            errores = dict(driver.errores)
+            for clave, crudo in crudos.items():
+                tag = porid.get(clave)
+                if not tag:
+                    continue
+                try:
+                    v = normalizar(tag, crudo)
+                except ValueError as e:
+                    errores[clave] = str(e)
+                    continue
+                errores.pop(clave, None)
+                lecturas += self.resumen.muestra(tag.maquina, tag.clave, tag.tipo, v, t)
             if lecturas:
                 self.cola.meter(lecturas)
-            self.fuente_ok, self.ultimo_error = True, None
+            for clave, error in errores.items():
+                if clave not in avisados:
+                    avisados.add(clave)
+                    log.warning("Fuente %s, %s/%s: %s", nombre, clave[0], clave[1], error)
+            estado.update(ok=True, error=(f"{len(errores)} tags sin leer, p. ej. {next(iter(errores.values()))}"[:300] if errores else None),
+                          tags=len(porid), fallan=len(errores))
             await asyncio.sleep(float(self.config.get("lectura_s", 1)))
 
-    async def resolver(self, cliente) -> dict:
-        nodos = {}
-        for m in self.config.get("maquinas", []):
-            ns = await cliente.get_namespace_index(m["espacio"]) if m.get("espacio") else 0
-            for t in m["tags"]:
-                camino = [f"{ns}:{p}" for p in t["origen"].split("/") if p]
-                try:
-                    nodos[(m["codigo"], t["clave"])] = (t["tipo"], await cliente.nodes.objects.get_child(camino))
-                except Exception as e:  # noqa: BLE001
-                    log.warning("No encuentro %s/%s en OPC UA (%s): %s", m["codigo"], t["clave"], t["origen"], e)
-        log.info("Leyendo %d tags", len(nodos))
-        return nodos
-
     async def correr(self) -> None:
-        log.info("Agente de planta %s: ERP %s, OPC UA %s", VERSION, self.erp.base, self.opc_url)
+        log.info("Efesto %s: ERP %s, fuentes %s", VERSION, self.erp.base, ", ".join(f"{n} ({a['driver']})" for n, a in self.fuentes.items()))
         await asyncio.gather(
             self.cada("config_s", 300, self.cargar_config),
             self.cada("latido_s", 30, self.latido),
             self.cada("envio_s", 5, self.enviar),
-            self.leer_planta(),
+            *[self.leer_fuente(n) for n in self.fuentes],
         )
 
 
-class PlantaRealEnDev(Exception):
-    pass
+# Herramientas para dar de alta máquinas ------------------------------------------
+
+def listar_drivers() -> None:
+    for i in drivers.disponibles():
+        try:
+            c = drivers.cargar(i)
+            print(f"{i:10} {c.nombre}\n           librería: {c.libreria}\n           dirección: {c.sintaxis}\n           simulador: {c.marca}")
+        except SystemExit as e:
+            print(f"{i:10} no disponible: {e}")
+
+
+async def descubrir(nombre: str) -> None:
+    fuentes = cargar_fuentes()
+    if nombre not in fuentes:
+        raise SystemExit(f"No hay fuente «{nombre}». Hay: {', '.join(fuentes) or 'ninguna'}.")
+    driver = drivers.cargar(fuentes[nombre]["driver"])(nombre, fuentes[nombre])
+    await driver.abrir()
+    try:
+        if not await driver.es_simulador() and os.environ.get("EFESTO_DESCUBRIR_REAL") != "1":
+            raise SystemExit(f"«{nombre}» no es el simulador. Para explorar una máquina real, hazlo en la fábrica con EFESTO_DESCUBRIR_REAL=1 (solo lee).")
+        for fila in await driver.descubrir():
+            print(json.dumps(fila, ensure_ascii=False))
+    finally:
+        await driver.cerrar()
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    logging.getLogger("asyncua").setLevel(logging.WARNING)
-    try:
-        asyncio.run(Agente().correr())
-    except PlantaRealEnDev as e:
-        log.error("%s", e)
-        raise SystemExit(2)
+    for ruidoso in ("asyncua", "pymodbus", "snap7", "pyads", "amqtt"):
+        logging.getLogger(ruidoso).setLevel(logging.WARNING)
+    orden = sys.argv[1:] or ["correr"]
+    if orden[0] == "drivers":
+        listar_drivers()
+    elif orden[0] == "descubrir" and len(orden) == 2:
+        asyncio.run(descubrir(orden[1]))
+    elif orden[0] == "correr":
+        try:
+            asyncio.run(Agente().correr())
+        except PlantaRealEnDev as e:
+            log.error("%s", e)
+            raise SystemExit(2)
+    else:
+        raise SystemExit(__doc__)

@@ -33,12 +33,34 @@ export function newToken() {
 
 const code = z.string().trim().regex(/^[A-Za-z0-9_.-]{1,40}$/, "Solo letras, números, punto, guion y guion bajo");
 
+/** Ajustes de un tag que aplica el agente al leer (drivers/base.py, transformar). */
+const SettingsSchema = z
+  .object({
+    escala: z.number().finite().optional(),
+    desplazamiento: z.number().finite().optional(),
+    bit: z.number().int().min(0).max(63).optional(),
+    mapa: z.record(z.string().max(60), z.union([z.number().finite(), z.string().max(120)])).optional(),
+    defecto_mapa: z.union([z.number().finite(), z.string().max(120)]).optional(),
+    hex: z
+      .object({
+        inicio: z.number().int().min(0).max(255).optional(),
+        bytes: z.number().int().min(1).max(8).optional(),
+        signo: z.boolean().optional(),
+        desplazar: z.number().int().min(0).max(63).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 const TagSchema = z.object({
   key: code,
-  source: z.string().trim().min(1).max(300),
+  // La dirección en la sintaxis del driver: Planta/Linea1/Estado, hr:100:uint32, DB10:4:REAL…
+  source: z.string().trim().min(1).max(500),
   kind: z.enum(["state", "counter", "value", "text"]),
   label: z.string().trim().max(80).nullish(),
   unit: z.string().trim().max(20).nullish(),
+  settings: SettingsSchema.nullish(),
 });
 
 const MachineSchema = z.object({
@@ -46,6 +68,8 @@ const MachineSchema = z.object({
   name: z.string().trim().min(1).max(120),
   agent_id: z.uuid().nullish(),
   namespace_uri: z.string().trim().max(300).nullish(),
+  // Nombre de la fuente en fuentes.json del agente (p. ej. "prensa"). Sin él, la única que tenga.
+  source_name: code.nullish(),
   active: z.boolean().optional(),
   tags: z.array(TagSchema).max(200).optional(),
 });
@@ -74,6 +98,20 @@ const HeartbeatSchema = z.object({
   fuente_ok: z.boolean().optional(),
   error: z.string().max(500).nullish(),
   ts: iso.optional(),
+  // Cómo va cada fuente (desde Efesto 0.2): {"prensa": {"driver": "modbus", "ok": true, ...}}
+  fuentes: z
+    .record(
+      code,
+      z.object({
+        driver: z.string().max(40),
+        ok: z.boolean(),
+        tags: z.number().int().nonnegative().optional(),
+        fallan: z.number().int().nonnegative().optional(),
+        error: z.string().max(300).nullish(),
+      }),
+    )
+    .refine((f) => Object.keys(f).length <= 100, "Demasiadas fuentes")
+    .optional(),
 });
 
 // Servicios --------------------------------------------------------------------------
@@ -113,27 +151,27 @@ export async function listAgents(db: Db) {
 
 export async function listMachines(db: Db) {
   const machines = await db.query<{ id: string }>(
-    `select m.id, m.code, m.name, m.agent_id, a.name as agent_name, m.namespace_uri, m.active
+    `select m.id, m.code, m.name, m.agent_id, a.name as agent_name, m.namespace_uri, m.source_name, m.active
        from plant_machine m left join plant_agent a on a.id = m.agent_id order by m.code`,
   );
-  const tags = await db.query<{ machine_id: string }>("select machine_id, key, source, kind, label, unit from plant_tag order by key");
+  const tags = await db.query<{ machine_id: string }>("select machine_id, key, source, kind, label, unit, settings from plant_tag order by key");
   return machines.map((m) => ({ ...m, tags: tags.filter((t) => t.machine_id === m.id).map(({ machine_id: _, ...t }) => t) }));
 }
 
 export async function saveMachine(db: Db, input: z.infer<typeof MachineSchema>) {
   return db.tx(async (q) => {
     const [m] = await q.query<{ id: string }>(
-      `insert into plant_machine (code, name, agent_id, namespace_uri, active) values ($1, $2, $3, $4, coalesce($5, true))
+      `insert into plant_machine (code, name, agent_id, namespace_uri, source_name, active) values ($1, $2, $3, $4, $5, coalesce($6, true))
        on conflict (code) do update set name = excluded.name, agent_id = excluded.agent_id,
-         namespace_uri = excluded.namespace_uri, active = excluded.active
+         namespace_uri = excluded.namespace_uri, source_name = excluded.source_name, active = excluded.active
        returning id`,
-      [input.code, input.name, input.agent_id ?? null, input.namespace_uri ?? null, input.active ?? null],
+      [input.code, input.name, input.agent_id ?? null, input.namespace_uri ?? null, input.source_name ?? null, input.active ?? null],
     );
     if (input.tags) {
       await q.query("delete from plant_tag where machine_id = $1", [m!.id]);
       for (const t of input.tags)
-        await q.query("insert into plant_tag (machine_id, key, source, kind, label, unit) values ($1, $2, $3, $4, $5, $6)", [
-          m!.id, t.key, t.source, t.kind, t.label ?? null, t.unit ?? null,
+        await q.query("insert into plant_tag (machine_id, key, source, kind, label, unit, settings) values ($1, $2, $3, $4, $5, $6, $7)", [
+          m!.id, t.key, t.source, t.kind, t.label ?? null, t.unit ?? null, t.settings ? JSON.stringify(t.settings) : null,
         ]);
     }
     return m;
@@ -157,7 +195,9 @@ export async function agentConfig(db: Db, agent: Agent, entorno: string) {
       codigo: m.code,
       nombre: m.name,
       espacio: m.namespace_uri,
-      tags: m.tags.map((t: any) => ({ clave: t.key, origen: t.source, tipo: t.kind })),
+      // Un agente 0.1 no conoce fuente ni ajustes y los ignora: solo lee OPC UA.
+      ...(m.source_name ? { fuente: m.source_name } : {}),
+      tags: m.tags.map((t: any) => ({ clave: t.key, origen: t.source, tipo: t.kind, ...(t.settings ? { ajustes: t.settings } : {}) })),
     })),
   };
 }
@@ -166,7 +206,13 @@ export async function heartbeat(db: Db, agent: Agent, body: z.infer<typeof Heart
   await db.query("update plant_agent set last_seen_at = now(), last_version = $2, last_status = $3 where id = $1", [
     agent.id,
     body.version,
-    JSON.stringify({ pendientes: body.pendientes ?? 0, fuente_ok: body.fuente_ok ?? null, error: body.error ?? null, ts: body.ts ?? null }),
+    JSON.stringify({
+      pendientes: body.pendientes ?? 0,
+      fuente_ok: body.fuente_ok ?? null,
+      error: body.error ?? null,
+      ts: body.ts ?? null,
+      ...(body.fuentes ? { fuentes: body.fuentes } : {}),
+    }),
   ]);
 }
 

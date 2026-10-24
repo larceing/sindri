@@ -1,1 +1,11 @@
+# Efesto: un driver por protocolo. Todas con licencia que permite llevarlas con el agente
+# (ver docs/EFESTO.md, «Licencias»). Un driver solo importa su librería si alguna fuente lo usa.
 asyncua==1.1.6
+pymodbus==3.16.1
+python-snap7==3.3.0
+pylogix==1.1.6
+pyads==3.6.0
+pymcprotocol==0.3.0
+paho-mqtt==2.1.0
+bacpypes3==0.0.110
+pyserial==3.5

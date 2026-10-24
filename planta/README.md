@@ -1,4 +1,9 @@
-# Planta: agente y simulador
+# Planta: Efesto (agente) y simuladores
+
+> **Efesto** lee cualquier sistema de producción con un driver por protocolo (OPC UA, Modbus, S7,
+> EtherNet/IP, ADS, MELSEC, FINS, Keyence, MQTT, Sparkplug B, MTConnect, HTTP, BACnet, SQL,
+> ficheros y puerto serie). Cómo funciona, cómo se añade un driver como módulo y qué falta:
+> [docs/EFESTO.md](../docs/EFESTO.md).
 
 Lo que conecta Sindri con la fábrica. Las reglas completas están en [docs/INSTRUCCIONES.md](../docs/INSTRUCCIONES.md), parte C. En corto:
 
@@ -31,7 +36,8 @@ En el agente va en un fichero legible solo por su usuario (`SINDRI_PLANTA_TOKEN_
 |---|---|
 | `SINDRI_URL` | `https://dev.<dominio>/sindri` |
 | `SINDRI_PLANTA_TOKEN_FICHERO` | `/run/secrets/planta_token` |
-| `OPCUA_URL` | `opc.tcp://<scada>:4840/` |
+| `EFESTO_FUENTES` | `fuentes.json` con cómo llegar a cada sistema (ver `ejemplos/`) |
+| `OPCUA_URL` | `opc.tcp://<scada>:4840/` (sin `fuentes.json`, como en la 0.1) |
 | `OPCUA_USUARIO`, `OPCUA_CLAVE_FICHERO` | Usuario de solo lectura del SCADA |
 | `OPCUA_SEGURIDAD` | `Basic256Sha256,SignAndEncrypt,cert.der,clave.pem` |
 | `DATOS` | Carpeta de la cola local |
@@ -46,7 +52,8 @@ Una release `planta-vX.Y.Z` publica `ghcr.io/larceing/sindri-planta:X.Y.Z` (work
 
 ## `simulador/`
 
-Servidor OPC UA de una línea de envasado con estado, piezas buenas y malas, velocidad, temperatura del horno, orden en curso y alarmas. Es lo único contra lo que trabajan el entorno local y DEV.
+`multiprotocolo.py`: 22 máquinas de mentira, una por protocolo, para desarrollar y probar drivers
+(ver docs/EFESTO.md). `simulador.py`: el servidor OPC UA de una línea de envasado con estado, piezas buenas y malas, velocidad, temperatura del horno, orden en curso y alarmas. Es lo único contra lo que trabajan el entorno local y DEV.
 
 ## Probarlo en local
 

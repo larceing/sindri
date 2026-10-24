@@ -1,0 +1,117 @@
+{
+  "scada-opcua": {
+    "driver": "opcua",
+    "url": "opc.tcp://127.0.0.1:4840/"
+  },
+  "prensa": {
+    "driver": "modbus",
+    "host": "127.0.0.1",
+    "puerto": 5020,
+    "unidad": 1
+  },
+  "horno": {
+    "driver": "s7",
+    "host": "127.0.0.1",
+    "puerto": 1102,
+    "rack": 0,
+    "slot": 1
+  },
+  "linea2": {
+    "driver": "enip",
+    "host": "127.0.0.1",
+    "puerto": 44818
+  },
+  "robot": {
+    "driver": "ads",
+    "host": "127.0.0.1",
+    "ams_net_id": "127.0.0.1.1.1",
+    "ams_puerto": 851
+  },
+  "torno": {
+    "driver": "mc",
+    "host": "127.0.0.1",
+    "puerto": 5007
+  },
+  "broker": {
+    "driver": "mqtt",
+    "host": "127.0.0.1",
+    "puerto": 1883
+  },
+  "cnc": {
+    "driver": "mtconnect",
+    "url": "http://127.0.0.1:5050"
+  },
+  "etiquetadora": {
+    "driver": "http",
+    "url": "http://127.0.0.1:5060"
+  },
+  "bascula": {
+    "driver": "serie",
+    "url": "socket://127.0.0.1:5070"
+  },
+  "secadero": {
+    "driver": "ficheros",
+    "carpeta": "${CARPETA}/csv",
+    "patron": "secadero1_*.csv",
+    "separador": ";"
+  },
+  "historico": {
+    "driver": "sql",
+    "motor": "sqlite",
+    "fichero": "${CARPETA}/historico.sqlite"
+  },
+  "modelos-opcua": {
+    "driver": "opcua",
+    "url": "opc.tcp://127.0.0.1:4841/"
+  },
+  "analizador": {
+    "driver": "modbus",
+    "host": "127.0.0.1",
+    "puerto": 5021,
+    "unidad": 3,
+    "trama": "rtu"
+  },
+  "prensa2": {
+    "driver": "fins",
+    "host": "127.0.0.1",
+    "puerto": 9600
+  },
+  "ensambladora": {
+    "driver": "keyence",
+    "host": "127.0.0.1",
+    "puerto": 8501
+  },
+  "pasarela": {
+    "driver": "sparkplug",
+    "host": "127.0.0.1",
+    "puerto": 1883,
+    "grupo": "Fabrica",
+    "cliente_id": "efesto-sparkplug",
+    "espera_s": 11
+  },
+  "compresor": {
+    "driver": "bacnet",
+    "host": "127.0.0.1:47809",
+    "dispositivo": 9999,
+    "local": "127.0.0.2/8:47808"
+  },
+  "inyectora2": {
+    "driver": "ficheros",
+    "carpeta": "${CARPETA}/euromap63",
+    "patron": "*.DAT",
+    "separador": ","
+  },
+  "iolink": {
+    "driver": "http",
+    "url": "http://127.0.0.1:5061"
+  },
+  "ignition": {
+    "driver": "sql",
+    "motor": "sqlite",
+    "fichero": "${CARPETA}/ignition.sqlite"
+  },
+  "vision": {
+    "driver": "serie",
+    "url": "socket://127.0.0.1:5071"
+  }
+}

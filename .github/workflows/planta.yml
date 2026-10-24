@@ -1,5 +1,5 @@
 # Agente de planta (planta/agente). No lo despliega el servidor: se instala en la fábrica.
-#   cambios en planta/   -> pruebas del agente
+#   cambios en planta/   -> pruebas del agente y de sus drivers contra el simulador multiprotocolo
 #   release planta-vX.Y.Z -> pruebas -> ghcr.io/<repo>-planta:X.Y.Z y :latest
 name: Agente de planta
 
@@ -24,7 +24,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r planta/agente/requirements.txt
+      # requirements-pruebas.txt trae además lo que necesita el simulador multiprotocolo.
+      - run: pip install -r planta/agente/requirements-pruebas.txt
       - run: python -m unittest -v
         working-directory: planta/agente
 
