@@ -1,0 +1,13 @@
+# Códigos de prueba para los datos de demostración de Sindri (SINDRI_DEMO=1).
+# nombre|simbología AIM|datos|qué prueba
+# <GS> es el separador GS1 (carácter 29). Los GTIN 20… son del rango interno de GS1: no existen fuera.
+bonito-caja|]C1|01020000000000151728123110L-BON-2611<GS>3724|Recibir: GS1-128 con GTIN, caducidad, lote y 24 unidades
+anchoa-dm|]d2|01020000000000221728113010L-ANC-2610<GS>3712|Recibir: GS1 DataMatrix con lote y 12 unidades
+mejillon-ean|]E0|2000000000039|EAN-13 suelto: solo el producto
+caja-ean|]E0|2000000000046|EAN-13 de un consumible sin lote
+lote-bonito|]C0|L-BON-2588|Code 128 con un lote interno (el que sale antes por caducidad)
+palet-sscc|]C1|00020000000000000121|SSCC de un palé
+peso-bonito|]C1|0102000000000015310300125010L-BON-2612|GS1-128 con peso neto 1,250 kg y lote al final
+gs-perdido|]C1|01020000000000151728123110L-BON-26113724|El GS se perdió: el lote se come la cantidad (L-BON-26113724)
+etiqueta-mal|]C1|01020000000000161728123110X|Dígito de control erróneo: debe avisar
+texto|]C0|HOLA-PDA|Texto que no es de ningún producto

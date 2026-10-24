@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sindri puede ir por HTTP dentro de la red de la fábrica (y el emulador habla con el PC por
+  10.0.2.2). Lo recomendable es HTTPS: con HTTP el navegador no deja usar algunas funciones.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- Certificados que instale la empresa en la PDA (servidor de la fábrica con su propia CA). -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

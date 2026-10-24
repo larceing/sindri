@@ -114,7 +114,7 @@ Qué conviene **medir** del uso (fase 3, desde el registro de eventos): lecturas
 | 1 | **Simulador web** `#/pda-simulador` (hecho) | 0 | Probar flujos y fallos desde el PC, enseñar demos |
 | 2 | Pruebas automáticas con Playwright usando el mismo simulador | 0 | Que un cambio no rompa la PDA (fase 3, en CI) |
 | 3 | Pistola USB de 25-40 € en el PC, o el QR del simulador leído con un móvil | Bajo | Probar el modo teclado real |
-| 4 | Android Emulator (Android Studio) con Chrome; `adb shell input text` para teclear códigos | 0 | Probar Chrome Android, el teclado de pantalla y la PWA. DataWedge **no** existe en el emulador |
+| 4 | **Android Emulator** (Android Studio) con la app `pda-android` o con Chrome; scripts `pda-android/scripts/escanear.*` que mandan lecturas por adb como Intent (igual que DataWedge) o como teclado (hecho, §8.1) | 0 | Probar la app Android, Chrome Android, el teclado de pantalla, la cámara y la falta de red. DataWedge **no** existe en el emulador: el script manda lo mismo que mandaría |
 | 5 | Una PDA real de segunda mano o en préstamo del distribuidor | 150-600 € | Configurar DataWedge y validar antes del primer cliente |
 
 No hacen falta mocks de API: el simulador usa **Sindri de verdad** contra una empresa DEMO o DEV.
@@ -169,6 +169,16 @@ Reglas:
 
 Comprobado en el navegador (Chromium) contra un Sindri local con datos demo: recibir leyendo una etiqueta GS1, recibir sin red y que se mande sola al volver (sin duplicar), lectura doble que cuenta una, tecleo lento que no se toma por lectura, preparar un pedido completo y darle salida, y el lote pegado cuando se pierde el GS.
 
+### 8.1 App Android y pruebas en el emulador
+
+La fase P7 se ha adelantado para poder probar la captura con Android Studio y componentes virtuales, sin PDA. Está en [`pda-android/`](../pda-android/README.md):
+
+- **App mínima** (Kotlin, sin librerías salvo el lector de cámara de Google): la PDA web a pantalla completa. Recibe el escáner **por Intent** con la acción `com.sindri.pda.ESCANEO` (extras de DataWedge, de Honeywell y de otras marcas), le pone el prefijo AIM según el tipo de código (`LABEL-TYPE-EAN128` → `]C1`…) y lo pasa a la web como `sindri:escaneo`. En una Zebra crea sola el perfil de DataWedge. Botón de **cámara** y **gatillo por software** que solo aparecen dentro de la app (`window.SindriAndroid`).
+- **Scripts** `escanear.ps1` (Windows) y `escanear.sh`: mandan una lectura al emulador por adb, como Intent (con GS y simbología, en Base64) o como teclado (`input text` + Intro), con una lista de códigos de prueba para los datos demo (GS1-128, DataMatrix, EAN-13, SSCC, peso, GS perdido, dígito de control malo).
+- La web acepta ahora el **Intro final hasta 1 s después** del código (lo que cuenta es que el código llegue deprisa). Lo necesitan `adb shell input` y algunos lectores Bluetooth.
+
+Comprobado en la nube: la app compila, sus 7 pruebas pasan (lectura de extras de cada marca, prefijo AIM, GS en Base64, escapado seguro para JavaScript) y, en Chromium contra Sindri local, el JavaScript exacto que genera la app rellena «Recibir» con producto, lote, caducidad y 24 ud; el Intro tardío se lee; una persona tecleando despacio no; y los botones de gatillo y cámara llaman a la app. **Falta arrancarla en el emulador**: el contenedor de la nube no tiene aceleración para Android, así que eso se hace en el PC de Luis con los pasos del README.
+
 ### El otro simulador (análisis de CRM)
 
 El hilo de análisis de CRM hizo un simulador de PDA suelto (`analisis-crm/simulador-pda/index.html`) con servidor de mentira, modo comercial y modo almacén. Se ha unido aquí lo que aportaba al almacén, para que quede uno solo:
@@ -189,7 +199,7 @@ Lo que se queda para **Brokkr** (el CRM), porque necesita API que Sindri aún no
 | **P4** | Recepción contra **pedido de compra** (parcial, diferencias) | Compras (fase 6) |
 | **P5** | Expedición: bultos y palés con **SSCC**, etiqueta ZPL, DeCA | Etiquetas (fase 7) y prefijo GS1 de la empresa |
 | **P6** | **Partes de fabricación** desde PDA y tablet de taller: consumir lotes, declarar producción, etiquetar; unirlo con los eventos de máquina de **Efesto** | Fabricación (fase 6) |
-| **P7** (opcional) | App envoltorio Android (WebView/TWA) que reciba el Intent de DataWedge/Honeywell y lo pase como `sindri:escaneo`; gatillo por software | Solo si el modo teclado se queda corto |
+| **P7** (empezada, §8.1) | App Android que recibe el Intent de DataWedge/Honeywell y lo pasa como `sindri:escaneo`; gatillo por software; cámara. Falta: probar en emulador y en PDA real, firmar el APK y repartirlo (MDM o instalación a mano) | Probar con una PDA real (decisión 3) |
 
 ## 10. Decisiones y riesgos
 
@@ -197,7 +207,7 @@ Decididas el 24-10-2026 (Luis dio el «adelante» a las recomendaciones):
 
 | # | Decisión | Qué se ha hecho |
 |---|---|---|
-| 1 | **Chrome + modo teclado** ahora; app envoltorio solo si hace falta (P7). Enterprise Browser no | Es como funciona el prototipo |
+| 1 | **Chrome + modo teclado** ahora; app envoltorio solo si hace falta (P7). Enterprise Browser no | Es como funciona el prototipo. Luis pidió después probar la captura con Android Studio, así que la app (P7) ya existe como base: Chrome sigue valiendo y la app añade Intent, gatillo y cámara |
 | 2 | **HTTPS en el servidor de la fábrica** | Sindri ya puede servir HTTPS él mismo: `SINDRI_TLS_CERT` y `SINDRI_TLS_CLAVE` (ficheros PEM). Si escucha en la red sin HTTPS, avisa al arrancar. Certificado: una CA interna instalada en las PDA, o un subdominio propio con certificado público. En DEV/PRO no hace falta: el HTTPS lo pone la entrada del servidor |
 | 3 | **Comprar una PDA de pruebas** antes del primer cliente (Zebra TC2x o Honeywell CT30 de segunda mano) | Pendiente de Luis: es una compra |
 | 4 | **Sin prefijo GS1 propio para demos**: los GTIN 20… sirven; cada cliente usa el suyo | Los productos demo ya llevan GTIN 20… |

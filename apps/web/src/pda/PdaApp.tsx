@@ -9,12 +9,12 @@
  * - Pendientes: lo hecho sin conexión que falta por mandar.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, CheckCircle2, ClipboardList, CloudOff, ListChecks, Minus, PackagePlus, PackageSearch, Plus, ScanLine, Upload, Wifi } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, ClipboardList, CloudOff, ListChecks, Minus, PackagePlus, PackageSearch, Plus, ScanLine, Upload, Wifi } from "lucide-react";
 import { gtin14, leerCodigo, type LecturaCodigo } from "@sindri/core/gs1";
 import { fecha, qty } from "../api";
 import { navigate, useRoute } from "../router";
 import { nombreEmpresa, type Me } from "../session";
-import { useEscaner, type Escaneo } from "./escaner";
+import { appAndroid, useEscaner, type Escaneo } from "./escaner";
 import { aviso, encolar, enviarCola, guardarCopia, leerCopia, nuevoId, pdaApi, quitarDeCola, reintentarOp, useCola, useCopia, useRed, type Operacion } from "./datos";
 import "./pda.css";
 
@@ -75,6 +75,7 @@ export function PdaApp({ me }: { me: Me }) {
   const [mensaje, setMensaje] = useState<Mensaje>(null);
   const [ultima, setUltima] = useState<{ e: Escaneo; l: LecturaCodigo } | null>(null);
   const manejador = useRef<(l: LecturaCodigo, e: Escaneo) => void>(() => {});
+  const android = useMemo(appAndroid, []);
 
   const decir = (tono: NonNullable<Mensaje>["tono"], texto: string) => {
     setMensaje({ tono, texto });
@@ -114,6 +115,11 @@ export function PdaApp({ me }: { me: Me }) {
           <strong>{titulo}</strong>
           <span>{me.companies.find((c) => c.id === empresa) ? nombreEmpresa(me.companies.find((c) => c.id === empresa)!) : ""} · {me.name}</span>
         </div>
+        {android?.camara ? (
+          <button className="pda-red" onClick={() => window.SindriAndroid?.camara()} aria-label="Leer con la cámara" title="Leer con la cámara">
+            <Camera size={20} aria-hidden />
+          </button>
+        ) : null}
         <button className={`pda-red ${red ? "on" : "off"}`} onClick={() => navigate("/pda/pendientes")} title={red ? "Con conexión" : "Sin conexión"}>
           {red ? <Wifi size={18} aria-hidden /> : <CloudOff size={18} aria-hidden />}
           {cola.length ? <span className="pda-num">{cola.length}</span> : null}
@@ -151,11 +157,17 @@ interface Comun {
   ultima: { e: Escaneo; l: LecturaCodigo } | null;
 }
 
-const Pista = ({ children }: { children: ReactNode }) => (
-  <p className="pda-pista">
-    <ScanLine size={20} aria-hidden /> {children}
-  </p>
-);
+/** Lo que hay que leer en cada pantalla. En una Zebra con la app Android, tocarlo dispara el lector. */
+const Pista = ({ children }: { children: ReactNode }) =>
+  appAndroid()?.dataWedge ? (
+    <button className="pda-pista" onClick={() => window.SindriAndroid?.gatillo()}>
+      <ScanLine size={20} aria-hidden /> {children}
+    </button>
+  ) : (
+    <p className="pda-pista">
+      <ScanLine size={20} aria-hidden /> {children}
+    </p>
+  );
 
 function Inicio({ cola, copia, manejador, decir, productos, pedidos }: { cola: number; copia: string | null; manejador: Comun["manejador"]; decir: Comun["decir"]; productos: Producto[]; pedidos: Pedido[] }) {
   // En el menú, leer un pedido lo abre para preparar y leer un producto lo consulta.
