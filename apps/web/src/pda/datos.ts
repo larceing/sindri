@@ -13,6 +13,10 @@ declare global {
   interface Window {
     /** Lo pone el simulador para probar sin red sin desenchufar nada. */
     __sindriSinRed?: boolean;
+    /** Simulador: cada llamada tarda 2 s más. */
+    __sindriLenta?: boolean;
+    /** Simulador: el servidor falla (503) una de cada tres llamadas. */
+    __sindriFallo?: boolean;
   }
 }
 
@@ -41,13 +45,29 @@ export class SinRed extends Error {
   }
 }
 
-/** Como `api`, pero falla rápido y claro sin red (también la simulada). */
+/** El servidor no está disponible ahora (5xx, entrada caída): se reintenta, no es un rechazo. */
+export class ServidorCaido extends SinRed {
+  constructor(status: number) {
+    super();
+    this.message = `Sindri no responde (${status}): se reintentará`;
+  }
+}
+
+/**
+ * Como `api`, pero falla rápido y claro sin red (también la simulada). Un 5xx cuenta como
+ * fallo pasajero: la cola lo reintenta en vez de marcarlo como rechazado.
+ */
 export async function pdaApi<T = any>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
   if (!enLinea()) throw new SinRed();
+  if (window.__sindriLenta) await new Promise((r) => setTimeout(r, 2000));
+  if (window.__sindriFallo && Math.random() < 1 / 3) throw new ServidorCaido(503);
   try {
     return await api<T>(path, init);
   } catch (e) {
-    if (e instanceof ApiError) throw e;
+    if (e instanceof ApiError) {
+      if (e.status >= 500) throw new ServidorCaido(e.status);
+      throw e;
+    }
     throw new SinRed(); // fallo de red del fetch
   }
 }

@@ -95,6 +95,9 @@ export function SimuladorPda() {
   const [perfil, setPerfil] = useState(PERFILES[0]!);
   const [aparato, setAparato] = useState(APARATOS[0]!);
   const [sinRed, setSinRed] = useState(false);
+  const [lenta, setLenta] = useState(false);
+  const [fallo, setFallo] = useState(false);
+  const [cola, setCola] = useState<{ resumen: string; error?: string; intentos: number }[]>([]);
   const [doble, setDoble] = useState(false);
   const [danado, setDanado] = useState(false);
   const [libre, setLibre] = useState("");
@@ -118,6 +121,24 @@ export function SimuladorPda() {
     w.dispatchEvent(new Event("sindri:red"));
   };
   useEffect(() => aplicarRed(sinRed), [sinRed]);
+  useEffect(() => {
+    const w = marco.current?.contentWindow;
+    if (!w) return;
+    w.__sindriLenta = lenta;
+    w.__sindriFallo = fallo;
+  }, [lenta, fallo]);
+  // La cola de la PDA, a la vista: es el mismo navegador, se lee de su almacenamiento.
+  useEffect(() => {
+    const t = setInterval(() => {
+      try {
+        const k = Object.keys(localStorage).find((x) => x.startsWith("sindri.pda.") && x.endsWith(".cola"));
+        setCola(k ? JSON.parse(localStorage.getItem(k) ?? "[]") : []);
+      } catch {
+        setCola([]);
+      }
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const codigos = useMemo<CodigoPrueba[]>(() => {
     if (!datos) return [];
@@ -180,6 +201,19 @@ export function SimuladorPda() {
     setQr({ titulo: c.titulo, url: await QRCode.toDataURL(c.datos, { margin: 2, width: 260 }) });
   };
 
+  // F2 hace de gatillo: lee el texto libre o, si está vacío, el primer código.
+  const gatilloRef = useRef<() => void>(() => {});
+  gatilloRef.current = () => void leer({ datos: libre.replace(/<GS>/g, GS) || codigos[0]?.datos || "", simb: "]C0" });
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => {
+      if (e.key !== "F2") return;
+      e.preventDefault();
+      gatilloRef.current();
+    };
+    window.addEventListener("keydown", f);
+    return () => window.removeEventListener("keydown", f);
+  }, []);
+
   const grupos = [...new Set(codigos.map((c) => c.grupo))];
   const productosGtin = datos?.productos.filter((p) => p.gtin && p.kind !== "service") ?? [];
 
@@ -188,9 +222,13 @@ export function SimuladorPda() {
       <div className="sim-aparato">
         <div className="sim-carcasa" style={{ width: aparato.w + 24 }}>
           <div className="sim-ventana" />
-          <iframe ref={marco} title="PDA" src={`${location.pathname}${location.search}#/pda`} style={{ width: aparato.w, height: aparato.h }} onLoad={() => aplicarRed(sinRed)} />
-          <button className="sim-gatillo" onClick={() => leer({ datos: libre.replace(/<GS>/g, GS) || codigos[0]?.datos || "", simb: "]C0" })} title="Lee el texto libre (o el primer código)">
-            <ScanLine size={18} aria-hidden /> Gatillo
+          <iframe ref={marco} title="PDA" src={`${location.pathname}${location.search}#/pda`} style={{ width: aparato.w, height: aparato.h }} onLoad={() => {
+              aplicarRed(sinRed);
+              const w = marco.current?.contentWindow;
+              if (w) Object.assign(w, { __sindriLenta: lenta, __sindriFallo: fallo });
+            }} />
+          <button className="sim-gatillo" onClick={() => gatilloRef.current()} title="Lee el texto libre (o el primer código). Atajo: F2">
+            <ScanLine size={18} aria-hidden /> Gatillo (F2)
           </button>
         </div>
       </div>
@@ -223,6 +261,8 @@ export function SimuladorPda() {
           <h2>Fallos</h2>
           <div className="sim-fila">
             <button className={`sim-toggle ${sinRed ? "on" : ""}`} onClick={() => setSinRed(!sinRed)}>{sinRed ? <WifiOff size={16} /> : <Wifi size={16} />} {sinRed ? "Sin red" : "Con red"}</button>
+            <label className="sim-check"><input type="checkbox" checked={lenta} onChange={(e) => setLenta(e.target.checked)} /> Red lenta (2 s)</label>
+            <label className="sim-check"><input type="checkbox" checked={fallo} onChange={(e) => setFallo(e.target.checked)} /> Servidor falla 1 de 3</label>
             <label className="sim-check"><input type="checkbox" checked={doble} onChange={(e) => setDoble(e.target.checked)} /> Lectura doble</label>
             <label className="sim-check"><input type="checkbox" checked={danado} onChange={(e) => setDanado(e.target.checked)} /> Etiqueta dañada</label>
             <label className="sim-check"><input type="checkbox" checked={perfil.gs === "quitar"} onChange={(e) => setPerfil({ ...perfil, gs: e.target.checked ? "quitar" : "caracter" })} /> Se pierde el GS</label>
@@ -279,6 +319,15 @@ export function SimuladorPda() {
           <h2>Texto libre</h2>
           <textarea rows={2} value={libre} onChange={(e) => setLibre(e.target.value)} placeholder="Cualquier código. Escribe <GS> para el separador." data-escaner="no" />
           <button className="sim-leer" disabled={!libre} onClick={() => leer({ datos: libre.replace(/<GS>/g, GS), simb: "]C0" })}><ScanLine size={16} aria-hidden /> Leer</button>
+        </section>
+
+        <section>
+          <h2>Cola de la PDA ({cola.length})</h2>
+          {cola.length === 0 ? <p className="sim-nota">Vacía: todo enviado.</p> : (
+            <ol className="sim-registro">
+              {cola.map((o, i) => <li key={i} className={o.error ? "error" : undefined}>{o.resumen} · intentos {o.intentos}{o.error ? ` · ${o.error}` : ""}</li>)}
+            </ol>
+          )}
         </section>
 
         <section>

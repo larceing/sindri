@@ -163,11 +163,21 @@ Reglas:
 | Simulador | `apps/web/src/pda/Simulador.tsx` |
 | Productos demo con GTIN interno | `apps/server/src/demo.ts` |
 
-**Cómo probarlo:** Almacén → «Simulador de PDA» (o `#/pda-simulador`). A la izquierda está la PDA; a la derecha, los códigos de la empresa. Pulsa «Leer» en un código o compón una etiqueta de proveedor. Prueba «Sin red», «Lectura doble», «Etiqueta dañada» y «Se pierde el GS». **Lo que se hace en la PDA cambia el stock de verdad**: usar DEV o una empresa DEMO.
+**Cómo probarlo:** Almacén → «Simulador de PDA» (o `#/pda-simulador`). A la izquierda está la PDA; a la derecha, los códigos de la empresa. Pulsa «Leer» en un código o compón una etiqueta de proveedor. Prueba «Sin red», «Red lenta», «Servidor falla 1 de 3», «Lectura doble», «Etiqueta dañada» y «Se pierde el GS». La cola de la PDA se ve en el panel; F2 hace de gatillo. **Lo que se hace en la PDA cambia el stock de verdad**: usar DEV o una empresa DEMO.
 
 **En una PDA real:** abrir `https://<sindri>/#/pda` en Chrome. En DataWedge, perfil asociado a Chrome con *Keystroke output* activado, sufijo Intro, y si se usan etiquetas GS1 con lote en medio, «Send Control Characters as Events» activado (el GS llega como Ctrl+], que Sindri entiende).
 
 Comprobado en el navegador (Chromium) contra un Sindri local con datos demo: recibir leyendo una etiqueta GS1, recibir sin red y que se mande sola al volver (sin duplicar), lectura doble que cuenta una, tecleo lento que no se toma por lectura, preparar un pedido completo y darle salida, y el lote pegado cuando se pierde el GS.
+
+### El otro simulador (análisis de CRM)
+
+El hilo de análisis de CRM hizo un simulador de PDA suelto (`analisis-crm/simulador-pda/index.html`) con servidor de mentira, modo comercial y modo almacén. Se ha unido aquí lo que aportaba al almacén, para que quede uno solo:
+
+- **Red lenta** y **servidor que falla 1 de cada 3** en el simulador. En la PDA, un error 5xx ahora cuenta como fallo pasajero y se reintenta, en vez de quedar como rechazado.
+- La **cola de la PDA a la vista** en el panel del simulador.
+- **F2** como gatillo.
+
+Lo que se queda para **Brokkr** (el CRM), porque necesita API que Sindri aún no tiene: el **modo comercial** (ruta del día, visita con entrada y salida, resultado en un toque, aviso de cliente frío) y el **control de versión** para ver conflictos cuando dos personas cambian la misma oportunidad. Cuando exista esa API, entra como otra tarea de esta misma PDA, no como una app aparte. Leer el SSCC del bulto al preparar ya está en la fase P5.
 
 ## 9. Plan por fases
 
