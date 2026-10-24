@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./verifactu": { "types": "./dist/verifactu.d.ts", "default": "./dist/verifactu.js" }
+    "./verifactu": { "types": "./dist/verifactu.d.ts", "default": "./dist/verifactu.js" },
+    "./gs1": { "types": "./dist/gs1.d.ts", "default": "./dist/gs1.js" }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

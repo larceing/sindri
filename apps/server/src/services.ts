@@ -568,6 +568,8 @@ export async function listMoves(q: Queryable, ctx: Ctx, productId?: string) {
 }
 
 export interface ReceiptInput {
+  /** Id del movimiento elegido por quien lo manda (PDA sin conexión): repetir la misma entrada no la duplica. */
+  id?: string;
   product_id: string;
   quantity: string;
   unit_cost?: string;
@@ -583,6 +585,17 @@ export interface ReceiptInput {
 export async function receiveStock(db: Db, ctx: Ctx, r: ReceiptInput) {
   if (D(r.quantity).cmp(0) <= 0) throw new BusinessError("La cantidad debe ser mayor que cero");
   return db.tx(async (q) => {
+    if (r.id) {
+      const [ya] = await q.query(
+        `select m.*, ${OWN_LOCATION("l", "$2")} as propio from stock_move m join location l on l.id = m.to_location_id where m.id = $1`,
+        [r.id, ctx.company],
+      );
+      if (ya) {
+        const { propio, ...mov } = ya;
+        if (!propio || mov.product_id !== r.product_id || mov.reference_type !== (r.origin ?? "receipt")) throw new BusinessError("Ese id de movimiento ya se usó para otra cosa", 409);
+        return { ...mov, repetido: true };
+      }
+    }
     const [p] = await q.query<{ id: string; track_lots: boolean; kind: string }>("select * from product where id = $1 and company_id = maestro($2)", [r.product_id, ctx.company]);
     if (!p) throw notFound("Producto");
     if (p.kind === "service") throw new BusinessError("Los servicios no tienen stock");
@@ -599,9 +612,9 @@ export async function receiveStock(db: Db, ctx: Ctx, r: ReceiptInput) {
     const from = await locationId(q, ctx, r.origin === "adjustment" ? "VIRTUAL/ADJUST" : "PARTNER/SUPPLIER");
     const to = await locationId(q, ctx, r.location_code ?? "WH/STOCK");
     const [m] = await q.query(
-      `insert into stock_move (product_id, lot_id, from_location_id, to_location_id, quantity, unit_cost, reference_type, note, created_by)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *`,
-      [p.id, lotId, from, to, D(r.quantity).toFixed(), r.unit_cost ?? null, r.origin ?? "receipt", r.note ?? null, ctx.actor],
+      `insert into stock_move (id, product_id, lot_id, from_location_id, to_location_id, quantity, unit_cost, reference_type, note, created_by)
+       values (coalesce($10::uuid, gen_random_uuid()), $1,$2,$3,$4,$5,$6,$7,$8,$9) returning *`,
+      [p.id, lotId, from, to, D(r.quantity).toFixed(), r.unit_cost ?? null, r.origin ?? "receipt", r.note ?? null, ctx.actor, r.id ?? null],
     );
     await log(q, ctx, "stock_move", m!.id as string, "receive", r);
     return m;

@@ -104,6 +104,8 @@ const CompanySchema = z.object({
   demo: z.boolean().optional(),
 });
 const ReceiptSchema = z.object({
+  /** Lo pone la PDA al leer: si la entrada llega dos veces (sin conexión, reintentos), cuenta una. */
+  id: z.uuid().optional(),
   product_id: z.uuid(),
   quantity: dec,
   unit_cost: dec.optional(),

@@ -17,7 +17,15 @@ export function StockPage() {
       await Promise.all([reload(), reloadMoves()]);
     });
   return (
-    <Page title="Almacén">
+    <Page
+      title="Almacén"
+      actions={
+        <>
+          <a className="button" href="#/pda" title="Sindri para la PDA del almacén">Abrir PDA</a>
+          <a className="button" href="#/pda-simulador" title="Probar la PDA sin aparato">Simulador de PDA</a>
+        </>
+      }
+    >
       <div className="card">
         <h2>Entrada de mercancía</h2>
         <div className="form">
