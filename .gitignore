@@ -8,3 +8,4 @@ coverage/
 copias/
 desarrollo/planta.token
 __pycache__/
+planta/simulador/datos-simulador/

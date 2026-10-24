@@ -1,0 +1,789 @@
+[
+  {
+    "codigo": "LINEA1",
+    "fuente": "scada-opcua",
+    "espacio": "urn:sindri:simulador",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "Planta/Linea1/Estado",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "Planta/Linea1/PiezasBuenas",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Velocidad",
+        "origen": "Planta/Linea1/Velocidad",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "Planta/Linea1/OrdenActual",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "PRENSA1",
+    "fuente": "prensa",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "hr:0",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "hr:1:uint32",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasMalas",
+        "origen": "hr:3:uint32",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Velocidad",
+        "origen": "hr:10:float32:cdab",
+        "tipo": "value"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "hr:20:int16",
+        "tipo": "value",
+        "ajustes": {
+          "escala": 0.1
+        }
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "hr:30:string16",
+        "tipo": "text"
+      },
+      {
+        "clave": "Averia",
+        "origen": "co:0",
+        "tipo": "state"
+      }
+    ]
+  },
+  {
+    "codigo": "HORNO1",
+    "fuente": "horno",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "DB10:0:INT",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "DB10:2:DINT",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Velocidad",
+        "origen": "DB10:10:REAL",
+        "tipo": "value"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "DB10:14:REAL",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "DB10:18:STRING[20]",
+        "tipo": "text"
+      },
+      {
+        "clave": "Averia",
+        "origen": "DB10:40.0:BOOL",
+        "tipo": "state"
+      }
+    ]
+  },
+  {
+    "codigo": "LINEA2",
+    "fuente": "linea2",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "Estado",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "PiezasBuenas",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Velocidad",
+        "origen": "Velocidad",
+        "tipo": "value"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "Temperatura",
+        "tipo": "value"
+      }
+    ]
+  },
+  {
+    "codigo": "ROBOT1",
+    "fuente": "robot",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "MAIN.nEstado",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "MAIN.nPiezasBuenas",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "MAIN.fTemperatura",
+        "tipo": "value"
+      }
+    ]
+  },
+  {
+    "codigo": "TORNO1",
+    "fuente": "torno",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "D100",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "D101:int32",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "D110:float32",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "D200:string16",
+        "tipo": "text"
+      },
+      {
+        "clave": "Averia",
+        "origen": "M0:bit",
+        "tipo": "state"
+      }
+    ]
+  },
+  {
+    "codigo": "EMPAQUETADORA1",
+    "fuente": "broker",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "fabrica/empaquetadora1/estado|packml.estado",
+        "tipo": "state",
+        "ajustes": {
+          "mapa": {
+            "EXECUTE": 1,
+            "STOPPED": 0,
+            "IDLE": 0,
+            "HELD": 0,
+            "SUSPENDED": 0,
+            "ABORTED": 2,
+            "STOPPING": 0
+          },
+          "defecto_mapa": 0
+        }
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "fabrica/empaquetadora1/estado|contadores.buenas",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Velocidad",
+        "origen": "fabrica/empaquetadora1/estado|velocidad",
+        "tipo": "value"
+      },
+      {
+        "clave": "Alarma",
+        "origen": "fabrica/empaquetadora1/alarma",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "CNC1",
+    "fuente": "cnc",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "execution",
+        "tipo": "state",
+        "ajustes": {
+          "mapa": {
+            "ACTIVE": 1,
+            "INTERRUPTED": 2,
+            "FEED_HOLD": 0,
+            "STOPPED": 0,
+            "READY": 0,
+            "OPTIONAL_STOP": 0,
+            "PROGRAM_STOPPED": 0
+          },
+          "defecto_mapa": 0
+        }
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "PartCount",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Husillo",
+        "origen": "Sspeed",
+        "tipo": "value"
+      },
+      {
+        "clave": "Programa",
+        "origen": "program",
+        "tipo": "text"
+      },
+      {
+        "clave": "Condicion",
+        "origen": "cond:system",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "ETIQUETADORA1",
+    "fuente": "etiquetadora",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "api/estado|maquina.estado",
+        "tipo": "state",
+        "ajustes": {
+          "mapa": {
+            "parada": 0,
+            "marcha": 1,
+            "averia": 2
+          }
+        }
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "api/estado|contadores.buenas",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Velocidad",
+        "origen": "api/proceso|velocidad_ppm",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "api/estado|orden",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "BASCULA1",
+    "fuente": "bascula",
+    "tags": [
+      {
+        "clave": "Peso",
+        "origen": "^ST,GS,([-+]?\\d+\\.\\d+)\\s*kg",
+        "tipo": "value"
+      }
+    ]
+  },
+  {
+    "codigo": "SECADERO1",
+    "fuente": "secadero",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "Estado",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "Piezas",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "Temperatura",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "Orden",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "MEZCLADORA1",
+    "fuente": "historico",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "select valor from historico where tag = 'Mezcladora.Estado' order by fecha desc limit 1",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "select valor from historico where tag = 'Mezcladora.Piezas' order by fecha desc limit 1",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "select valor from historico where tag = 'Mezcladora.Temperatura' order by fecha desc limit 1",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "select texto from historico where tag = 'Mezcladora.Orden' order by fecha desc limit 1",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "INYECTORA1",
+    "fuente": "modelos-opcua",
+    "espacio": "http://opcfoundation.org/UA/PlasticsRubber/IMM2MES/",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "IMM_INYECTORA1/MachineStatus/MachineMode",
+        "tipo": "state",
+        "ajustes": {
+          "mapa": {
+            "1": 1,
+            "2": 1,
+            "3": 0,
+            "4": 0,
+            "5": 0,
+            "0": 2
+          },
+          "defecto_mapa": 0
+        }
+      },
+      {
+        "clave": "Ciclos",
+        "origen": "IMM_INYECTORA1/Jobs/ActiveJobValues/JobCycleCounter",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "IMM_INYECTORA1/Jobs/ActiveJobValues/JobGoodPartsCounter",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasMalas",
+        "origen": "IMM_INYECTORA1/Jobs/ActiveJobValues/JobBadPartsCounter",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "IMM_INYECTORA1/InjectionUnit/ActCylinderTemperature",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "IMM_INYECTORA1/Jobs/ActiveJobValues/JobName",
+        "tipo": "text"
+      },
+      {
+        "clave": "Alarma",
+        "origen": "IMM_INYECTORA1/MachineStatus/ActiveAlarmText",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "ENVASADORA1",
+    "fuente": "modelos-opcua",
+    "espacio": "http://opcfoundation.org/UA/PackML/",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "ENVASADORA1/Status/StateCurrent",
+        "tipo": "state",
+        "ajustes": {
+          "mapa": {
+            "6": 1,
+            "9": 2,
+            "8": 2
+          },
+          "defecto_mapa": 0
+        }
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "ENVASADORA1/Admin/ProdProcessedCount",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasMalas",
+        "origen": "ENVASADORA1/Admin/ProdDefectiveCount",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Velocidad",
+        "origen": "ENVASADORA1/Status/CurMachSpeed",
+        "tipo": "value"
+      },
+      {
+        "clave": "MotivoParo",
+        "origen": "ENVASADORA1/Admin/StopReason",
+        "tipo": "state"
+      }
+    ]
+  },
+  {
+    "codigo": "CONTADOR1",
+    "fuente": "analizador",
+    "tags": [
+      {
+        "clave": "Tension",
+        "origen": "hr:0:uint32",
+        "tipo": "value",
+        "ajustes": {
+          "escala": 0.1
+        }
+      },
+      {
+        "clave": "Corriente",
+        "origen": "hr:2:uint32",
+        "tipo": "value",
+        "ajustes": {
+          "escala": 0.001
+        }
+      },
+      {
+        "clave": "Potencia",
+        "origen": "hr:4:int32",
+        "tipo": "value",
+        "ajustes": {
+          "escala": 0.001
+        }
+      },
+      {
+        "clave": "CosPhi",
+        "origen": "hr:6",
+        "tipo": "value",
+        "ajustes": {
+          "escala": 0.001
+        }
+      },
+      {
+        "clave": "Energia",
+        "origen": "hr:60:uint32",
+        "tipo": "counter",
+        "ajustes": {
+          "escala": 0.001
+        }
+      }
+    ]
+  },
+  {
+    "codigo": "PRENSA2",
+    "fuente": "prensa2",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "DM100",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "DM101:int32",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasMalas",
+        "origen": "DM103:int32",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "DM110:float32",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "DM200:string16",
+        "tipo": "text"
+      },
+      {
+        "clave": "Averia",
+        "origen": "CIO0.03",
+        "tipo": "state"
+      }
+    ]
+  },
+  {
+    "codigo": "ENSAMBLADORA1",
+    "fuente": "ensambladora",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "DM100",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "DM101.D",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasMalas",
+        "origen": "DM103.D",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "DM110",
+        "tipo": "value",
+        "ajustes": {
+          "escala": 0.1
+        }
+      },
+      {
+        "clave": "Averia",
+        "origen": "R100",
+        "tipo": "state"
+      }
+    ]
+  },
+  {
+    "codigo": "LINEA3",
+    "fuente": "pasarela",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "Pasarela1/LINEA3/Estado",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "Pasarela1/LINEA3/Contadores/Buenas",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasMalas",
+        "origen": "Pasarela1/LINEA3/Contadores/Malas",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Velocidad",
+        "origen": "Pasarela1/LINEA3/Velocidad",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "Pasarela1/LINEA3/Orden",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "COMPRESOR1",
+    "fuente": "compresor",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "multi-state-value,1",
+        "tipo": "state",
+        "ajustes": {
+          "mapa": {
+            "1": 0,
+            "2": 1,
+            "3": 1,
+            "4": 2
+          }
+        }
+      },
+      {
+        "clave": "Presion",
+        "origen": "analog-input,1",
+        "tipo": "value"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "analog-input,2",
+        "tipo": "value"
+      },
+      {
+        "clave": "EnMarcha",
+        "origen": "binary-value,1",
+        "tipo": "state"
+      },
+      {
+        "clave": "Horas",
+        "origen": "analog-value,1",
+        "tipo": "counter"
+      }
+    ]
+  },
+  {
+    "codigo": "INYECTORA2",
+    "fuente": "inyectora2",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "ActStsMach",
+        "tipo": "state",
+        "ajustes": {
+          "mapa": {
+            "0A000": 1,
+            "0M000": 0,
+            "0E000": 2
+          },
+          "defecto_mapa": 0
+        }
+      },
+      {
+        "clave": "Ciclos",
+        "origen": "ActCntCyc",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "ActCntPrt",
+        "tipo": "counter"
+      },
+      {
+        "clave": "PiezasMalas",
+        "origen": "ActCntPrtRej",
+        "tipo": "counter"
+      },
+      {
+        "clave": "TiempoCiclo",
+        "origen": "ActTimCyc",
+        "tipo": "value"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "ActTmpCyl1",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "ATActJob",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "SENSOR1",
+    "fuente": "iolink",
+    "tags": [
+      {
+        "clave": "Presion",
+        "origen": "iolinkmaster/port[1]/iolinkdevice/pdin/getdata|data.value",
+        "tipo": "value",
+        "ajustes": {
+          "hex": {
+            "inicio": 0,
+            "bytes": 2,
+            "signo": true
+          },
+          "escala": 0.01
+        }
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "iolinkmaster/port[1]/iolinkdevice/pdin/getdata|data.value",
+        "tipo": "value",
+        "ajustes": {
+          "hex": {
+            "inicio": 2,
+            "bytes": 2,
+            "signo": true
+          },
+          "escala": 0.1
+        }
+      },
+      {
+        "clave": "Caudal",
+        "origen": "iolinkmaster/port[2]/iolinkdevice/pdin/getdata|data.value",
+        "tipo": "value",
+        "ajustes": {
+          "hex": {
+            "inicio": 0,
+            "bytes": 2
+          },
+          "escala": 0.1
+        }
+      }
+    ]
+  },
+  {
+    "codigo": "HORNO2",
+    "fuente": "ignition",
+    "tags": [
+      {
+        "clave": "Estado",
+        "origen": "select intvalue from sqlt_data_1_2026_10 d join sqlth_te t on t.id = d.tagid where t.tagpath = 'horno2/estado' order by d.t_stamp desc limit 1",
+        "tipo": "state"
+      },
+      {
+        "clave": "PiezasBuenas",
+        "origen": "select intvalue from sqlt_data_1_2026_10 d join sqlth_te t on t.id = d.tagid where t.tagpath = 'horno2/piezas' order by d.t_stamp desc limit 1",
+        "tipo": "counter"
+      },
+      {
+        "clave": "Temperatura",
+        "origen": "select floatvalue from sqlt_data_1_2026_10 d join sqlth_te t on t.id = d.tagid where t.tagpath = 'horno2/temperatura' order by d.t_stamp desc limit 1",
+        "tipo": "value"
+      },
+      {
+        "clave": "OrdenActual",
+        "origen": "select stringvalue from sqlt_data_1_2026_10 d join sqlth_te t on t.id = d.tagid where t.tagpath = 'horno2/orden' order by d.t_stamp desc limit 1",
+        "tipo": "text"
+      }
+    ]
+  },
+  {
+    "codigo": "VISION1",
+    "fuente": "vision",
+    "tags": [
+      {
+        "clave": "Resultado",
+        "origen": "^RES;(OK|NG);",
+        "tipo": "state",
+        "ajustes": {
+          "mapa": {
+            "OK": 1,
+            "NG": 0
+          }
+        }
+      },
+      {
+        "clave": "Puntuacion",
+        "origen": "^RES;\\w+;([0-9.]+);",
+        "tipo": "value"
+      },
+      {
+        "clave": "Inspeccionadas",
+        "origen": "^RES;\\w+;[0-9.]+;(\\d+)",
+        "tipo": "counter"
+      }
+    ]
+  }
+]

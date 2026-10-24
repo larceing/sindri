@@ -86,6 +86,50 @@ describe("Conexión con planta", () => {
     expect(await cleanup(db, true)).toBe(1);
   });
 
+  it("manda la fuente y los ajustes de cada tag a Efesto y guarda cómo va cada fuente", async () => {
+    const r = await app.inject({
+      method: "PUT",
+      url: "/api/v1/planta/maquinas",
+      headers: { authorization: basic },
+      payload: {
+        code: "PRENSA1",
+        name: "Prensa por Modbus",
+        agent_id: agentId,
+        source_name: "prensa",
+        tags: [
+          { key: "Temperatura", source: "hr:20:int16", kind: "value", settings: { escala: 0.1 } },
+          { key: "Estado", source: "hr:0", kind: "state", settings: { mapa: { "3": 2 }, defecto_mapa: 1 } },
+        ],
+      },
+    });
+    expect(r.statusCode).toBe(200);
+    // Un ajuste desconocido no pasa: el agente no sabría qué hacer con él.
+    const mal = await app.inject({
+      method: "PUT",
+      url: "/api/v1/planta/maquinas",
+      headers: { authorization: basic },
+      payload: { code: "PRENSA2", name: "x", tags: [{ key: "A", source: "hr:1", kind: "value", settings: { formula: "rm -rf" } }] },
+    });
+    expect(mal.statusCode).toBe(400);
+    const cfg = JSON.parse((await app.inject({ url: "/api/planta/v1/config", headers: bearer() })).body);
+    const prensa = cfg.maquinas.find((m: any) => m.codigo === "PRENSA1");
+    expect(prensa.fuente).toBe("prensa");
+    expect(prensa.tags.find((t: any) => t.clave === "Temperatura").ajustes).toEqual({ escala: 0.1 });
+    // LINEA1 no tiene fuente ni ajustes: sale como para un agente 0.1.
+    const linea = cfg.maquinas.find((m: any) => m.codigo === "LINEA1");
+    expect(linea.fuente).toBeUndefined();
+    expect(linea.tags[0].ajustes).toBeUndefined();
+
+    await app.inject({
+      method: "POST",
+      url: "/api/planta/v1/latido",
+      headers: bearer(),
+      payload: { version: "0.2.0", fuente_ok: false, fuentes: { prensa: { driver: "modbus", ok: false, tags: 2, fallan: 2, error: "no responde" } } },
+    });
+    const [a] = JSON.parse((await app.inject({ url: "/api/v1/planta/agentes", headers: { authorization: basic } })).body);
+    expect(a.last_status.fuentes.prensa).toMatchObject({ driver: "modbus", ok: false, error: "no responde" });
+  });
+
   it("un agente revocado ya no entra", async () => {
     await app.inject({ method: "POST", url: `/api/v1/planta/agentes/${agentId}/revocar`, headers: { authorization: basic } });
     expect((await app.inject({ url: "/api/planta/v1/config", headers: bearer() })).statusCode).toBe(401);

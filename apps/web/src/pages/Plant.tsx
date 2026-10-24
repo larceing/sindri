@@ -51,6 +51,15 @@ function Machine({ m }: { m: any }) {
   );
 }
 
+/** Efesto 0.2 dice cómo va cada fuente (Modbus, S7, OPC UA…): aquí, un resumen y el detalle al pasar el ratón. */
+function Fuentes({ fuentes }: { fuentes: Record<string, { driver: string; ok: boolean; tags?: number; fallan?: number; error?: string | null }> }) {
+  const lista = Object.entries(fuentes).filter(([, f]) => (f.tags ?? 0) > 0);
+  if (!lista.length) return null;
+  const bien = lista.filter(([, f]) => f.ok && !f.fallan).length;
+  const detalle = lista.map(([n, f]) => `${n} (${f.driver}): ${f.ok ? (f.fallan ? `${f.fallan} de ${f.tags} tags sin leer` : "bien") : f.error || "sin conexión"}`).join("\n");
+  return <> <span className={`badge ${bien === lista.length ? "badge-paid" : "badge-error"}`} title={detalle}>{bien}/{lista.length} fuentes</span></>;
+}
+
 export function PlantPage() {
   const status = useData<any[]>("/planta");
   const agents = useData<any[]>("/planta/agentes");
@@ -111,6 +120,7 @@ export function PlantPage() {
                     : a.callado ? <span className="badge badge-confirmed">Callado</span>
                     : <span className="badge badge-paid">Conectado</span>}
                   {a.last_status?.fuente_ok === false && !a.revoked_at ? <> <span className="badge badge-error">Sin SCADA</span></> : null}
+                  {a.last_status?.fuentes && !a.revoked_at ? <Fuentes fuentes={a.last_status.fuentes} /> : null}
                 </td>
                 <td>{hace(a.last_seen_at)}</td>
                 <td><Code>{a.last_version ?? "—"}</Code></td>

@@ -1,0 +1,5 @@
+# Para test_drivers.py y el simulador multiprotocolo. cpppo (GPL-3.0) solo hace de PLC de mentira
+# en el simulador: el agente no lo usa ni lo lleva.
+-r requirements.txt
+amqtt==0.12.1
+cpppo==5.2.5
