@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Building2, ChevronDown, LogOut, Menu as MenuIcon, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { Building2, ChevronDown, Grip, LogOut, Menu as MenuIcon, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { post } from "./api";
 import { useData } from "./hooks";
 import { navigate, useRoute } from "./router";
@@ -92,6 +92,83 @@ export const BrandMark = () => (
     <path fill="currentColor" d="M49 0h2.5v25H49zM40 76h2.5v26H40z" />
   </svg>
 );
+
+/** Vuelve a la portada del entorno, con todas las apps (plantilla común). */
+const AppsBtn = () => (
+  <a className="apps-btn" href="/" aria-label="Todas las apps" title="Todas las apps">
+    <Grip size={20} aria-hidden />
+  </a>
+);
+/** Chip del entorno de pruebas: solo en dev.* */
+const ChipDev = () => (typeof location !== "undefined" && location.hostname.startsWith("dev.") ? <span className="chip-dev">DEV</span> : null);
+const Marca = ({ txt = true }: { txt?: boolean }) => (
+  <div className="brand"><span className="app-ico"><BrandMark /></span> {txt ? <span className="brand-txt">Sindri</span> : null}</div>
+);
+
+/** Grupos del menú de arriba (plantilla común): los módulos se juntan en menús desplegables. */
+const GRUPOS: { id: string; label: string; ids: string[] }[] = [
+  { id: "ventas", label: "Ventas", ids: ["crm", "presupuestos", "pedidos", "clientes", "comerciales"] },
+  { id: "operacion", label: "Operación", ids: ["rutas", "productos", "almacen", "planta"] },
+  { id: "facturacion", label: "Facturación", ids: ["facturas", "verifactu"] },
+  { id: "informes", label: "Informes", ids: ["informes", "relaciones"] },
+  { id: "empresa", label: "Empresa", ids: ["empresa", "usuarios"] },
+];
+type Item = ReturnType<typeof menuDe>[number];
+
+/** Menú agrupado: un módulo suelto es un enlace; un grupo con varios abre su lista (hacia arriba en móvil). */
+function MenuAgrupado({ items, activo, movil = false }: { items: Item[]; activo: (path: string) => boolean; movil?: boolean }) {
+  const [abierto, setAbierto] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const route = useRoute();
+  useEffect(() => setAbierto(null), [route]);
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setAbierto(null);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAbierto(null);
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", fuera);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [abierto]);
+  const enlace = (m: Item, conIcono = true) => (
+    <a key={m.id} href={`#${m.path}`} className={activo(m.path) ? "active" : ""} aria-current={activo(m.path) ? "page" : undefined}>
+      {conIcono && <m.icon size={18} aria-hidden />} <span>{m.label}</span>
+    </a>
+  );
+  // Cada entrada sale donde está el primero de sus módulos en el orden de la persona.
+  const entradas: { key: string; label: string; items: Item[] }[] = [];
+  for (const m of items) {
+    const g = GRUPOS.find((x) => x.ids.includes(m.id));
+    const key = g?.id ?? m.id;
+    const e = entradas.find((x) => x.key === key);
+    if (e) e.items.push(m);
+    else entradas.push({ key, label: g?.label ?? m.label, items: [m] });
+  }
+  // Inicio delante, luego los grupos en su orden fijo y al final lo que no tenga grupo.
+  const peso = (key: string) => (key === "inicio" ? -1 : GRUPOS.findIndex((g) => g.id === key) + 1 || 99);
+  entradas.sort((a, b) => peso(a.key) - peso(b.key));
+  return (
+    <div className="menu-grupos" ref={ref}>
+      {entradas.map((e) => {
+        const [primero] = e.items;
+        if (!primero) return null;
+        if (e.items.length === 1) return enlace(primero);
+        const on = e.items.some((m) => activo(m.path));
+        const Icono = primero.icon;
+        return (
+          <div key={e.key} className={`grupo${movil ? " arriba" : ""}`}>
+            <button className={`grupo-btn${on ? " active" : ""}`} aria-expanded={abierto === e.key} aria-haspopup="true" onClick={() => setAbierto(abierto === e.key ? null : e.key)}>
+              {movil && <Icono size={18} aria-hidden />} <span>{e.label}</span> {!movil && <ChevronDown size={16} aria-hidden />}
+            </button>
+            {abierto === e.key && <div className="grupo-panel" role="menu">{e.items.map((m) => enlace(m))}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function App() {
   return (
@@ -309,7 +386,7 @@ function Shell() {
       />
     );
 
-  const posicion = me.menu?.posicion ?? "lateral";
+  const posicion = me.menu?.posicion ?? "superior";
   const items = menuDe(me);
   const active = (path: string) => route.startsWith(path) || (path === "/inicio" && route === "/");
   const nav = items.map((m) => (
@@ -324,7 +401,7 @@ function Shell() {
       {posicion === "lateral" ? (
         <nav className={`side${abierto ? " abierto" : ""}`} aria-label="Menú principal">
           <div className="side-top">
-            <div className="brand"><BrandMark /> <span className="brand-txt">Sindri</span></div>
+            <Marca />
             <button className="side-toggle" aria-expanded={abierto} aria-controls="menu-principal" aria-label={abierto ? "Cerrar menú" : "Abrir menú"} onClick={() => setAbierto(!abierto)}>
               {abierto ? <X size={22} aria-hidden /> : <MenuIcon size={22} aria-hidden />}
             </button>
@@ -337,8 +414,10 @@ function Shell() {
         </nav>
       ) : (
         <header className="topbar">
-          <div className="brand"><BrandMark /> Sindri</div>
-          {posicion === "superior" ? <nav className="topnav" aria-label="Menú principal">{nav}</nav> : <div className="grow" />}
+          <AppsBtn />
+          <Marca />
+          {posicion === "superior" ? <nav className="topnav" aria-label="Menú principal"><MenuAgrupado items={items} activo={active} /></nav> : <div className="grow" />}
+          <ChipDev />
           {userMenu}
         </header>
       )}
@@ -352,6 +431,7 @@ function Shell() {
         <Screen route={route} me={me} />
       </main>
       {posicion === "inferior" && <nav className="bottomnav" aria-label="Menú principal">{nav}</nav>}
+      {posicion === "superior" && <nav className="bottomnav bottomnav-movil" aria-label="Menú principal (móvil)"><MenuAgrupado items={items} activo={active} movil /></nav>}
     </div>
   );
 }

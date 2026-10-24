@@ -5,8 +5,8 @@ import { MENU_DEFECTO, menuDe, useSession, type Menu, type Posicion } from "../s
 import { ErrorBox, Page } from "../ui";
 
 const POSICIONES: { id: Posicion; label: string; hint: string }[] = [
-  { id: "lateral", label: "A la izquierda", hint: "Menú vertical, el de siempre" },
-  { id: "superior", label: "Arriba", hint: "Barra de menú superior: más ancho para las tablas" },
+  { id: "lateral", label: "A la izquierda", hint: "Menú vertical a la izquierda" },
+  { id: "superior", label: "Arriba", hint: "Barra de menú arriba, como en todas las apps" },
   { id: "inferior", label: "Abajo", hint: "Barra inferior, cómoda en tablet y en planta" },
 ];
 
