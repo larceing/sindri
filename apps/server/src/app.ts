@@ -7,6 +7,7 @@ import { z, ZodError } from "zod";
 import { TransitionError } from "@sindri/core";
 import type { Db } from "./db.js";
 import * as s from "./services.js";
+import * as alm from "./almacen.js";
 import { currentPerson, registerSso, type SsoConfig } from "./sso.js";
 import { PLANTA_MINIMA, registerPlanta } from "./planta.js";
 import * as c from "./comercial.js";
@@ -114,6 +115,33 @@ const ReceiptSchema = z.object({
   origin: z.enum(["receipt", "adjustment"]).optional(),
   location_code: z.string().optional(),
   note: z.string().optional(),
+});
+const LocationSchema = z.object({
+  code: z.string().trim().min(1).max(40),
+  name: z.string().trim().max(120).optional(),
+  parent_code: z.string().trim().min(1).optional(),
+});
+const TransferSchema = z.object({
+  id: z.uuid().optional(),
+  product_id: z.uuid(),
+  quantity: dec,
+  lot_code: z.string().trim().min(1).optional(),
+  from_location_code: z.string().trim().min(1),
+  to_location_code: z.string().trim().min(1),
+  note: z.string().optional(),
+});
+const CountEntrySchema = z.object({
+  id: z.uuid(),
+  product_id: z.uuid(),
+  quantity: dec,
+  lot_code: z.string().trim().min(1).optional(),
+  location_code: z.string().trim().min(1),
+});
+/** Lo que la PDA ha leído al preparar: sale exactamente ese lote de esa ubicación. */
+const DeliverSchema = z.object({
+  picks: z
+    .array(z.object({ product_id: z.uuid(), quantity: dec, lot_code: z.string().trim().min(1).optional(), location_code: z.string().trim().min(1).optional() }))
+    .optional(),
 });
 const OrderSchema = z.object({
   partner_id: z.uuid(),
@@ -286,6 +314,18 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
   app.get("/api/v1/stock", async (req) => s.stockBalances(db, ctxOf(req)));
   app.get<{ Querystring: { product_id?: string } }>("/api/v1/stock/moves", async (req) => s.listMoves(db, ctxOf(req), req.query.product_id));
   app.post("/api/v1/stock/receipts", async (req, reply) => reply.status(201).send(await s.receiveStock(db, ctxOf(req), ReceiptSchema.parse(req.body))));
+  app.post("/api/v1/locations", async (req, reply) => reply.status(201).send(await alm.createLocation(db, ctxOf(req), LocationSchema.parse(req.body))));
+  app.post("/api/v1/stock/transfers", async (req, reply) => reply.status(201).send(await alm.transferStock(db, ctxOf(req), TransferSchema.parse(req.body))));
+  app.get<{ Querystring: { state?: string } }>("/api/v1/stock/counts", async (req) => alm.listCounts(db, ctxOf(req), req.query.state));
+  app.post("/api/v1/stock/counts", async (req, reply) =>
+    reply.status(201).send(await alm.createCount(db, ctxOf(req), z.object({ location_code: z.string().trim().min(1).optional(), note: z.string().optional() }).parse(req.body ?? {}))));
+  app.get<IdParams>("/api/v1/stock/counts/:id", async (req) => alm.getCount(db, ctxOf(req), req.params.id));
+  app.post<IdParams>("/api/v1/stock/counts/:id/entries", async (req, reply) =>
+    reply.status(201).send(await alm.addCountEntry(db, ctxOf(req), req.params.id, CountEntrySchema.parse(req.body))));
+  app.post<IdParams>("/api/v1/stock/counts/:id/finish", async (req) => alm.finishCount(db, ctxOf(req), req.params.id));
+  app.post<IdParams>("/api/v1/stock/counts/:id/reopen", async (req) => alm.reopenCount(db, ctxOf(req), req.params.id));
+  app.post<IdParams>("/api/v1/stock/counts/:id/approve", async (req) => alm.approveCount(db, ctxOf(req), req.params.id));
+  app.post<IdParams>("/api/v1/stock/counts/:id/cancel", async (req) => alm.cancelCount(db, ctxOf(req), req.params.id));
 
   app.get<{ Querystring: { state?: string; sales_rep_id?: string } }>("/api/v1/sales-orders", async (req) => s.listSalesOrders(db, ctxOf(req), req.query));
   app.post("/api/v1/sales-orders", async (req, reply) => reply.status(201).send(await s.createSalesOrder(db, ctxOf(req), OrderSchema.parse(req.body))));
@@ -296,7 +336,11 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
     confirmacionAutomatica(db, { mail, reportServer }, ctxOf(req), req.params.id);
     return o;
   });
-  app.post<IdParams>("/api/v1/sales-orders/:id/deliver", async (req) => s.deliverSalesOrder(db, ctxOf(req), req.params.id));
+  app.post<IdParams>("/api/v1/sales-orders/:id/deliver", async (req) =>
+    s.deliverSalesOrder(db, ctxOf(req), req.params.id, DeliverSchema.parse(req.body ?? {}).picks));
+  app.post<IdParams>("/api/v1/sales-orders/:id/take", async (req) =>
+    s.takeSalesOrder(db, ctxOf(req), req.params.id, z.object({ force: z.boolean().optional() }).parse(req.body ?? {}).force));
+  app.post<IdParams>("/api/v1/sales-orders/:id/release", async (req) => s.releaseSalesOrder(db, ctxOf(req), req.params.id));
   app.post<IdParams>("/api/v1/sales-orders/:id/invoice", async (req) => s.invoiceSalesOrder(db, ctxOf(req), req.params.id));
   app.post<IdParams>("/api/v1/sales-orders/:id/cancel", async (req) => {
     const o = await s.cancelSalesOrder(db, ctxOf(req), req.params.id);
