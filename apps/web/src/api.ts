@@ -15,11 +15,6 @@ export async function api<T = any>(path: string, init?: { method?: string; body?
     headers: init?.body !== undefined ? { "content-type": "application/json" } : undefined,
     body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
   });
-  // Con Keycloak, una sesión caducada se renueva volviendo a entrar (con usuario y clave lo pide el navegador).
-  if (res.status === 401 && !res.headers.get("www-authenticate")) {
-    window.location.assign("./login");
-    return new Promise<T>(() => {});
-  }
   const text = await res.text();
   // Si la entrada devuelve una página de error (502, 504) en vez de JSON, se dice el código, no «Unexpected token <».
   let data: any = null;
@@ -27,6 +22,13 @@ export async function api<T = any>(path: string, init?: { method?: string; body?
     data = text ? JSON.parse(text) : null;
   } catch {
     if (res.ok) throw new ApiError("La respuesta del servidor no se entiende", res.status);
+  }
+  // Con Keycloak, una sesión caducada se renueva volviendo a entrar (con usuario y clave lo pide el navegador).
+  // Un 401 con código (p. ej. «clave_empresa»: contraseña de la empresa mal escrita) no es sesión caducada:
+  // se enseña el error. Si no, cada fallo volvía a Keycloak y la empresa pedía la contraseña en bucle.
+  if (res.status === 401 && !res.headers.get("www-authenticate") && !data?.code) {
+    window.location.assign("./login");
+    return new Promise<T>(() => {});
   }
   if (!res.ok) {
     // La empresa elegida caducó (sesión nueva del navegador): la web vuelve a preguntar.

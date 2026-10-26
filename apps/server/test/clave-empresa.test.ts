@@ -95,7 +95,10 @@ describe("Contraseña de la empresa y quien administra solo la suya", () => {
     expect(m.perms.usuarios).toBeUndefined();
     expect((await call("ivan", "GET", "/api/v1/partners")).body.code).toBe("elegir_empresa");
     expect((await call("ivan", "POST", "/api/v1/session/company", { company_id: B })).body.code).toBe("clave_empresa");
-    expect((await call("ivan", "POST", "/api/v1/session/company", { company_id: B, password: "otra-cosa" })).status).toBe(401);
+    // Mal escrita: 401 con código, para que la web enseñe el error y no lo tome por sesión caducada.
+    const mal = await call("ivan", "POST", "/api/v1/session/company", { company_id: B, password: "otra-cosa" });
+    expect(mal.status).toBe(401);
+    expect(mal.body.code).toBe("clave_empresa");
     expect((await call("ivan", "POST", "/api/v1/session/company", { company_id: B, password: "inicial-123" })).status).toBe(200);
     expect((await me("ivan")).company).toBe(B);
     expect((await call("ivan", "GET", "/api/v1/partners")).status).toBe(200);

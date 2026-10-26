@@ -227,7 +227,7 @@ function CompanyChooser({ me, onChosen, onCancel }: { me: Me; onChosen: () => vo
           <div className="brand brand-dark"><BrandMark /> Sindri</div>
           <h1>{nombreEmpresa(empresaClave)}</h1>
           <p className="hint">Esta empresa pide su contraseña para entrar.</p>
-          <input type="password" className="chooser-filter" autoFocus autoComplete="current-password" aria-label="Contraseña de la empresa" placeholder="Contraseña de la empresa" value={clave} onChange={(e) => setClave(e.target.value)} />
+          <input type="password" className="chooser-filter" autoFocus name="clave-empresa" autoComplete="off" aria-label="Contraseña de la empresa" placeholder="Contraseña de la empresa" value={clave} onChange={(e) => setClave(e.target.value)} />
           {error && <Alert tone="error">{error}</Alert>}
           <div className="row">
             <button className="primary" type="submit" disabled={busy || !clave}>Entrar</button>
