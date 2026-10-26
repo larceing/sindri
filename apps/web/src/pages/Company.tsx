@@ -222,7 +222,7 @@ function ClaveEmpresa({ empresa, onSaved }: { empresa: any; onSaved: () => Promi
       <div className="form">
         {tiene && (
           <Field label="Contraseña actual">
-            <input type="password" autoComplete="current-password" value={actual} onChange={(e) => setActual(e.target.value)} />
+            <input type="password" autoComplete="off" value={actual} onChange={(e) => setActual(e.target.value)} />
           </Field>
         )}
         <Field label="Nueva contraseña (mínimo 8 caracteres)">
