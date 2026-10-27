@@ -46,7 +46,7 @@ export function InvoicePage({ id }: { id: string }) {
   const issue = () => run(async () => { await post(`/invoices/${id}/issue`); await reload(); });
   const pay = () => run(async () => { await post(`/invoices/${id}/payments`, { amount: amount || inv.pending }); setAmount(""); await reload(); });
   const rectify = () => run(async () => {
-    const reason = window.prompt(`Se emitirá una rectificativa que anula entera la factura ${inv.number}. No se puede deshacer.\n\nMotivo:`, "Factura duplicada");
+    const reason = window.prompt(`Se emitirá una rectificativa que anula entera la factura ${inv.number}.${inv.payments.length ? " Sus cobros se darán por devueltos." : ""} No se puede deshacer.\n\nMotivo:`, "Factura duplicada");
     if (!reason?.trim()) return;
     const r = await post<{ id: string }>(`/invoices/${id}/rectify`, { reason: reason.trim() });
     navigate(`/facturas/${r.id}`);
@@ -57,7 +57,7 @@ export function InvoicePage({ id }: { id: string }) {
       actions={<>
         <RelacionesBoton tipo="factura" id={id} />
         {inv.actions.includes("issue") && <button className="primary" disabled={busy} onClick={issue}>Emitir factura</button>}
-        {inv.state === "issued" && !inv.invoice_type?.startsWith("R") && inv.payments.length === 0 && <button disabled={busy} onClick={rectify}>Anular con rectificativa</button>}
+        {(inv.state === "issued" || inv.state === "paid") && !inv.invoice_type?.startsWith("R") && <button disabled={busy} onClick={rectify}>Anular con rectificativa</button>}
         {inv.state === "draft" ? <button onClick={() => window.print()}>Imprimir borrador</button> : <DocButton tipo="factura" id={id} label="Imprimir" />}
       </>}
     >

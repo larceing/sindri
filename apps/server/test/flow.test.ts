@@ -126,7 +126,6 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
   it("anula entera una factura emitida sin cobrar con una rectificativa", async () => {
     const list = (await call("GET", "/api/v1/invoices")).body as { id: string; state: string; number: string }[];
     const inv2 = list.find((i) => i.state === "issued")!;
-    expect((await call("POST", `/api/v1/invoices/${invoice}/rectify`, { reason: "Duplicada" })).status).toBe(422); // ya cobrada
     expect((await call("POST", `/api/v1/invoices/${inv2.id}/rectify`, { reason: "" })).status).toBe(400);
     const r = await call("POST", `/api/v1/invoices/${inv2.id}/rectify`, { reason: "Factura duplicada" });
     expect(r.status).toBe(200);
@@ -145,6 +144,21 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
     expect(again.filter((i) => i.state === "issued")).toHaveLength(0);
     expect((await call("POST", `/api/v1/invoices/${inv2.id}/rectify`, { reason: "Otra vez" })).status).toBe(422);
     expect((await call("POST", `/api/v1/invoices/${r.body.id}/rectify`, { reason: "Otra vez" })).status).toBe(422);
+  });
+
+  it("anula también una factura cobrada: sus cobros se dan por devueltos", async () => {
+    const antes = (await call("GET", `/api/v1/invoices/${invoice}`)).body;
+    expect(antes.state).toBe("paid");
+    expect(antes.payments.length).toBeGreaterThan(0);
+    const r = await call("POST", `/api/v1/invoices/${invoice}/rectify`, { reason: "Duplicada y ya cobrada fuera" });
+    expect(r.status).toBe(200);
+    expect(r.body.state).toBe("rectified");
+    expect(Number(r.body.total)).toBe(-Number(antes.total));
+    const orig = (await call("GET", `/api/v1/invoices/${invoice}`)).body;
+    expect(orig.state).toBe("rectified");
+    expect(orig.payments).toHaveLength(0);
+    expect(orig.pending).toBe("0.00");
+    expect((await call("GET", "/api/v1/verifactu/verify")).body).toMatchObject({ records: 4, ok: true });
   });
 
   it("rechaza vender más stock del que hay", async () => {
