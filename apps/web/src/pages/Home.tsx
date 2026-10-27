@@ -1,14 +1,17 @@
+import { useState } from "react";
 import { eur } from "../api";
 import { navigate } from "../router";
 import { useData } from "../hooks";
 import { useSession } from "../session";
-import { Alert, Badge, Code, Empty, Page, Table } from "../ui";
+import { Alert, Badge, Code, Empty, Field, Page, Table } from "../ui";
 
 /** Inicio: "lo que me toca hoy". Cifras grandes solo para lo que exige acción. */
 export function HomePage() {
   const { me, empresa } = useSession();
   const can = (m: string) => !!me?.perms[m];
   const { data: orders } = useData<any[]>(can("pedidos") ? "/sales-orders" : null);
+  // Lo que llega de otras apps (p. ej. las horas de Odin) y aún no está en un pedido.
+  const { data: pending } = useData<any[]>(can("pedidos") ? "/por-facturar" : null);
   const { data: invoices } = useData<any[]>(can("facturas") ? "/invoices" : null);
   const { data: vf } = useData<any[]>(can("verifactu") ? "/verifactu/records" : null);
   const { data: routes } = useData<any[]>(can("rutas") ? "/routes" : null);
@@ -21,6 +24,16 @@ export function HomePage() {
   const month = new Date().toISOString().slice(0, 7);
   const billed = (invoices ?? []).filter((i) => (i.state === "issued" || i.state === "paid" || i.state === "rectified") && i.issue_date?.startsWith(month)).reduce((a, i) => a + Number(i.untaxed), 0);
   const unsent = vf?.filter((r) => r.send_state !== "sent").length ?? 0;
+  const pendingItems = pending?.filter((p) => p.state === "pending") ?? [];
+  const pendingItemsAmount = pendingItems.reduce((a, p) => a + Number(p.amount), 0);
+  // Generado en un periodo (por defecto el año en curso): lo facturado más lo que está en pedidos
+  // sin facturar y lo que espera a pasar a un pedido. Las rectificativas restan.
+  const [desde, setDesde] = useState(`${today.slice(0, 4)}-01-01`);
+  const [hasta, setHasta] = useState(today);
+  const enPeriodo = (d?: string) => !!d && d.slice(0, 10) >= desde && d.slice(0, 10) <= hasta;
+  const genFacturado = (invoices ?? []).filter((i) => ["issued", "paid", "rectified"].includes(i.state) && enPeriodo(i.issue_date)).reduce((a, i) => a + Number(i.untaxed), 0);
+  const genPedidos = (orders ?? []).filter((o) => ["draft", "confirmed", "delivered"].includes(o.state) && enPeriodo(o.order_date)).reduce((a, o) => a + Number(o.untaxed), 0);
+  const genPendiente = pendingItems.filter((p) => enPeriodo(p.item_date)).reduce((a, p) => a + Number(p.amount), 0);
   const tasks = [...toDeliver.map((o) => ({ ...o, task: "Entregar" })), ...toInvoice.map((o) => ({ ...o, task: "Facturar" }))];
   return (
     <Page title={empresa ? `Inicio · ${empresa.trade_name || empresa.name}` : "Inicio"}>
@@ -31,6 +44,21 @@ export function HomePage() {
         {orders && <div className="kpi"><span>Pedidos por facturar</span><b>{toInvoice.length}</b></div>}
         {routes && <div className="kpi"><span>Hojas de ruta abiertas</span><b>{routesToday.length}</b></div>}
       </div>
+      {(invoices || orders) && (
+        <>
+          <h2>Generado</h2>
+          <div className="row">
+            <Field label="Desde"><input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></Field>
+            <Field label="Hasta"><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></Field>
+          </div>
+          <div className="kpis">
+            <div className="kpi"><span>Generado (base)</span><b>{eur(genFacturado + genPedidos + genPendiente)}</b><small>facturado o no</small></div>
+            {invoices && <div className="kpi"><span>Facturado</span><b>{eur(genFacturado)}</b></div>}
+            {orders && <div className="kpi"><span>En pedidos sin facturar</span><b>{eur(genPedidos)}</b></div>}
+            {pending && <div className="kpi"><span>Por pasar a pedido</span><b>{eur(genPendiente)}</b><small>de Odin y otras apps</small></div>}
+          </div>
+        </>
+      )}
       {unsent > 0 && (
         <Alert tone="info">
           {unsent} registro(s) VERI*FACTU esperan envío a la AEAT. Se enviarán solos cuando haya conexión.
@@ -54,6 +82,12 @@ export function HomePage() {
       )}
       {!orders && !invoices && !routes && <Empty>Tu rol no tiene tareas que enseñar aquí. Usa el menú para ir a tu parte de Sindri.</Empty>}
       {orders && <h2>Lo que toca hoy</h2>}
+      {orders && pendingItems.length > 0 && (
+        <Alert tone="info">
+          Tienes {pendingItems.length} línea(s) por {eur(pendingItemsAmount)} esperando a pasar a un pedido.{" "}
+          <button type="button" className="link" onClick={() => navigate("/pedidos/por-facturar")}>Ver Por facturar</button>
+        </Alert>
+      )}
       {!orders ? null : tasks.length === 0 ? (
         <Empty>No hay pedidos pendientes de entregar ni de facturar.</Empty>
       ) : (
