@@ -39,7 +39,7 @@ Licencia: **AGPL-3.0-or-later** (ver `LICENSE`).
 
 **Informes**
 - Facturas, pedidos, albaranes y hojas de ruta en PDF con el Report Server ([docs/report-server](docs/report-server/README.md)); sin él, se imprimen con el navegador.
-- Datos en CSV, XML o JSON para Excel o cualquier herramienta de informes, con lectores de solo lectura que se pueden revocar.
+- Datos en CSV, XML o JSON para Excel o cualquier herramienta de informes, con lectores de solo lectura que se pueden revocar. Entre ellos, los cobros recibidos por fecha de cobro (Informes → «Cobros recibidos»).
 
 **Datos maestros**
 - Empresa, clientes y proveedores con validación de NIF/NIE/CIF.

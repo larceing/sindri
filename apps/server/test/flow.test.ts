@@ -150,6 +150,8 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
     const antes = (await call("GET", `/api/v1/invoices/${invoice}`)).body;
     expect(antes.state).toBe("paid");
     expect(antes.payments.length).toBeGreaterThan(0);
+    const cobros = (await call("GET", "/api/v1/informes/datos/cobros")).body as { factura: string; importe: string }[];
+    expect(cobros.filter((c) => c.factura === antes.number).length).toBe(antes.payments.length);
     const r = await call("POST", `/api/v1/invoices/${invoice}/rectify`, { reason: "Duplicada y ya cobrada fuera" });
     expect(r.status).toBe(200);
     expect(r.body.state).toBe("rectified");
@@ -157,6 +159,8 @@ describe.each(engines)("Ciclo pedido → albarán → factura → cobro con base
     const orig = (await call("GET", `/api/v1/invoices/${invoice}`)).body;
     expect(orig.state).toBe("rectified");
     expect(orig.payments).toHaveLength(0);
+    const despues = (await call("GET", "/api/v1/informes/datos/cobros")).body as { factura: string }[];
+    expect(despues.filter((c) => c.factura === antes.number)).toHaveLength(0);
     expect(orig.pending).toBe("0.00");
     expect((await call("GET", "/api/v1/verifactu/verify")).body).toMatchObject({ records: 4, ok: true });
   });
