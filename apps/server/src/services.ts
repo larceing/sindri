@@ -1144,18 +1144,22 @@ async function issueInvoiceIn(q: Queryable, ctx: Ctx, id: string, opts: { now?: 
 }
 
 /**
- * Anula entera una factura emitida y sin cobrar con una rectificativa (serie R, tipo R1, por
- * diferencias): las mismas líneas en negativo, emitida con su registro VERI*FACTU. La original
- * y la rectificativa quedan «rectificada»: ya no salen como pendientes y suman cero.
+ * Anula entera una factura emitida con una rectificativa (serie R, tipo R1, por diferencias): las
+ * mismas líneas en negativo, emitida con su registro VERI*FACTU. La original y la rectificativa
+ * quedan «rectificada»: ya no salen como pendientes y suman cero. Si estaba cobrada, sus cobros se
+ * dan por devueltos: se quitan y quedan apuntados en el registro de cambios.
  */
 export async function rectifyInvoice(db: Db, ctx: Ctx, id: string, reason: string, opts: { now?: Date; aeatEnv?: "test" | "production" } = {}) {
   return db.tx(async (q) => {
     const [inv] = await q.query<Record<string, string>>("select * from invoice where id = $1 and company_id = $2 for update", [id, ctx.company]);
     if (!inv) throw notFound("Factura");
     if (inv.invoice_type!.startsWith("R")) throw new BusinessError("Una rectificativa no se rectifica");
-    if (inv.state !== "issued") throw new BusinessError("Solo se anula una factura emitida y sin cobrar");
-    const [pagos] = await q.query<{ n: number }>("select count(*)::int as n from payment where invoice_id = $1", [id]);
-    if (pagos!.n > 0) throw new BusinessError("La factura tiene cobros: no se puede anular entera");
+    if (inv.state !== "issued" && inv.state !== "paid") throw new BusinessError("Solo se anula una factura emitida");
+    const cobros = await q.query<Record<string, string>>("select id, amount, paid_on, method from payment where invoice_id = $1 order by paid_on", [id]);
+    if (cobros.length) {
+      await q.query("delete from payment where invoice_id = $1", [id]);
+      await log(q, ctx, "invoice", id, "refund", { reason, payments: cobros });
+    }
     const [rect] = await q.query<{ id: string }>(
       `insert into invoice (company_id, partner_id, order_id, series, invoice_type, rectifies_id, rectification_reason)
        values ($1,$2,$3,'R','R1',$4,$5) returning id`,
@@ -1169,7 +1173,7 @@ export async function rectifyInvoice(db: Db, ctx: Ctx, id: string, reason: strin
     await recomputeInvoice(q, rect!.id);
     await log(q, ctx, "invoice", rect!.id, "create", { rectifies: inv.number, reason });
     await issueInvoiceIn(q, ctx, rect!.id, opts);
-    const to = InvoiceMachine.next("issued", "rectify");
+    const to = InvoiceMachine.next(inv.state as "issued" | "paid", "rectify");
     await q.query("update invoice set state = $2 where id = any($1::uuid[])", [[id, rect!.id], to]);
     await log(q, ctx, "invoice", id, "rectify", { by: rect!.id, reason });
     return getInvoice(q, ctx, rect!.id);
