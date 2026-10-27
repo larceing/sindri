@@ -64,6 +64,14 @@ export const DATASETS: Record<string, { label: string; sql: string }> = {
             and ($2::date is null or i.issue_date >= $2) and ($3::date is null or i.issue_date <= $3)
           order by i.issue_date, i.number`,
   },
+  cobros: {
+    label: "Cobros recibidos (por fecha de cobro)",
+    sql: `select c.paid_on as fecha, i.number as factura, i.issue_date as fecha_factura, p.name as cliente, p.tax_id as nif,
+            c.method as forma_pago, c.amount as importe, i.total as total_factura, i.state as estado_factura
+          from payment c join invoice i on i.id = c.invoice_id join partner p on p.id = i.partner_id
+          where i.company_id = $1 and ($2::date is null or c.paid_on >= $2) and ($3::date is null or c.paid_on <= $3)
+          order by c.paid_on, i.number`,
+  },
   comerciales: {
     label: "Ventas facturadas y comisión por comercial",
     sql: `select r.code as codigo, r.name as comercial, r.kind as tipo, r.zone as zona, r.commission_pct as comision_pct,
