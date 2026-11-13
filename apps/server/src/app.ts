@@ -19,6 +19,7 @@ import { registerIntegracion, releaseOrderItems } from "./integracion.js";
 import { confirmacionAutomatica, registerCorreo, type MailConfig } from "./correo.js";
 import { registerGrafo } from "./grafo.js";
 import { registerImportar } from "./importar.js";
+import { registerAgente } from "./agente.js";
 
 const dec = z.union([z.string(), z.number()]).transform(String).refine((v) => /^-?\d+([.,]\d+)?$/.test(v.trim()), "Número no válido");
 const optText = z.string().trim().min(1).nullish();
@@ -216,6 +217,8 @@ const sameText = (a: string, b: string) => {
 export async function buildApp({ db, webDir, logger = false, auth, sso, version = "dev", trustProxy = false, entorno = "local", reportServer, mail, https }: AppOptions): Promise<FastifyInstance> {
   // Fastify tipa distinto el servidor HTTPS; las rutas son las mismas.
   const app = (https ? Fastify({ logger, trustProxy, https }) : Fastify({ logger, trustProxy })) as unknown as FastifyInstance;
+  // Llaves de agente (sda_…): lo primero, para ver todas las rutas y resolver la llave antes que la sesión.
+  registerAgente(app, db);
 
   // Página de versión que lee el servidor DEV/PRO (punto verde, «Pasar a PRO»).
   const versionBody = async () => ({ version, escritorio_minima: ESCRITORIO_MINIMA });
@@ -234,6 +237,7 @@ export async function buildApp({ db, webDir, logger = false, auth, sso, version 
       const [user = "", password = ""] = header.startsWith("Basic ")
         ? Buffer.from(header.slice(6), "base64").toString("utf8").split(/:(.*)/s)
         : [];
+      if (req.sindri?.agent) return;
       if (sameText(user, auth.user) && sameText(password, auth.password)) return;
       return reply
         .status(401)

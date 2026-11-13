@@ -111,6 +111,8 @@ export interface Session {
   roleId: string | null;
   /** Trabaja en la empresa en uso como invitado. */
   guest: boolean;
+  /** Entra con una llave de agente (agente.ts): su empresa ya va abierta y nunca toca usuarios. */
+  agent?: { id: string; name: string; level: "consultar" | "cambiar" };
 }
 
 declare module "fastify" {
@@ -383,9 +385,12 @@ export function registerUsuarios(
     const path = req.url.split("?")[0]!;
     if (!path.startsWith("/api/v1/")) return;
     if (path === "/api/v1/health" || path === "/api/v1/compat") return;
-    const p = person(req);
-    if (!p) return reply.status(401).send({ error: "La sesión ha caducado. Vuelve a entrar." });
-    req.sindri = await loadSession(db, req, p);
+    // Con llave de agente la sesión ya la ha puesto agente.ts (onRequest).
+    if (!req.sindri?.agent) {
+      const p = person(req);
+      if (!p) return reply.status(401).send({ error: "La sesión ha caducado. Vuelve a entrar." });
+      req.sindri = await loadSession(db, req, p);
+    }
     if (FREE.has(path)) return;
     const s = req.sindri;
     const mod = moduleFor(path);
