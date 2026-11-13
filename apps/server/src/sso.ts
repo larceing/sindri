@@ -156,6 +156,8 @@ export function registerSso(app: FastifyInstance, cfg: SsoConfig) {
     const path = req.url.split("?")[0]!;
     // El agente de planta entra con su propio token (planta.ts), no con sesión.
     if (OPEN.has(path) || path.startsWith("/api/planta/") || path.startsWith("/api/informes/") || path.startsWith("/api/integracion/")) return;
+    // Con llave de agente (agente.ts, que va antes) no hay sesión de Keycloak.
+    if (req.sindri?.agent) return;
     if (currentPerson(req, cfg)) return;
     if (path.startsWith("/api/")) return reply.status(401).send({ error: "La sesión ha caducado. Vuelve a entrar." });
     return reply.redirect(`${publicBase(req)}/login`);
